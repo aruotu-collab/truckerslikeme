@@ -49,7 +49,7 @@ async function maybeRefreshStaleIntel() {
 
 export async function GET() {
   try {
-    void maybeRefreshStaleIntel();
+    await maybeRefreshStaleIntel();
     const feed = await buildLiveFeed();
     return NextResponse.json(feed, {
       headers: {
