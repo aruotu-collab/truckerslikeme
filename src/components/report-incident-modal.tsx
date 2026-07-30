@@ -11,6 +11,8 @@ const kinds: { value: ActivityKind; label: string }[] = [
   { value: "delay", label: "Delay" },
   { value: "fuel", label: "Fuel" },
   { value: "weather", label: "Weather" },
+  { value: "weigh", label: "Weigh" },
+  { value: "repair", label: "Truck repair" },
   { value: "route", label: "Route" },
 ];
 

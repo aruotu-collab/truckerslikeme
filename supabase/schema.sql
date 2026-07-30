@@ -9,7 +9,9 @@ create type public.activity_kind as enum (
   'fuel',
   'delay',
   'route',
-  'weather'
+  'weather',
+  'weigh',
+  'repair'
 );
 
 create table public.profiles (

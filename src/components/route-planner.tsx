@@ -360,7 +360,10 @@ export function RoutePlanner() {
               </ol>
             </div>
 
-            <RouteMap route={route} />
+            <RouteMap
+              route={route}
+              supportPlaces={support?.places ?? []}
+            />
           </div>
         )}
       </div>

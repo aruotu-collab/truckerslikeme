@@ -1,23 +1,143 @@
-import type { PlannedRoute } from "@/types";
+"use client";
 
-const stopColor: Record<PlannedRoute["stops"][number]["type"], string> = {
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { CorridorSupportPlace, PlannedRoute } from "@/types";
+
+type MapLayer =
+  | "all"
+  | "fuel"
+  | "parking"
+  | "repair"
+  | "lodging"
+  | "weigh"
+  | "alert";
+
+type MapMarker = {
+  id: string;
+  layer: Exclude<MapLayer, "all">;
+  label: string;
+  detail: string;
+  mile: number;
+};
+
+const layerColor: Record<Exclude<MapLayer, "all">, string> = {
   fuel: "#3d6b4f",
   parking: "#e09b1e",
+  repair: "#8fb4c9",
+  lodging: "#c5ccd4",
+  weigh: "#4a6f86",
   alert: "#c45c26",
-  weigh: "#8fb4c9",
 };
+
+const layerLabel: Record<Exclude<MapLayer, "all">, string> = {
+  fuel: "Fuel",
+  parking: "Parking",
+  repair: "Repair",
+  lodging: "Lodging",
+  weigh: "Weigh",
+  alert: "Alert",
+};
+
+const PATH_D = "M28 170 C 90 150, 120 60, 200 90 S 320 40, 372 70";
 
 type RouteMapProps = {
   route: PlannedRoute;
+  supportPlaces?: CorridorSupportPlace[];
 };
 
-export function RouteMap({ route }: RouteMapProps) {
-  const points = route.stops.map((stop, index) => {
-    const t = (index + 1) / (route.stops.length + 1);
-    const x = 40 + t * 320;
-    const y = 40 + Math.sin(t * Math.PI) * 90 + (index % 2 === 0 ? -18 : 22);
-    return { ...stop, x, y };
+function buildMarkers(
+  route: PlannedRoute,
+  supportPlaces: CorridorSupportPlace[],
+): MapMarker[] {
+  const fromStops: MapMarker[] = route.stops.map((stop) => ({
+    id: `stop-${stop.id}`,
+    layer: stop.type,
+    label: stop.label,
+    detail: stop.detail,
+    mile: stop.mile,
+  }));
+
+  const fromSupport: MapMarker[] = supportPlaces.map((place) => ({
+    id: `support-${place.id}`,
+    layer: place.kind,
+    label: place.name,
+    detail: place.detail,
+    mile: place.mile,
+  }));
+
+  // Prefer support parking over duplicate stop parking near the same mile
+  const merged = [...fromSupport, ...fromStops];
+  const seen = new Set<string>();
+  return merged
+    .filter((m) => {
+      const key = `${m.layer}:${Math.round(m.mile / 8)}`;
+      if (seen.has(key) && m.layer === "parking") return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.mile - b.mile);
+}
+
+export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
+  const pathId = useId();
+  const pathRef = useRef<SVGPathElement | null>(null);
+  const [pathLen, setPathLen] = useState(0);
+  const [layer, setLayer] = useState<MapLayer>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const markers = useMemo(
+    () => buildMarkers(route, supportPlaces),
+    [route, supportPlaces],
+  );
+
+  useEffect(() => {
+    const path = pathRef.current;
+    if (!path) return;
+    setPathLen(path.getTotalLength());
+  }, []);
+
+  const visible = useMemo(
+    () => (layer === "all" ? markers : markers.filter((m) => m.layer === layer)),
+    [markers, layer],
+  );
+
+  const nextService = visible[0] ?? null;
+  const selected =
+    visible.find((m) => m.id === selectedId) ?? nextService ?? null;
+
+  const positioned = visible.map((marker) => {
+    const t = Math.min(0.98, Math.max(0.02, marker.mile / Math.max(route.miles, 1)));
+    if (pathLen > 0 && pathRef.current) {
+      const point = pathRef.current.getPointAtLength(t * pathLen);
+      return { ...marker, x: point.x, y: point.y, t };
+    }
+    // SSR / first paint fallback along the corridor arc
+    const x = 28 + t * 344;
+    const y = 170 - Math.sin(t * Math.PI) * 100 - t * 40;
+    return { ...marker, x, y, t };
   });
+
+  const layerCounts = useMemo(() => {
+    const counts: Record<Exclude<MapLayer, "all">, number> = {
+      fuel: 0,
+      parking: 0,
+      repair: 0,
+      lodging: 0,
+      weigh: 0,
+      alert: 0,
+    };
+    for (const m of markers) counts[m.layer] += 1;
+    return counts;
+  }, [markers]);
+
+  const filterChips: { id: MapLayer; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "fuel", label: "Fuel" },
+    { id: "parking", label: "Parking" },
+    { id: "repair", label: "Repair" },
+    { id: "lodging", label: "Lodging" },
+    { id: "weigh", label: "Weigh" },
+  ];
 
   return (
     <div className="relative overflow-hidden rounded-sm border border-white/10 bg-road">
@@ -27,21 +147,84 @@ export function RouteMap({ route }: RouteMapProps) {
       </div>
 
       <div className="relative p-5">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <p className="font-display text-sm tracking-[0.18em] text-chrome uppercase">
             Corridor map
           </p>
-          <p className="text-xs text-chrome">Shell · Mapbox later</p>
+          <p className="text-xs text-chrome">
+            {markers.length} services · by mile
+          </p>
         </div>
+
+        <div
+          className="mb-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Filter map services"
+        >
+          {filterChips.map((chip) => {
+            const active = layer === chip.id;
+            const count =
+              chip.id === "all"
+                ? markers.length
+                : layerCounts[chip.id as Exclude<MapLayer, "all">];
+            if (chip.id !== "all" && count === 0) return null;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setLayer(chip.id);
+                  setSelectedId(null);
+                }}
+                className={`shrink-0 border-b-2 px-1 pb-1.5 text-xs font-semibold tracking-wide uppercase transition ${
+                  active
+                    ? "border-amber text-white"
+                    : "border-transparent text-chrome hover:text-white"
+                }`}
+              >
+                {chip.label}
+                <span className="ml-1 text-[10px] font-normal text-amber">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selected && (
+          <div className="mb-4 border-l-2 border-amber pl-3">
+            <p className="font-display text-[11px] tracking-[0.18em] text-amber uppercase">
+              {selected.id === nextService?.id ? "Next up" : "Selected"} · mi{" "}
+              {selected.mile}
+            </p>
+            <p className="mt-1 text-sm text-white">
+              <span className="mr-2 text-xs tracking-wider text-chrome uppercase">
+                {layerLabel[selected.layer]}
+              </span>
+              {selected.label}
+            </p>
+            <p className="mt-0.5 text-xs text-chrome">{selected.detail}</p>
+            {nextService && selected.id === nextService.id && route.miles > 0 && (
+              <p className="mt-1 text-xs text-amber-hot">
+                ~{Math.max(0, Math.round((selected.mile / route.miles) * route.hours * 10) / 10)}{" "}
+                hrs into the haul
+              </p>
+            )}
+          </div>
+        )}
 
         <svg
           viewBox="0 0 400 220"
           className="h-auto w-full"
           role="img"
-          aria-label={`Route map from ${route.origin} to ${route.destination}`}
+          aria-label={`Route map from ${route.origin} to ${route.destination} with corridor services`}
         >
           <path
-            d="M28 170 C 90 150, 120 60, 200 90 S 320 40, 372 70"
+            ref={pathRef}
+            id={pathId}
+            d={PATH_D}
             fill="none"
             stroke="#e09b1e"
             strokeWidth="3"
@@ -57,42 +240,49 @@ export function RouteMap({ route }: RouteMapProps) {
             {route.destination.split(",")[0]}
           </text>
 
-          {points.map((point) => (
-            <g key={point.id}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r="7"
-                fill={stopColor[point.type]}
-                stroke="#1a1d23"
-                strokeWidth="2"
-              />
-              <text
-                x={point.x}
-                y={point.y - 14}
-                fill="#edf1f4"
-                fontSize="10"
-                textAnchor="middle"
+          {positioned.map((point) => {
+            const active = selected?.id === point.id;
+            return (
+              <g
+                key={point.id}
+                className="cursor-pointer"
+                onClick={() => setSelectedId(point.id)}
               >
-                {point.type}
-              </text>
-            </g>
-          ))}
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={active ? 9 : 6}
+                  fill={layerColor[point.layer]}
+                  stroke="#1a1d23"
+                  strokeWidth="2"
+                  opacity={active ? 1 : 0.92}
+                />
+                {active && (
+                  <text
+                    x={point.x}
+                    y={point.y - 14}
+                    fill="#edf1f4"
+                    fontSize="10"
+                    textAnchor="middle"
+                  >
+                    mi {point.mile}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
 
-        <ul className="mt-4 grid grid-cols-2 gap-2 text-xs text-chrome sm:grid-cols-4">
-          <li className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-diesel" /> Fuel
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-amber" /> Parking
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-alert" /> Alert
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-sky" /> Weigh
-          </li>
+        <ul className="mt-4 grid grid-cols-3 gap-2 text-xs text-chrome sm:grid-cols-6">
+          {(Object.keys(layerLabel) as Exclude<MapLayer, "all">[]).map((key) => (
+            <li key={key} className="flex items-center gap-2">
+              <span
+                className="size-2.5 rounded-full"
+                style={{ background: layerColor[key] }}
+              />
+              {layerLabel[key]}
+            </li>
+          ))}
         </ul>
       </div>
     </div>

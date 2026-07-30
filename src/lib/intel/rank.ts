@@ -89,8 +89,11 @@ export function actionForItem(item: LiveFeedItem): string {
   if (/detention|intermodal|warehouse|wait/.test(text)) {
     return "Confirm detention pay before you accept · photo the gate time";
   }
-  if (/weigh|scale/.test(text)) {
+  if (item.kind === "weigh" || /weigh|scale/.test(text)) {
     return "Check axle weights before the open scale";
+  }
+  if (item.kind === "repair" || /tire care|truck service|repair|shop/.test(text)) {
+    return "Call ahead for bay time · photo the failure before you roll in";
   }
   if (/diesel|fuel|eia|\$/.test(text) || item.kind === "fuel") {
     return "Fuel on the cheaper PADD when HOS allows";
@@ -129,8 +132,10 @@ function baseScore(item: LiveFeedItem): number {
   else if (/heat advisory|flood advisory|high wind|winter/.test(text)) score += 70;
   else if (item.kind === "delay" || item.kind === "traffic") score += 55;
   else if (item.kind === "parking") score += 48;
+  else if (item.kind === "weigh") score += 46;
   else if (item.kind === "fuel" || item.source === "eia") score += 42;
   else if (item.kind === "weather") score += 40;
+  else if (item.kind === "repair") score += 38;
   else score += 25;
 
   if (item.source === "drivers") score += 12;

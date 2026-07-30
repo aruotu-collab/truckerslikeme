@@ -21,7 +21,27 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
   delay: { label: "Delay", tone: "text-alert" },
   route: { label: "Route", tone: "text-sky-deep" },
   weather: { label: "Weather", tone: "text-sky-deep" },
+  weigh: { label: "Weigh", tone: "text-sky-deep" },
+  repair: { label: "Repair", tone: "text-diesel" },
 };
+
+type FeedFilter = "all" | "parking" | "fuel" | "traffic" | "weather" | "weigh" | "repair";
+
+const filterChips: { id: FeedFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "parking", label: "Parking" },
+  { id: "fuel", label: "Fuel" },
+  { id: "traffic", label: "Traffic" },
+  { id: "weather", label: "Weather" },
+  { id: "weigh", label: "Weigh" },
+  { id: "repair", label: "Repair" },
+];
+
+function matchesFilter(item: LiveFeedItem, filter: FeedFilter) {
+  if (filter === "all") return true;
+  if (filter === "traffic") return item.kind === "traffic" || item.kind === "delay";
+  return item.kind === filter;
+}
 
 const sourceLabel: Record<string, string> = {
   drivers: "Driver report",
@@ -64,6 +84,7 @@ export function LiveActivity() {
   );
   const [corridor, setCorridor] = useState<CorridorFocus | null>(null);
   const [corridorOnly, setCorridorOnly] = useState(true);
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
   const [newCount, setNewCount] = useState(0);
   const knownIds = useRef<Set<string>>(new Set());
   const primed = useRef(false);
@@ -171,8 +192,34 @@ export function LiveActivity() {
     [items, corridor, corridorOnly],
   );
 
-  const hero: RankedFeedItem | null = ranked[0] ?? null;
-  const rest = ranked.slice(1);
+  const filterCounts = useMemo(() => {
+    const counts: Record<FeedFilter, number> = {
+      all: ranked.length,
+      parking: 0,
+      fuel: 0,
+      traffic: 0,
+      weather: 0,
+      weigh: 0,
+      repair: 0,
+    };
+    for (const item of ranked) {
+      if (item.kind === "parking") counts.parking += 1;
+      if (item.kind === "fuel") counts.fuel += 1;
+      if (item.kind === "traffic" || item.kind === "delay") counts.traffic += 1;
+      if (item.kind === "weather") counts.weather += 1;
+      if (item.kind === "weigh") counts.weigh += 1;
+      if (item.kind === "repair") counts.repair += 1;
+    }
+    return counts;
+  }, [ranked]);
+
+  const filtered = useMemo(
+    () => ranked.filter((item) => matchesFilter(item, feedFilter)),
+    [ranked, feedFilter],
+  );
+
+  const hero: RankedFeedItem | null = filtered[0] ?? null;
+  const rest = filtered.slice(1);
 
   const secondsAgo = updatedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000))
@@ -223,8 +270,8 @@ export function LiveActivity() {
               What&apos;s ahead on the haul
             </h2>
             <p className="mt-3 max-w-xl text-muted">
-              Ranked by risk for drivers — not just newest first. Search a route
-              to lock the feed to your corridor.
+              Ranked by risk for drivers — tap a category when you need parking,
+              fuel, weigh, or repair only.
             </p>
           </div>
           <button
@@ -278,11 +325,41 @@ export function LiveActivity() {
           )}
         </div>
 
+        <div
+          className="mt-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Filter live feed by type"
+        >
+          {filterChips.map((chip) => {
+            const active = feedFilter === chip.id;
+            const count = filterCounts[chip.id];
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFeedFilter(chip.id)}
+                className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                  active
+                    ? "border-asphalt text-asphalt"
+                    : "border-transparent text-muted hover:text-asphalt"
+                }`}
+              >
+                {chip.label}
+                <span className={`ml-1.5 text-xs font-normal ${active ? "text-amber" : "text-muted"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {hero && (
-          <div className="animate-fade-in mt-10 border-l-4 border-alert bg-asphalt px-5 py-6 text-white sm:px-8 sm:py-8">
+          <div className="animate-fade-in mt-8 border-l-4 border-alert bg-asphalt px-5 py-6 text-white sm:px-8 sm:py-8">
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-display text-xs tracking-[0.2em] text-amber uppercase">
-                Top risk now
+                {feedFilter === "all" ? "Top risk now" : `Top ${filterChips.find((c) => c.id === feedFilter)?.label ?? ""} now`}
               </span>
               <span
                 className={`font-display text-xs tracking-[0.18em] uppercase ${
@@ -312,11 +389,13 @@ export function LiveActivity() {
         )}
 
         <ul className="mt-10 divide-y divide-asphalt/10 border-y border-asphalt/10">
-          {rest.length === 0 && (
+          {!hero && (
             <li className="py-8 text-muted">
-              {corridorOnly && corridor
-                ? "No corridor matches right now — switch to All intel or search another route."
-                : "Waiting for live intel…"}
+              {feedFilter !== "all"
+                ? `No ${filterChips.find((c) => c.id === feedFilter)?.label.toLowerCase()} intel right now — try All or another category.`
+                : corridorOnly && corridor
+                  ? "No corridor matches right now — switch to All intel or search another route."
+                  : "Waiting for live intel…"}
             </li>
           )}
           {rest.map((item, index) => {

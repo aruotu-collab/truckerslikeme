@@ -84,6 +84,34 @@ export const liveActivities: LiveActivity[] = [
     location: "South-Central to Midwest corridor",
     minutesAgo: 3,
   },
+  {
+    id: "11",
+    kind: "weigh",
+    message: "MoDOT: I-44 St. Clair WB weigh scale still closed for rebuild",
+    location: "I-44 Franklin County, MO",
+    minutesAgo: 28,
+  },
+  {
+    id: "12",
+    kind: "weigh",
+    message: "Illinois I-55 weigh enforcement active — check axle before the site",
+    location: "I-55 approach, IL",
+    minutesAgo: 16,
+  },
+  {
+    id: "13",
+    kind: "repair",
+    message: "Love's Tire Care Ardmore open 24h — light repair + tires",
+    location: "I-35 Exit 32, Ardmore, OK",
+    minutesAgo: 41,
+  },
+  {
+    id: "14",
+    kind: "repair",
+    message: "TA Truck Service OKC reporting same-day bay openings",
+    location: "I-35 / I-40 junction, Oklahoma City, OK",
+    minutesAgo: 55,
+  },
 ];
 
 export const sampleRoute: PlannedRoute = {

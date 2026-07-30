@@ -4,7 +4,9 @@ export type ActivityKind =
   | "fuel"
   | "delay"
   | "route"
-  | "weather";
+  | "weather"
+  | "weigh"
+  | "repair";
 
 export type LiveActivity = {
   id: string;

@@ -14,6 +14,8 @@ function mapKind(kind: string): ActivityKind {
     "delay",
     "route",
     "weather",
+    "weigh",
+    "repair",
   ];
   return (allowed.includes(kind as ActivityKind) ? kind : "route") as ActivityKind;
 }

@@ -20,6 +20,8 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
   delay: { label: "Delay", tone: "text-alert" },
   route: { label: "Route", tone: "text-sky-deep" },
   weather: { label: "Weather", tone: "text-sky-deep" },
+  weigh: { label: "Weigh", tone: "text-sky-deep" },
+  repair: { label: "Repair", tone: "text-diesel" },
 };
 
 export default function MembersPage() {
