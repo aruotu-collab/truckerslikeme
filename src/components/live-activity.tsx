@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { liveActivities as seedActivities } from "@/lib/mock-data";
 import { useAuthGate } from "@/lib/auth-gate";
 import { createClient } from "@/lib/supabase/client";
+import { readLastCorridor, writeLastCorridor } from "@/lib/corridor-store";
+import {
+  corridorFromSearch,
+  rankFeed,
+  type CorridorFocus,
+  type RankedFeedItem,
+} from "@/lib/intel/rank";
 import { ReportIncidentModal } from "@/components/report-incident-modal";
 import type { ActivityKind, LiveFeedItem } from "@/types";
 
@@ -17,12 +24,18 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
 };
 
 const sourceLabel: Record<string, string> = {
-  drivers: "Driver",
-  nws: "NWS",
-  eia: "EIA",
-  seed: "Corridor",
+  drivers: "Driver report",
+  nws: "National Weather Service",
+  eia: "EIA diesel",
+  seed: "Corridor intel",
   system: "System",
 };
+
+const severityTone = {
+  critical: "border-alert text-alert",
+  watch: "border-amber text-amber",
+  info: "border-sky-deep text-sky-deep",
+} as const;
 
 function seedFeed(): LiveFeedItem[] {
   return seedActivities.map((item) => ({
@@ -32,16 +45,28 @@ function seedFeed(): LiveFeedItem[] {
   }));
 }
 
+function timeLabel(minutesAgo: number) {
+  if (minutesAgo <= 0) return "Just now";
+  if (minutesAgo === 1) return "1m ago";
+  if (minutesAgo < 60) return `${minutesAgo}m ago`;
+  const hours = Math.floor(minutesAgo / 60);
+  return `${hours}h ago`;
+}
+
 export function LiveActivity() {
   const { isSignedIn, openGate } = useAuthGate();
   const [items, setItems] = useState<LiveFeedItem[]>(seedFeed);
   const [reportOpen, setReportOpen] = useState(false);
   const [awaitingAuth, setAwaitingAuth] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [sources, setSources] = useState<string[]>(["seed"]);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "polling">(
     "connecting",
   );
+  const [corridor, setCorridor] = useState<CorridorFocus | null>(null);
+  const [corridorOnly, setCorridorOnly] = useState(true);
+  const [newCount, setNewCount] = useState(0);
+  const knownIds = useRef<Set<string>>(new Set());
+  const primed = useRef(false);
 
   const refreshFeed = useCallback(async () => {
     try {
@@ -50,16 +75,44 @@ export function LiveActivity() {
       const data = (await res.json()) as {
         items: LiveFeedItem[];
         updatedAt: string;
-        sources: string[];
       };
-      if (data.items?.length) {
-        setItems(data.items);
-        setUpdatedAt(data.updatedAt);
-        setSources(data.sources ?? []);
+      if (!data.items?.length) return;
+
+      if (!primed.current) {
+        knownIds.current = new Set(data.items.map((item) => item.id));
+        primed.current = true;
+        setNewCount(0);
+      } else {
+        const fresh = data.items.filter((item) => !knownIds.current.has(item.id));
+        if (fresh.length) {
+          setNewCount((count) => count + fresh.length);
+          fresh.forEach((item) => knownIds.current.add(item.id));
+        }
       }
+
+      setItems(data.items);
+      setUpdatedAt(data.updatedAt);
     } catch {
       // keep current items
     }
+  }, []);
+
+  useEffect(() => {
+    const existing = readLastCorridor();
+    if (existing) {
+      setCorridor(existing);
+    } else {
+      const fallback = corridorFromSearch("Dallas, TX", "Chicago, IL");
+      writeLastCorridor(fallback.origin, fallback.destination);
+      setCorridor(fallback);
+    }
+    const onCorridor = (event: Event) => {
+      const detail = (event as CustomEvent<CorridorFocus>).detail;
+      setCorridor(detail);
+      setCorridorOnly(true);
+    };
+    window.addEventListener("tlm:corridor", onCorridor);
+    return () => window.removeEventListener("tlm:corridor", onCorridor);
   }, []);
 
   useEffect(() => {
@@ -113,6 +166,18 @@ export function LiveActivity() {
     }
   }, [isSignedIn, awaitingAuth]);
 
+  const ranked = useMemo(
+    () => rankFeed(items, corridor, corridorOnly && Boolean(corridor)),
+    [items, corridor, corridorOnly],
+  );
+
+  const hero: RankedFeedItem | null = ranked[0] ?? null;
+  const rest = ranked.slice(1);
+
+  const secondsAgo = updatedAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000))
+    : null;
+
   function handleReportClick() {
     if (!isSignedIn) {
       setAwaitingAuth(true);
@@ -121,13 +186,6 @@ export function LiveActivity() {
     }
     setReportOpen(true);
   }
-
-  const updatedLabel = updatedAt
-    ? new Date(updatedAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
 
   return (
     <section id="live" className="relative scroll-mt-8 py-12 sm:py-16">
@@ -141,30 +199,32 @@ export function LiveActivity() {
                   Live activity
                 </span>
               </span>
-              <span className="rounded-sm border border-asphalt/10 bg-white/70 px-2 py-0.5 text-[11px] tracking-wide text-muted uppercase">
+              <span className="text-[11px] tracking-wide text-muted uppercase">
                 {liveState === "live"
-                  ? "Realtime on"
+                  ? "Realtime"
                   : liveState === "polling"
-                    ? "Auto-refresh 30s"
-                    : "Connecting…"}
+                    ? "Auto-refresh"
+                    : "Connecting"}
+                {secondsAgo != null
+                  ? ` · updated ${secondsAgo < 5 ? "just now" : `${secondsAgo}s ago`}`
+                  : null}
               </span>
-              {updatedLabel && (
-                <span className="text-[11px] text-muted">
-                  Updated {updatedLabel}
-                </span>
+              {newCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setNewCount(0)}
+                  className="text-[11px] font-semibold tracking-wide text-alert uppercase"
+                >
+                  {newCount} new since you opened
+                </button>
               )}
             </div>
             <h2 className="font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
-              What drivers are seeing now
+              What&apos;s ahead on the haul
             </h2>
             <p className="mt-3 max-w-xl text-muted">
-              Driver reports, NWS corridor weather, and EIA diesel — refreshing
-              automatically.
-              {sources.length > 1
-                ? ` Sources: ${sources
-                    .map((s) => sourceLabel[s] ?? s)
-                    .join(", ")}.`
-                : null}
+              Ranked by risk for drivers — not just newest first. Search a route
+              to lock the feed to your corridor.
             </p>
           </div>
           <button
@@ -176,37 +236,126 @@ export function LiveActivity() {
           </button>
         </div>
 
-        <ul className="mt-12 divide-y divide-asphalt/10 border-y border-asphalt/10">
-          {items.map((item, index) => {
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          {corridor ? (
+            <>
+              <p className="text-sm text-asphalt">
+                Corridor:{" "}
+                <span className="font-medium">
+                  {corridor.origin} → {corridor.destination}
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setCorridorOnly(true)}
+                className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition ${
+                  corridorOnly
+                    ? "bg-asphalt text-white"
+                    : "border border-asphalt/15 text-muted hover:bg-concrete/50"
+                }`}
+              >
+                On my corridor
+              </button>
+              <button
+                type="button"
+                onClick={() => setCorridorOnly(false)}
+                className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition ${
+                  !corridorOnly
+                    ? "bg-asphalt text-white"
+                    : "border border-asphalt/15 text-muted hover:bg-concrete/50"
+                }`}
+              >
+                All intel
+              </button>
+            </>
+          ) : (
+            <a
+              href="#plan"
+              className="text-sm font-medium text-amber transition hover:text-asphalt"
+            >
+              Search a route to personalize this feed →
+            </a>
+          )}
+        </div>
+
+        {hero && (
+          <div className="animate-fade-in mt-10 border-l-4 border-alert bg-asphalt px-5 py-6 text-white sm:px-8 sm:py-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-display text-xs tracking-[0.2em] text-amber uppercase">
+                Top risk now
+              </span>
+              <span
+                className={`font-display text-xs tracking-[0.18em] uppercase ${
+                  hero.severity === "critical"
+                    ? "text-alert"
+                    : hero.severity === "watch"
+                      ? "text-amber-hot"
+                      : "text-chrome"
+                }`}
+              >
+                {hero.severity}
+              </span>
+              <span className="text-xs text-chrome">
+                {sourceLabel[hero.source ?? ""] ?? hero.source}
+              </span>
+            </div>
+            <p className="mt-3 font-display text-2xl leading-snug tracking-wide uppercase sm:text-3xl">
+              {hero.message}
+            </p>
+            <p className="mt-2 text-chrome">{hero.location}</p>
+            <p className="mt-4 text-sm text-amber-hot">{hero.action}</p>
+            <p className="mt-3 text-xs text-chrome/80">
+              {timeLabel(hero.minutesAgo)}
+              {hero.onCorridor && corridor ? " · on your corridor" : null}
+            </p>
+          </div>
+        )}
+
+        <ul className="mt-10 divide-y divide-asphalt/10 border-y border-asphalt/10">
+          {rest.length === 0 && (
+            <li className="py-8 text-muted">
+              {corridorOnly && corridor
+                ? "No corridor matches right now — switch to All intel or search another route."
+                : "Waiting for live intel…"}
+            </li>
+          )}
+          {rest.map((item, index) => {
             const meta = kindMeta[item.kind];
             return (
               <li
                 key={item.id}
-                className="animate-slide-up flex flex-col gap-2 py-5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
-                style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+                className="animate-slide-up grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:gap-8"
+                style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`border-l-2 pl-2 font-display text-xs tracking-[0.18em] uppercase ${severityTone[item.severity]}`}
+                    >
+                      {item.severity}
+                    </span>
                     <span
                       className={`font-display text-xs tracking-[0.18em] uppercase ${meta.tone}`}
                     >
                       {meta.label}
                     </span>
-                    {item.source && (
-                      <span className="text-[10px] tracking-wide text-muted uppercase">
-                        {sourceLabel[item.source] ?? item.source}
+                    <span className="text-[10px] tracking-wide text-muted uppercase">
+                      {sourceLabel[item.source ?? ""] ?? item.source}
+                    </span>
+                    {item.onCorridor && corridor && (
+                      <span className="text-[10px] tracking-wide text-diesel uppercase">
+                        On corridor
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-lg text-asphalt sm:text-xl">
+                  <p className="mt-2 text-lg text-asphalt sm:text-xl">
                     {item.message}
                   </p>
                   <p className="mt-1 text-sm text-muted">{item.location}</p>
+                  <p className="mt-2 text-sm text-asphalt/80">{item.action}</p>
                 </div>
-                <time className="shrink-0 text-sm text-muted">
-                  {item.minutesAgo === 0
-                    ? "Just now"
-                    : `${item.minutesAgo}m ago`}
+                <time className="shrink-0 text-sm text-muted sm:text-right">
+                  {timeLabel(item.minutesAgo)}
                 </time>
               </li>
             );
@@ -222,6 +371,7 @@ export function LiveActivity() {
             { ...item, source: "drivers", updatedAt: new Date().toISOString() },
             ...prev,
           ]);
+          knownIds.current.add(item.id);
           void refreshFeed();
         }}
       />

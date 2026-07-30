@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { citySuggestions, sampleRoute } from "@/lib/mock-data";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
+import { writeLastCorridor } from "@/lib/corridor-store";
 import { RouteMap } from "@/components/route-map";
 import type { PlannedRoute } from "@/types";
 
@@ -41,11 +42,14 @@ export function RoutePlanner() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!canSearch) return;
+    const nextOrigin = origin.trim();
+    const nextDestination = destination.trim();
     setRoute({
       ...sampleRoute,
-      origin: origin.trim(),
-      destination: destination.trim(),
+      origin: nextOrigin,
+      destination: nextDestination,
     });
+    writeLastCorridor(nextOrigin, nextDestination);
     setAiReply(null);
     setSaved(false);
     setSaveError(null);
