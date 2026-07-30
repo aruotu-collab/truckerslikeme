@@ -1,13 +1,71 @@
 "use client";
 
+import { FormEvent, useState } from "react";
 import { getAuthGateCopy, useAuthGate } from "@/lib/auth-gate";
+import { createClient } from "@/lib/supabase/client";
+
+type Mode = "signin" | "signup";
 
 export function AuthGateModal() {
-  const { pendingAction, closeGate, signInDemo } = useAuthGate();
+  const { pendingAction, closeGate, configured } = useAuthGate();
+  const [mode, setMode] = useState<Mode>("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   if (!pendingAction) return null;
 
   const copy = getAuthGateCopy(pendingAction);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+
+    if (!configured) {
+      setError("Supabase keys are missing. Add them in .env.local and Vercel.");
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Could not connect to Supabase.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (signUpError) throw signUpError;
+        if (data.session) {
+          closeGate();
+          return;
+        }
+        setInfo("Check your email to confirm your account, then sign in.");
+        setMode("signin");
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) throw signInError;
+        closeGate();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div
@@ -22,7 +80,7 @@ export function AuthGateModal() {
         onClick={(e) => e.stopPropagation()}
       >
         <p className="font-display text-xs tracking-[0.2em] text-amber uppercase">
-          Create a free account
+          {mode === "signup" ? "Create a free account" : "Welcome back"}
         </p>
         <h2
           id="auth-gate-title"
@@ -32,13 +90,68 @@ export function AuthGateModal() {
         </h2>
         <p className="mt-3 text-muted">{copy.body}</p>
 
-        <div className="mt-6 space-y-3">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-xs tracking-wide text-muted uppercase">
+              Email
+            </span>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt outline-none transition focus:border-amber"
+              placeholder="you@email.com"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs tracking-wide text-muted uppercase">
+              Password
+            </span>
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete={
+                mode === "signup" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt outline-none transition focus:border-amber"
+              placeholder="At least 6 characters"
+            />
+          </label>
+
+          {error && <p className="text-sm text-alert">{error}</p>}
+          {info && <p className="text-sm text-diesel">{info}</p>}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:opacity-60"
+          >
+            {busy
+              ? "Please wait…"
+              : mode === "signup"
+                ? "Create account"
+                : "Sign in"}
+          </button>
+        </form>
+
+        <div className="mt-4 flex flex-col gap-2">
           <button
             type="button"
-            onClick={signInDemo}
-            className="w-full rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
+            onClick={() => {
+              setMode(mode === "signup" ? "signin" : "signup");
+              setError(null);
+              setInfo(null);
+            }}
+            className="text-sm text-muted transition hover:text-asphalt"
           >
-            Continue with demo account
+            {mode === "signup"
+              ? "Already have an account? Sign in"
+              : "Need an account? Sign up"}
           </button>
           <button
             type="button"
@@ -48,12 +161,6 @@ export function AuthGateModal() {
             Keep browsing
           </button>
         </div>
-
-        <p className="mt-5 text-xs leading-relaxed text-muted">
-          Supabase auth is wired for production. Add your project keys in{" "}
-          <code className="text-asphalt">.env.local</code> to replace this demo
-          gate.
-        </p>
       </div>
     </div>
   );

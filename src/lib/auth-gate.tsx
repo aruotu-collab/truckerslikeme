@@ -4,19 +4,24 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import type { User } from "@supabase/supabase-js";
 import type { AuthGateAction } from "@/types";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthGateContextValue = {
   isSignedIn: boolean;
+  user: User | null;
+  loading: boolean;
+  configured: boolean;
   pendingAction: AuthGateAction | null;
   openGate: (action: AuthGateAction) => boolean;
   closeGate: () => void;
-  signInDemo: () => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 
 const AuthGateContext = createContext<AuthGateContextValue | null>(null);
@@ -45,10 +50,50 @@ export function getAuthGateCopy(action: AuthGateAction) {
 }
 
 export function AuthGateProvider({ children }: { children: ReactNode }) {
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const configured = isSupabaseConfigured();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(configured);
   const [pendingAction, setPendingAction] = useState<AuthGateAction | null>(
     null,
   );
+
+  useEffect(() => {
+    if (!configured) {
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return;
+      setUser(data.user);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        setPendingAction(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [configured]);
+
+  const isSignedIn = Boolean(user);
 
   const openGate = useCallback(
     (action: AuthGateAction) => {
@@ -60,22 +105,36 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
   );
 
   const closeGate = useCallback(() => setPendingAction(null), []);
-  const signInDemo = useCallback(() => {
-    setIsSignedIn(true);
-    setPendingAction(null);
+
+  const signOut = useCallback(async () => {
+    const supabase = createClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
   }, []);
-  const signOut = useCallback(() => setIsSignedIn(false), []);
 
   const value = useMemo(
     () => ({
       isSignedIn,
+      user,
+      loading,
+      configured,
       pendingAction,
       openGate,
       closeGate,
-      signInDemo,
       signOut,
     }),
-    [isSignedIn, pendingAction, openGate, closeGate, signInDemo, signOut],
+    [
+      isSignedIn,
+      user,
+      loading,
+      configured,
+      pendingAction,
+      openGate,
+      closeGate,
+      signOut,
+    ],
   );
 
   return (
