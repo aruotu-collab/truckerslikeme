@@ -46,6 +46,24 @@ export async function ensureProfile(user: User) {
   return { error: null };
 }
 
+function mapAlertRows(
+  data: {
+    id: string;
+    kind: string;
+    message: string;
+    location: string;
+    created_at: string;
+  }[],
+): LiveActivity[] {
+  return data.map((row) => ({
+    id: row.id,
+    kind: row.kind as ActivityKind,
+    message: row.message,
+    location: row.location,
+    minutesAgo: minutesAgo(row.created_at),
+  }));
+}
+
 export async function fetchAlerts(limit = 40): Promise<{
   items: LiveActivity[];
   error: string | null;
@@ -63,15 +81,27 @@ export async function fetchAlerts(limit = 40): Promise<{
     return { items: [], error: error.message };
   }
 
-  const items: LiveActivity[] = (data ?? []).map((row) => ({
-    id: row.id,
-    kind: row.kind as ActivityKind,
-    message: row.message,
-    location: row.location,
-    minutesAgo: minutesAgo(row.created_at),
-  }));
+  return { items: mapAlertRows(data ?? []), error: null };
+}
 
-  return { items, error: null };
+export async function fetchMyAlerts(userId: string): Promise<{
+  items: LiveActivity[];
+  error: string | null;
+}> {
+  const supabase = createClient();
+  if (!supabase) return { items: [], error: null };
+
+  const { data, error } = await supabase
+    .from("alerts")
+    .select("id, kind, message, location, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return { items: [], error: error.message };
+  }
+
+  return { items: mapAlertRows(data ?? []), error: null };
 }
 
 export async function createAlert(input: {

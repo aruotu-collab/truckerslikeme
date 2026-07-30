@@ -5,11 +5,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import {
+  fetchMyAlerts,
   fetchSavedRoutes,
   type SavedRouteRow,
 } from "@/lib/supabase/data";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import type { ActivityKind, LiveActivity } from "@/types";
+
+const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
+  parking: { label: "Parking", tone: "text-amber" },
+  traffic: { label: "Traffic", tone: "text-alert" },
+  fuel: { label: "Fuel", tone: "text-diesel" },
+  delay: { label: "Delay", tone: "text-alert" },
+  route: { label: "Route", tone: "text-sky-deep" },
+  weather: { label: "Weather", tone: "text-sky-deep" },
+};
 
 export default function MembersPage() {
   const router = useRouter();
@@ -17,6 +28,9 @@ export default function MembersPage() {
   const [routes, setRoutes] = useState<SavedRouteRow[]>([]);
   const [routesLoading, setRoutesLoading] = useState(false);
   const [routesError, setRoutesError] = useState<string | null>(null);
+  const [reports, setReports] = useState<LiveActivity[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -28,17 +42,25 @@ export default function MembersPage() {
   useEffect(() => {
     if (!isSignedIn || !user) {
       setRoutes([]);
+      setReports([]);
       return;
     }
 
     let mounted = true;
     setRoutesLoading(true);
-    fetchSavedRoutes(user.id).then(({ routes: rows, error }) => {
-      if (!mounted) return;
-      setRoutes(rows);
-      setRoutesError(error);
-      setRoutesLoading(false);
-    });
+    setReportsLoading(true);
+
+    Promise.all([fetchSavedRoutes(user.id), fetchMyAlerts(user.id)]).then(
+      ([routesResult, alertsResult]) => {
+        if (!mounted) return;
+        setRoutes(routesResult.routes);
+        setRoutesError(routesResult.error);
+        setRoutesLoading(false);
+        setReports(alertsResult.items);
+        setReportsError(alertsResult.error);
+        setReportsLoading(false);
+      },
+    );
 
     return () => {
       mounted = false;
@@ -114,6 +136,12 @@ export default function MembersPage() {
                 >
                   Plan a route
                 </Link>
+                <Link
+                  href="/#live"
+                  className="rounded-sm border border-asphalt/15 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-concrete/60"
+                >
+                  Report an incident
+                </Link>
                 <button
                   type="button"
                   onClick={() => void handleSignOut()}
@@ -122,6 +150,62 @@ export default function MembersPage() {
                   Sign out
                 </button>
               </div>
+            </section>
+
+            <section className="border-t border-asphalt/10 pt-10">
+              <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
+                My reports
+              </h2>
+              <p className="mt-2 max-w-xl text-muted">
+                Incidents you posted to the live feed.
+              </p>
+
+              {reportsLoading ? (
+                <p className="mt-6 text-muted">Loading your reports…</p>
+              ) : reportsError ? (
+                <p className="mt-6 text-sm text-alert">{reportsError}</p>
+              ) : reports.length === 0 ? (
+                <div className="mt-6 border border-dashed border-asphalt/20 bg-white/50 px-5 py-10 text-center">
+                  <p className="font-display text-sm tracking-[0.18em] text-muted uppercase">
+                    No reports yet
+                  </p>
+                  <Link
+                    href="/#live"
+                    className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
+                  >
+                    Report an incident →
+                  </Link>
+                </div>
+              ) : (
+                <ul className="mt-6 divide-y divide-asphalt/10 border-y border-asphalt/10">
+                  {reports.map((item) => {
+                    const meta = kindMeta[item.kind];
+                    return (
+                      <li
+                        key={item.id}
+                        className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between"
+                      >
+                        <div>
+                          <span
+                            className={`font-display text-xs tracking-[0.18em] uppercase ${meta.tone}`}
+                          >
+                            {meta.label}
+                          </span>
+                          <p className="mt-1 text-lg text-asphalt">
+                            {item.message}
+                          </p>
+                          <p className="text-sm text-muted">{item.location}</p>
+                        </div>
+                        <time className="text-sm text-muted">
+                          {item.minutesAgo === 0
+                            ? "Just now"
+                            : `${item.minutesAgo}m ago`}
+                        </time>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             <section className="border-t border-asphalt/10 pt-10">
@@ -165,7 +249,9 @@ export default function MembersPage() {
                           {route.origin} → {route.destination}
                         </p>
                         {route.miles != null && (
-                          <p className="text-sm text-muted">{route.miles} miles</p>
+                          <p className="text-sm text-muted">
+                            {route.miles} miles
+                          </p>
                         )}
                       </div>
                       <time className="text-sm text-muted">

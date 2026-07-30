@@ -16,21 +16,22 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
   weather: { label: "Weather", tone: "text-sky-deep" },
 };
 
+function mergeFeed(remote: LiveActivity[], seed: LiveActivity[]) {
+  const remoteIds = new Set(remote.map((item) => item.id));
+  return [...remote, ...seed.filter((item) => !remoteIds.has(item.id))];
+}
+
 export function LiveActivity() {
   const { isSignedIn, openGate } = useAuthGate();
   const [items, setItems] = useState<LiveActivity[]>(seedActivities);
   const [reportOpen, setReportOpen] = useState(false);
   const [awaitingAuth, setAwaitingAuth] = useState(false);
-  const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     fetchAlerts().then(({ items: remote }) => {
-      if (!mounted) return;
-      if (remote.length > 0) {
-        setItems(remote);
-        setDbReady(true);
-      }
+      if (!mounted || remote.length === 0) return;
+      setItems(mergeFeed(remote, seedActivities));
     });
     return () => {
       mounted = false;
@@ -70,7 +71,6 @@ export function LiveActivity() {
             <p className="mt-3 max-w-xl text-muted">
               Browse corridor intel without an account. Sign in only when you
               want to report something.
-              {dbReady ? " Showing live reports from drivers." : null}
             </p>
           </div>
           <button
@@ -117,8 +117,7 @@ export function LiveActivity() {
         open={reportOpen}
         onClose={() => setReportOpen(false)}
         onSubmitted={(item) => {
-          setItems((prev) => [item, ...prev]);
-          setDbReady(true);
+          setItems((prev) => mergeFeed([item], prev));
         }}
       />
     </section>
