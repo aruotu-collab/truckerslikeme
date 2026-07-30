@@ -10,6 +10,5 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: "https://truckerslikeme.com/sitemap.xml",
-    host: "https://truckerslikeme.com",
   };
 }
