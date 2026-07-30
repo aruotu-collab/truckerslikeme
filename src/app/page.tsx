@@ -6,9 +6,15 @@ import { SiteHeader } from "@/components/site-header";
 
 export default function Home() {
   return (
-    <>
-      <SiteHeader />
-      <main>
+    <div className="flex min-h-full flex-col">
+      {/* Solid header on mobile so hero text is never covered */}
+      <div className="md:hidden">
+        <SiteHeader variant="solid" />
+      </div>
+      <div className="hidden md:block">
+        <SiteHeader />
+      </div>
+      <main className="flex-1">
         <Hero />
         <section className="border-y border-asphalt/10 bg-background py-12 sm:py-20">
           <div className="mx-auto grid max-w-6xl gap-10 px-5 sm:px-8 lg:grid-cols-2">
@@ -53,6 +59,6 @@ export default function Home() {
         <CommunityCta />
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }
