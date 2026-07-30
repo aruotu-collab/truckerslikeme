@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 
 type SiteHeaderProps = {
@@ -8,6 +9,7 @@ type SiteHeaderProps = {
 };
 
 export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
+  const pathname = usePathname();
   const { isSignedIn, user, signOut, openGate } = useAuthGate();
   const solid = variant === "solid";
   const shortName =
@@ -15,6 +17,9 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
       user.user_metadata.display_name) ||
     user?.email?.split("@")[0] ||
     null;
+
+  const linkBase =
+    "rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm";
 
   return (
     <header
@@ -45,22 +50,34 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
 
         <nav className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <Link
-            href="/#plan"
-            className="rounded-sm bg-amber px-3 py-1.5 text-xs font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot sm:px-4 sm:text-sm"
+            href="/plan"
+            className={`${linkBase} ${
+              pathname === "/plan"
+                ? "bg-amber text-asphalt"
+                : "bg-amber/90 text-asphalt hover:bg-amber-hot"
+            }`}
           >
             Plan a route
           </Link>
           <Link
-            href="/#live"
-            className="rounded-sm border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 sm:px-4 sm:text-sm"
+            href="/live"
+            className={`${linkBase} ${
+              pathname === "/live"
+                ? "border border-amber bg-amber/15 text-amber-hot"
+                : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+            }`}
           >
-            See live activity
+            Live activity
           </Link>
           {isSignedIn ? (
             <>
               <Link
                 href="/members"
-                className="rounded-sm border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20 sm:text-sm"
+                className={`${linkBase} ${
+                  pathname === "/members"
+                    ? "border border-amber bg-amber/15 text-amber-hot"
+                    : "border border-white/30 bg-white/10 font-medium text-white hover:bg-white/20"
+                }`}
               >
                 Members
               </Link>

@@ -28,7 +28,7 @@ export function CommunityCta() {
               Join the community
             </button>
             <a
-              href="#plan"
+              href="/plan"
               className="rounded-sm border border-asphalt/20 px-6 py-3 text-sm font-medium text-asphalt transition hover:bg-white/50"
             >
               Keep exploring

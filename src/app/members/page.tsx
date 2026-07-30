@@ -131,13 +131,13 @@ export default function MembersPage() {
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/#plan"
+                  href="/plan"
                   className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road"
                 >
                   Plan a route
                 </Link>
                 <Link
-                  href="/#live"
+                  href="/live"
                   className="rounded-sm border border-asphalt/15 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-concrete/60"
                 >
                   Report an incident
@@ -170,7 +170,7 @@ export default function MembersPage() {
                     No reports yet
                   </p>
                   <Link
-                    href="/#live"
+                    href="/live"
                     className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
                   >
                     Report an incident →
@@ -231,7 +231,7 @@ export default function MembersPage() {
                     No saved routes yet
                   </p>
                   <Link
-                    href="/#plan"
+                    href="/plan"
                     className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
                   >
                     Search a route to get started →

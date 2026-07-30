@@ -270,7 +270,7 @@ export function LiveActivity() {
             </>
           ) : (
             <a
-              href="#plan"
+              href="/plan"
               className="text-sm font-medium text-amber transition hover:text-asphalt"
             >
               Search a route to personalize this feed →
