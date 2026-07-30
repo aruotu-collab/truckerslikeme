@@ -14,6 +14,8 @@
   --background: #edf1f4;
   --foreground: #1a1d23;
   --muted: #5c6570;
+  --h-scroll-fade: var(--background);
+  --app-tab-h: 3.75rem;
 }
 
 @theme inline {
@@ -34,14 +36,82 @@
   --font-display: var(--font-oswald);
 }
 
+/* App-like shell: kill horizontal wobble / rubber-band */
 html {
-  scroll-behavior: smooth;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  touch-action: pan-y;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-barlow), system-ui, sans-serif;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Room for fixed mobile tab bar */
+.app-shell {
+  min-height: 100%;
+  padding-bottom: calc(var(--app-tab-h) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    padding-bottom: 0;
+  }
+}
+
+/* Horizontal menu / filter slider */
+.h-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.h-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.h-scroll > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Portrait: compact header actions */
+@media (orientation: portrait) and (max-width: 767px) {
+  .app-header-inner {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+}
+
+/* Landscape phone: shorter chrome, keep content usable */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-header-inner {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .mobile-tab-bar {
+    --app-tab-h: 2.75rem;
+  }
+
+  .mobile-tab-bar a,
+  .mobile-tab-bar button {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+  }
 }
 
 ::selection {

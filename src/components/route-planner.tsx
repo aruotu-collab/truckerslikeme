@@ -7,6 +7,7 @@ import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { writeLastCorridor } from "@/lib/corridor-store";
 import { RouteMap, type MapLayer } from "@/components/route-map";
+import { HScroll } from "@/components/h-scroll";
 import type { PlannedRoute } from "@/types";
 
 type PlanFilter = "all" | "parking" | "fuel" | "repair" | "lodging" | "weigh";
@@ -178,7 +179,7 @@ export function RoutePlanner() {
   }
 
   return (
-    <section id="plan" className="scroll-mt-8 bg-asphalt py-20 text-white sm:py-28">
+    <section id="plan" className="scroll-mt-8 bg-asphalt py-12 text-white sm:py-28">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="max-w-2xl">
           <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
@@ -195,7 +196,7 @@ export function RoutePlanner() {
 
         <form
           onSubmit={handleSearch}
-          className="mt-10 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+          className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]"
         >
           <label className="block">
             <span className="mb-1.5 block text-xs tracking-wide text-chrome uppercase">
@@ -205,8 +206,9 @@ export function RoutePlanner() {
               list="city-suggestions"
               value={origin}
               onChange={(e) => setOrigin(e.target.value)}
-              className="w-full rounded-sm border border-white/15 bg-road px-4 py-3 text-white outline-none transition focus:border-amber"
+              className="w-full rounded-sm border border-white/15 bg-road px-4 py-3 text-base text-white outline-none transition focus:border-amber sm:text-[1rem]"
               placeholder="Dallas, TX"
+              autoComplete="off"
             />
           </label>
           <label className="block">
@@ -217,15 +219,16 @@ export function RoutePlanner() {
               list="city-suggestions"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="w-full rounded-sm border border-white/15 bg-road px-4 py-3 text-white outline-none transition focus:border-amber"
+              className="w-full rounded-sm border border-white/15 bg-road px-4 py-3 text-base text-white outline-none transition focus:border-amber sm:text-[1rem]"
               placeholder="Chicago, IL"
+              autoComplete="off"
             />
           </label>
-          <div className="flex items-end">
+          <div className="sm:col-span-2 lg:col-span-1 lg:flex lg:items-end">
             <button
               type="submit"
               disabled={!canSearch}
-              className="w-full rounded-sm bg-amber px-6 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+              className="w-full rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto lg:py-3"
             >
               Search route
             </button>
@@ -240,22 +243,22 @@ export function RoutePlanner() {
         {route && (
           <div className="animate-fade-in mt-12 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
-              <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
+              <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                 <div>
                   <p className="font-display text-2xl tracking-wide uppercase sm:text-3xl">
                     {route.origin} → {route.destination}
                   </p>
-                  <p className="mt-1 text-chrome">
+                  <p className="mt-1 text-sm text-chrome sm:text-base">
                     {route.miles} miles · ~{route.hours} driving hours
                     {statusCounts &&
                       ` · ${statusCounts.fuel} fuel · ${statusCounts.parking} parking · ${statusCounts.alerts} alerts`}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-4 flex w-full flex-col gap-2 sm:mt-0 sm:w-auto sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
                     onClick={handleAskAi}
-                    className="rounded-sm border border-amber/50 bg-amber/10 px-4 py-2 text-sm text-amber-hot transition hover:bg-amber/20"
+                    className="w-full rounded-sm border border-amber/50 bg-amber/10 px-4 py-3 text-sm text-amber-hot transition hover:bg-amber/20 sm:w-auto sm:py-2"
                   >
                     Ask AI once
                   </button>
@@ -263,7 +266,7 @@ export function RoutePlanner() {
                     type="button"
                     onClick={handleSave}
                     disabled={saveBusy || saved}
-                    className="rounded-sm bg-white px-4 py-2 text-sm font-semibold text-asphalt transition hover:bg-concrete disabled:opacity-70"
+                    className="w-full rounded-sm bg-white px-4 py-3 text-sm font-semibold text-asphalt transition hover:bg-concrete disabled:opacity-70 sm:w-auto sm:py-2"
                   >
                     {saveBusy
                       ? "Saving…"
@@ -292,38 +295,36 @@ export function RoutePlanner() {
                     "Tap a category to see only that service — same pattern as Live."}
                 </p>
 
-                <div
-                  className="mt-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                  role="tablist"
-                  aria-label="Filter corridor services"
-                >
-                  {planFilterChips.map((chip) => {
-                    const active = planFilter === chip.id;
-                    const count = filterCounts[chip.id];
-                    return (
-                      <button
-                        key={chip.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => setPlanFilter(chip.id)}
-                        className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
-                          active
-                            ? "border-white text-white"
-                            : "border-transparent text-chrome hover:text-white"
-                        }`}
-                      >
-                        {chip.label}
-                        <span
-                          className={`ml-1.5 text-xs font-normal ${
-                            active ? "text-amber" : "text-chrome/70"
+                <div className="mt-6 [--h-scroll-fade:#1a1d23]">
+                  <HScroll aria-label="Filter corridor services">
+                    {planFilterChips.map((chip) => {
+                      const active = planFilter === chip.id;
+                      const count = filterCounts[chip.id];
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => setPlanFilter(chip.id)}
+                          className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                            active
+                              ? "border-white text-white"
+                              : "border-transparent text-chrome hover:text-white"
                           }`}
                         >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          {chip.label}
+                          <span
+                            className={`ml-1.5 text-xs font-normal ${
+                              active ? "text-amber" : "text-chrome/70"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </HScroll>
                 </div>
 
                 {filteredServices.length > 0 ? (

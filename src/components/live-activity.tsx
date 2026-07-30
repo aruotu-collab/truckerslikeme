@@ -12,6 +12,7 @@ import {
   type RankedFeedItem,
 } from "@/lib/intel/rank";
 import { ReportIncidentModal } from "@/components/report-incident-modal";
+import { HScroll } from "@/components/h-scroll";
 import type { ActivityKind, LiveFeedItem } from "@/types";
 
 const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
@@ -235,7 +236,7 @@ export function LiveActivity() {
   }
 
   return (
-    <section id="live" className="relative scroll-mt-8 py-12 sm:py-16">
+    <section id="live" className="relative scroll-mt-8 py-8 sm:py-16">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -266,7 +267,7 @@ export function LiveActivity() {
                 </button>
               )}
             </div>
-            <h2 className="font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+            <h2 className="font-display text-3xl tracking-wide text-asphalt uppercase sm:text-5xl">
               What&apos;s ahead on the haul
             </h2>
             <p className="mt-3 max-w-xl text-muted">
@@ -277,82 +278,89 @@ export function LiveActivity() {
           <button
             type="button"
             onClick={handleReportClick}
-            className="self-start rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road sm:self-auto"
+            className="w-full rounded-sm bg-asphalt px-5 py-3.5 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road sm:w-auto sm:self-auto sm:py-3"
           >
             Report an incident
           </button>
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          {corridor ? (
-            <>
-              <p className="text-sm text-asphalt">
-                Corridor:{" "}
-                <span className="font-medium">
-                  {corridor.origin} → {corridor.destination}
-                </span>
-              </p>
-              <button
-                type="button"
-                onClick={() => setCorridorOnly(true)}
-                className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition ${
-                  corridorOnly
-                    ? "bg-asphalt text-white"
-                    : "border border-asphalt/15 text-muted hover:bg-concrete/50"
-                }`}
+        <div className="mt-6 flex gap-2 overflow-x-auto sm:mt-8 sm:flex-wrap sm:overflow-visible">
+          <div className="[--h-scroll-fade:var(--background)] sm:contents">
+            {corridor ? (
+              <HScroll
+                aria-label="Corridor scope"
+                role="navigation"
+                className="w-full sm:w-auto"
               >
-                On my corridor
-              </button>
-              <button
-                type="button"
-                onClick={() => setCorridorOnly(false)}
-                className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition ${
-                  !corridorOnly
-                    ? "bg-asphalt text-white"
-                    : "border border-asphalt/15 text-muted hover:bg-concrete/50"
-                }`}
+                <p className="shrink-0 self-center pr-1 text-sm text-asphalt">
+                  Corridor:{" "}
+                  <span className="font-medium">
+                    {corridor.origin.split(",")[0]} →{" "}
+                    {corridor.destination.split(",")[0]}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCorridorOnly(true)}
+                  className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
+                    corridorOnly
+                      ? "bg-asphalt text-white"
+                      : "border border-asphalt/15 text-muted hover:bg-concrete/50"
+                  }`}
+                >
+                  On my corridor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCorridorOnly(false)}
+                  className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
+                    !corridorOnly
+                      ? "bg-asphalt text-white"
+                      : "border border-asphalt/15 text-muted hover:bg-concrete/50"
+                  }`}
+                >
+                  All intel
+                </button>
+              </HScroll>
+            ) : (
+              <a
+                href="/plan"
+                className="text-sm font-medium text-amber transition hover:text-asphalt"
               >
-                All intel
-              </button>
-            </>
-          ) : (
-            <a
-              href="/plan"
-              className="text-sm font-medium text-amber transition hover:text-asphalt"
-            >
-              Search a route to personalize this feed →
-            </a>
-          )}
+                Search a route to personalize this feed →
+              </a>
+            )}
+          </div>
         </div>
 
-        <div
-          className="mt-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="tablist"
-          aria-label="Filter live feed by type"
-        >
-          {filterChips.map((chip) => {
-            const active = feedFilter === chip.id;
-            const count = filterCounts[chip.id];
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setFeedFilter(chip.id)}
-                className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
-                  active
-                    ? "border-asphalt text-asphalt"
-                    : "border-transparent text-muted hover:text-asphalt"
-                }`}
-              >
-                {chip.label}
-                <span className={`ml-1.5 text-xs font-normal ${active ? "text-amber" : "text-muted"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+        <div className="mt-6 [--h-scroll-fade:var(--background)]">
+          <HScroll aria-label="Filter live feed by type">
+            {filterChips.map((chip) => {
+              const active = feedFilter === chip.id;
+              const count = filterCounts[chip.id];
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setFeedFilter(chip.id)}
+                  className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                    active
+                      ? "border-asphalt text-asphalt"
+                      : "border-transparent text-muted hover:text-asphalt"
+                  }`}
+                >
+                  {chip.label}
+                  <span
+                    className={`ml-1.5 text-xs font-normal ${active ? "text-amber" : "text-muted"}`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </HScroll>
         </div>
 
         {hero && (

@@ -19,17 +19,17 @@ export function CommunityCta() {
             Join the corridor network when you&apos;re ready — post alerts,
             follow truck stops, and unlock Pro for unlimited AI planning.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={() => openGate("join-community")}
-              className="rounded-sm bg-asphalt px-6 py-3 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road"
+              className="w-full rounded-sm bg-asphalt px-6 py-3.5 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road sm:w-auto sm:py-3"
             >
               Join the community
             </button>
             <a
               href="/plan"
-              className="rounded-sm border border-asphalt/20 px-6 py-3 text-sm font-medium text-asphalt transition hover:bg-white/50"
+              className="w-full rounded-sm border border-asphalt/20 px-6 py-3.5 text-center text-sm font-medium text-asphalt transition hover:bg-white/50 sm:w-auto sm:py-3"
             >
               Keep exploring
             </a>

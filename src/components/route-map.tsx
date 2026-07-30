@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CorridorSupportPlace, PlannedRoute } from "@/types";
+import { HScroll } from "@/components/h-scroll";
 
 export type MapLayer =
   | "all"
@@ -169,45 +170,43 @@ export function RouteMap({
           </p>
         </div>
 
-        <div
-          className="mb-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="tablist"
-          aria-label="Filter map services"
-        >
-          {filterChips.map((chip) => {
-            const active = layer === chip.id;
-            const count =
-              chip.id === "all"
-                ? markers.length
-                : layerCounts[chip.id as Exclude<MapLayer, "all">];
-            if (chip.id !== "all" && count === 0) return null;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => {
-                  setLayer(chip.id);
-                  setSelectedId(null);
-                }}
-                className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
-                  active
-                    ? "border-white text-white"
-                    : "border-transparent text-chrome hover:text-white"
-                }`}
-              >
-                {chip.label}
-                <span
-                  className={`ml-1.5 text-xs font-normal ${
-                    active ? "text-amber" : "text-chrome/70"
+        <div className="mb-4 [--h-scroll-fade:#2c313a]">
+          <HScroll aria-label="Filter map services">
+            {filterChips.map((chip) => {
+              const active = layer === chip.id;
+              const count =
+                chip.id === "all"
+                  ? markers.length
+                  : layerCounts[chip.id as Exclude<MapLayer, "all">];
+              if (chip.id !== "all" && count === 0) return null;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setLayer(chip.id);
+                    setSelectedId(null);
+                  }}
+                  className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                    active
+                      ? "border-white text-white"
+                      : "border-transparent text-chrome hover:text-white"
                   }`}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                  {chip.label}
+                  <span
+                    className={`ml-1.5 text-xs font-normal ${
+                      active ? "text-amber" : "text-chrome/70"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </HScroll>
         </div>
 
         {selected && (

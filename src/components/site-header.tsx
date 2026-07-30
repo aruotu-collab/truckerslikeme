@@ -19,7 +19,7 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
     null;
 
   const linkBase =
-    "rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm";
+    "rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm";
 
   return (
     <header
@@ -29,18 +29,18 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
           : "absolute inset-x-0 top-0 z-30"
       }
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8">
-        <div className="min-w-0">
+      <div className="app-header-inner mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-8 sm:py-4">
+        <div className="min-w-0 shrink-0">
           <Link
             href="/"
-            className="block font-display text-lg tracking-[0.08em] text-white uppercase sm:text-2xl"
+            className="block font-display text-base tracking-[0.08em] text-white uppercase sm:text-2xl"
           >
             Truckers<span className="text-amber-hot">Like</span>Me
           </Link>
           {isSignedIn && shortName && (
             <Link
               href="/members"
-              className="mt-0.5 block truncate text-xs text-white/75 transition hover:text-amber-hot sm:text-sm"
+              className="mt-0.5 block max-w-[9rem] truncate text-[11px] text-white/75 transition hover:text-amber-hot sm:max-w-none sm:text-sm"
               title={user?.email ?? undefined}
             >
               Welcome, {shortName}
@@ -48,7 +48,7 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
           )}
         </div>
 
-        <nav className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <nav className="ml-auto hidden items-center justify-end gap-2 md:flex md:gap-3">
           <Link
             href="/plan"
             className={`${linkBase} ${
@@ -84,7 +84,7 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="rounded-sm border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white transition hover:bg-white/20 sm:text-sm"
+                className="rounded-sm border border-white/25 bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20"
               >
                 Sign out
               </button>
@@ -93,12 +93,32 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
             <button
               type="button"
               onClick={() => openGate("join-community")}
-              className="rounded-sm border border-white/30 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 sm:text-sm"
+              className="rounded-sm border border-white/30 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/10"
             >
               Sign in
             </button>
           )}
         </nav>
+
+        <div className="ml-auto flex shrink-0 items-center md:hidden">
+          {isSignedIn ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-sm border border-white/25 bg-white/10 px-3 py-2 text-xs text-white"
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openGate("join-community")}
+              className="rounded-sm border border-white/30 px-3 py-2 text-xs font-medium text-white"
+            >
+              Sign in
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
