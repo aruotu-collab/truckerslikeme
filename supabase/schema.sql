@@ -86,8 +86,19 @@ create policy "Public can read truck stops"
 create policy "Users read own profile"
   on public.profiles for select using (auth.uid() = id);
 
+create policy "Users insert own profile"
+  on public.profiles for insert with check (auth.uid() = id);
+
 create policy "Users update own profile"
   on public.profiles for update using (auth.uid() = id);
+
+-- Backfill profiles for people who already signed up before this schema ran
+insert into public.profiles (id, display_name)
+select
+  id,
+  coalesce(raw_user_meta_data->>'display_name', split_part(email, '@', 1))
+from auth.users
+on conflict (id) do nothing;
 
 create policy "Users manage own saved routes"
   on public.saved_routes for all using (auth.uid() = user_id)

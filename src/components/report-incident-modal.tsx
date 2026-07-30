@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import type { ActivityKind, LiveActivity } from "@/types";
-import { createClient } from "@/lib/supabase/client";
+import { createAlert } from "@/lib/supabase/data";
 import { useAuthGate } from "@/lib/auth-gate";
 
 const kinds: { value: ActivityKind; label: string }[] = [
@@ -44,29 +44,23 @@ export function ReportIncidentModal({
       setError("Add both a short description and a location.");
       return;
     }
+    if (!user) {
+      setError("Sign in to post an incident.");
+      return;
+    }
 
     setBusy(true);
-    const item: LiveActivity = {
-      id: `local-${Date.now()}`,
-      kind,
-      message: trimmedMessage,
-      location: trimmedLocation,
-      minutesAgo: 0,
-    };
-
     try {
-      const supabase = createClient();
-      if (supabase && user) {
-        const { error: insertError } = await supabase.from("alerts").insert({
-          user_id: user.id,
-          kind,
-          message: trimmedMessage,
-          location: trimmedLocation,
-        });
-        // Table may not exist yet — still show in the live feed locally.
-        if (insertError) {
-          console.warn("alerts insert skipped:", insertError.message);
-        }
+      const { item, error: createError } = await createAlert({
+        user,
+        kind,
+        message: trimmedMessage,
+        location: trimmedLocation,
+      });
+
+      if (createError || !item) {
+        setError(createError ?? "Could not submit report.");
+        return;
       }
 
       onSubmitted(item);

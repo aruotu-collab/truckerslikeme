@@ -1,15 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
+import {
+  fetchSavedRoutes,
+  type SavedRouteRow,
+} from "@/lib/supabase/data";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export default function MembersPage() {
   const router = useRouter();
   const { isSignedIn, user, loading, openGate, signOut } = useAuthGate();
+  const [routes, setRoutes] = useState<SavedRouteRow[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
+  const [routesError, setRoutesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -17,6 +24,26 @@ export default function MembersPage() {
       openGate("join-community");
     }
   }, [loading, isSignedIn, openGate]);
+
+  useEffect(() => {
+    if (!isSignedIn || !user) {
+      setRoutes([]);
+      return;
+    }
+
+    let mounted = true;
+    setRoutesLoading(true);
+    fetchSavedRoutes(user.id).then(({ routes: rows, error }) => {
+      if (!mounted) return;
+      setRoutes(rows);
+      setRoutesError(error);
+      setRoutesLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isSignedIn, user]);
 
   const displayName =
     (typeof user?.user_metadata?.display_name === "string" &&
@@ -102,21 +129,52 @@ export default function MembersPage() {
                 Saved routes
               </h2>
               <p className="mt-2 max-w-xl text-muted">
-                Routes you save from the planner will show up here. Run the
-                database schema in Supabase, then save a corridor to populate
-                this list.
+                Corridors you save from the planner appear here.
               </p>
-              <div className="mt-6 border border-dashed border-asphalt/20 bg-white/50 px-5 py-10 text-center">
-                <p className="font-display text-sm tracking-[0.18em] text-muted uppercase">
-                  No saved routes yet
+
+              {routesLoading ? (
+                <p className="mt-6 text-muted">Loading saved routes…</p>
+              ) : routesError ? (
+                <p className="mt-6 text-sm text-alert">
+                  {routesError.includes("does not exist") ||
+                  routesError.includes("schema cache")
+                    ? "Database tables are missing. Run supabase/schema.sql in the Supabase SQL Editor."
+                    : routesError}
                 </p>
-                <Link
-                  href="/#plan"
-                  className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
-                >
-                  Search a route to get started →
-                </Link>
-              </div>
+              ) : routes.length === 0 ? (
+                <div className="mt-6 border border-dashed border-asphalt/20 bg-white/50 px-5 py-10 text-center">
+                  <p className="font-display text-sm tracking-[0.18em] text-muted uppercase">
+                    No saved routes yet
+                  </p>
+                  <Link
+                    href="/#plan"
+                    className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
+                  >
+                    Search a route to get started →
+                  </Link>
+                </div>
+              ) : (
+                <ul className="mt-6 divide-y divide-asphalt/10 border-y border-asphalt/10">
+                  {routes.map((route) => (
+                    <li
+                      key={route.id}
+                      className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between"
+                    >
+                      <div>
+                        <p className="text-lg text-asphalt">
+                          {route.origin} → {route.destination}
+                        </p>
+                        {route.miles != null && (
+                          <p className="text-sm text-muted">{route.miles} miles</p>
+                        )}
+                      </div>
+                      <time className="text-sm text-muted">
+                        {new Date(route.created_at).toLocaleDateString()}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             <section className="border-t border-asphalt/10 pt-10">

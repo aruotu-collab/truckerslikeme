@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { liveActivities as seedActivities } from "@/lib/mock-data";
 import { useAuthGate } from "@/lib/auth-gate";
+import { fetchAlerts } from "@/lib/supabase/data";
 import { ReportIncidentModal } from "@/components/report-incident-modal";
 import type { ActivityKind, LiveActivity } from "@/types";
 
@@ -20,6 +21,21 @@ export function LiveActivity() {
   const [items, setItems] = useState<LiveActivity[]>(seedActivities);
   const [reportOpen, setReportOpen] = useState(false);
   const [awaitingAuth, setAwaitingAuth] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchAlerts().then(({ items: remote }) => {
+      if (!mounted) return;
+      if (remote.length > 0) {
+        setItems(remote);
+        setDbReady(true);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isSignedIn && awaitingAuth) {
@@ -54,6 +70,7 @@ export function LiveActivity() {
             <p className="mt-3 max-w-xl text-muted">
               Browse corridor intel without an account. Sign in only when you
               want to report something.
+              {dbReady ? " Showing live reports from drivers." : null}
             </p>
           </div>
           <button
@@ -86,7 +103,9 @@ export function LiveActivity() {
                   <p className="mt-1 text-sm text-muted">{item.location}</p>
                 </div>
                 <time className="shrink-0 text-sm text-muted">
-                  {item.minutesAgo === 0 ? "Just now" : `${item.minutesAgo}m ago`}
+                  {item.minutesAgo === 0
+                    ? "Just now"
+                    : `${item.minutesAgo}m ago`}
                 </time>
               </li>
             );
@@ -97,7 +116,10 @@ export function LiveActivity() {
       <ReportIncidentModal
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        onSubmitted={(item) => setItems((prev) => [item, ...prev])}
+        onSubmitted={(item) => {
+          setItems((prev) => [item, ...prev]);
+          setDbReady(true);
+        }}
       />
     </section>
   );

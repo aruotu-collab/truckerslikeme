@@ -1,19 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { citySuggestions, sampleRoute } from "@/lib/mock-data";
 import { useAuthGate } from "@/lib/auth-gate";
+import { saveRoute } from "@/lib/supabase/data";
 import { RouteMap } from "@/components/route-map";
 import type { PlannedRoute } from "@/types";
 
 export function RoutePlanner() {
-  const { openGate } = useAuthGate();
+  const { isSignedIn, user, openGate } = useAuthGate();
   const [origin, setOrigin] = useState("Dallas, TX");
   const [destination, setDestination] = useState("Chicago, IL");
   const [route, setRoute] = useState<PlannedRoute | null>(null);
   const [aiUsed, setAiUsed] = useState(false);
   const [aiReply, setAiReply] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [awaitingAuthToSave, setAwaitingAuthToSave] = useState(false);
 
   const canSearch = origin.trim() && destination.trim();
 
@@ -26,6 +30,14 @@ export function RoutePlanner() {
     };
   }, [route]);
 
+  useEffect(() => {
+    if (isSignedIn && awaitingAuthToSave && route && user) {
+      setAwaitingAuthToSave(false);
+      void persistRoute(route);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, awaitingAuthToSave, route, user]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!canSearch) return;
@@ -36,11 +48,31 @@ export function RoutePlanner() {
     });
     setAiReply(null);
     setSaved(false);
+    setSaveError(null);
+  }
+
+  async function persistRoute(planned: PlannedRoute) {
+    if (!user) return;
+    setSaveBusy(true);
+    setSaveError(null);
+    const { error } = await saveRoute({ user, route: planned });
+    setSaveBusy(false);
+    if (error) {
+      setSaveError(error);
+      setSaved(false);
+      return;
+    }
+    setSaved(true);
   }
 
   function handleSave() {
-    if (!openGate("save-route")) return;
-    setSaved(true);
+    if (!route) return;
+    if (!isSignedIn) {
+      setAwaitingAuthToSave(true);
+      openGate("save-route");
+      return;
+    }
+    void persistRoute(route);
   }
 
   function handleAskAi() {
@@ -138,12 +170,26 @@ export function RoutePlanner() {
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="rounded-sm bg-white px-4 py-2 text-sm font-semibold text-asphalt transition hover:bg-concrete"
+                    disabled={saveBusy || saved}
+                    className="rounded-sm bg-white px-4 py-2 text-sm font-semibold text-asphalt transition hover:bg-concrete disabled:opacity-70"
                   >
-                    {saved ? "Route saved" : "Save this route"}
+                    {saveBusy
+                      ? "Saving…"
+                      : saved
+                        ? "Route saved"
+                        : "Save this route"}
                   </button>
                 </div>
               </div>
+
+              {saveError && (
+                <p className="mt-4 text-sm text-alert">{saveError}</p>
+              )}
+              {saved && !saveError && (
+                <p className="mt-4 text-sm text-amber-hot">
+                  Saved to your Members page.
+                </p>
+              )}
 
               <ul className="mt-6 space-y-4">
                 {route.insights.map((insight) => (
