@@ -36,21 +36,16 @@
   --font-display: var(--font-oswald);
 }
 
-/* App-like shell: kill horizontal wobble / rubber-band */
+/* Keep horizontal menus from bouncing the whole page */
 html {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
-  touch-action: pan-y;
+  overscroll-behavior-x: none;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-barlow), system-ui, sans-serif;
@@ -69,12 +64,11 @@ body {
   }
 }
 
-/* Horizontal menu / filter slider */
+/* Horizontal menu / filter slider — proximity snap avoids page jump */
 .h-scroll {
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  touch-action: pan-x;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

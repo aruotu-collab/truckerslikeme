@@ -44,8 +44,6 @@ const PATH_D = "M28 170 C 90 150, 120 60, 200 90 S 320 40, 372 70";
 type RouteMapProps = {
   route: PlannedRoute;
   supportPlaces?: CorridorSupportPlace[];
-  layer?: MapLayer;
-  onLayerChange?: (layer: MapLayer) => void;
 };
 
 function buildMarkers(
@@ -81,23 +79,12 @@ function buildMarkers(
     .sort((a, b) => a.mile - b.mile);
 }
 
-export function RouteMap({
-  route,
-  supportPlaces = [],
-  layer: controlledLayer,
-  onLayerChange,
-}: RouteMapProps) {
+export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
   const pathId = useId();
   const pathRef = useRef<SVGPathElement | null>(null);
   const [pathLen, setPathLen] = useState(0);
-  const [internalLayer, setInternalLayer] = useState<MapLayer>("all");
+  const [layer, setLayer] = useState<MapLayer>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const layer = controlledLayer ?? internalLayer;
-
-  function setLayer(next: MapLayer) {
-    if (onLayerChange) onLayerChange(next);
-    else setInternalLayer(next);
-  }
 
   const markers = useMemo(
     () => buildMarkers(route, supportPlaces),
@@ -166,7 +153,7 @@ export function RouteMap({
             Corridor map
           </p>
           <p className="text-xs text-chrome">
-            {markers.length} services · by mile
+            {visible.length} shown · by mile
           </p>
         </div>
 
@@ -185,7 +172,10 @@ export function RouteMap({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => {
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setLayer(chip.id);
                     setSelectedId(null);
                   }}

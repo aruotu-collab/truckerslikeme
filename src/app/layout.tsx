@@ -48,7 +48,7 @@ export default function RootLayout({
       lang="en"
       className={`${barlow.variable} ${oswald.variable} h-full antialiased`}
     >
-      <body className="font-sans text-foreground">
+      <body className="min-h-full font-sans text-foreground">
         <AuthGateProvider>
           <div className="app-shell">{children}</div>
           <MobileTabBar />

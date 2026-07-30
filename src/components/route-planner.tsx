@@ -6,7 +6,7 @@ import { getCorridorSupport } from "@/lib/corridor-support";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { writeLastCorridor } from "@/lib/corridor-store";
-import { RouteMap, type MapLayer } from "@/components/route-map";
+import { RouteMap } from "@/components/route-map";
 import { HScroll } from "@/components/h-scroll";
 import type { PlannedRoute } from "@/types";
 
@@ -36,10 +36,6 @@ type PlanService = {
   detail: string;
   mile: number;
 };
-
-function toMapLayer(filter: PlanFilter): MapLayer {
-  return filter;
-}
 
 export function RoutePlanner() {
   const { isSignedIn, user, openGate } = useAuthGate();
@@ -179,7 +175,7 @@ export function RoutePlanner() {
   }
 
   return (
-    <section id="plan" className="scroll-mt-8 bg-asphalt py-12 text-white sm:py-28">
+    <section className="bg-asphalt py-12 text-white sm:py-28">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="max-w-2xl">
           <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
@@ -242,7 +238,7 @@ export function RoutePlanner() {
 
         {route && (
           <div className="animate-fade-in mt-12 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-            <div>
+            <div className="order-2 lg:order-1">
               <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                 <div>
                   <p className="font-display text-2xl tracking-wide uppercase sm:text-3xl">
@@ -306,7 +302,15 @@ export function RoutePlanner() {
                           type="button"
                           role="tab"
                           aria-selected={active}
-                          onClick={() => setPlanFilter(chip.id)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const y = window.scrollY;
+                            setPlanFilter(chip.id);
+                            requestAnimationFrame(() => {
+                              window.scrollTo(0, y);
+                            });
+                          }}
                           className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                             active
                               ? "border-white text-white"
@@ -410,23 +414,12 @@ export function RoutePlanner() {
               </ol>
             </div>
 
-            <RouteMap
-              route={route}
-              supportPlaces={support?.places ?? []}
-              layer={toMapLayer(planFilter)}
-              onLayerChange={(next) => {
-                if (
-                  next === "all" ||
-                  next === "parking" ||
-                  next === "fuel" ||
-                  next === "repair" ||
-                  next === "lodging" ||
-                  next === "weigh"
-                ) {
-                  setPlanFilter(next);
-                }
-              }}
-            />
+            <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+              <RouteMap
+                route={route}
+                supportPlaces={support?.places ?? []}
+              />
+            </div>
           </div>
         )}
       </div>

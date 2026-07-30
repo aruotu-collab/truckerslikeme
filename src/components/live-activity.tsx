@@ -236,7 +236,7 @@ export function LiveActivity() {
   }
 
   return (
-    <section id="live" className="relative scroll-mt-8 py-8 sm:py-16">
+    <section className="relative scroll-mt-8 py-8 sm:py-16">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -344,7 +344,15 @@ export function LiveActivity() {
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setFeedFilter(chip.id)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const y = window.scrollY;
+                    setFeedFilter(chip.id);
+                    requestAnimationFrame(() => {
+                      window.scrollTo(0, y);
+                    });
+                  }}
                   className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                     active
                       ? "border-asphalt text-asphalt"
