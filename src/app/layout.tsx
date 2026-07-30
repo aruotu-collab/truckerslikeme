@@ -3,6 +3,7 @@ import { Barlow, Oswald } from "next/font/google";
 import { AuthGateProvider } from "@/lib/auth-gate";
 import { AuthGateModal } from "@/components/auth-gate-modal";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
+import { LockHorizontalPan } from "@/components/lock-horizontal-pan";
 import "./globals.css";
 
 const barlow = Barlow({
@@ -50,6 +51,7 @@ export default function RootLayout({
     >
       <body className="min-h-full font-sans text-foreground">
         <AuthGateProvider>
+          <LockHorizontalPan />
           <div className="app-shell">{children}</div>
           <MobileTabBar />
           <AuthGateModal />

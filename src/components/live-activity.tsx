@@ -284,13 +284,13 @@ export function LiveActivity() {
           </button>
         </div>
 
-        <div className="mt-6 flex gap-2 overflow-x-auto sm:mt-8 sm:flex-wrap sm:overflow-visible">
-          <div className="[--h-scroll-fade:var(--background)] sm:contents">
+        <div className="mt-6 max-w-full min-w-0 sm:mt-8">
+          <div className="[--h-scroll-fade:var(--background)]">
             {corridor ? (
               <HScroll
                 aria-label="Corridor scope"
                 role="navigation"
-                className="w-full sm:w-auto"
+                className="w-full"
               >
                 <p className="shrink-0 self-center pr-1 text-sm text-asphalt">
                   Corridor:{" "}

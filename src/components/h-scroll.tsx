@@ -9,7 +9,7 @@ type HScrollProps = {
   role?: "tablist" | "navigation" | "list";
 };
 
-/** Horizontal snap slider for filter chips and mobile menus. */
+/** Contained horizontal slider — does not widen or slide the page. */
 export function HScroll({
   children,
   className = "",
@@ -17,11 +17,12 @@ export function HScroll({
   role = "tablist",
 }: HScrollProps) {
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative max-w-full min-w-0 overflow-x-clip ${className}`}>
       <div
         role={role}
         aria-label={ariaLabel}
-        className="h-scroll flex items-center gap-2 overflow-x-auto overscroll-x-contain scroll-smooth pb-1"
+        className="h-scroll flex max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1"
+        data-h-scroll
       >
         {children}
       </div>
