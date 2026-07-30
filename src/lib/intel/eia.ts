@@ -28,37 +28,15 @@ const SERIES: {
   },
 ];
 
-type EiaSeriesResponse = {
-  response?: {
-    data?: Array<{
-      period?: string;
-      value?: number | string;
-    }>;
+type ClassicSeriesResponse = {
+  series?: Array<{
+    series_id?: string;
+    data?: Array<[string, number | string | null]>;
+  }>;
+  data?: {
+    error?: string;
   };
-  error?: string;
 };
-
-async function fetchSeries(
-  apiKey: string,
-  seriesId: string,
-): Promise<{ period: string; value: number } | null> {
-  const url = `https://api.eia.gov/v2/seriesid/${encodeURIComponent(seriesId)}?api_key=${encodeURIComponent(apiKey)}&length=1`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-  if (!res.ok) {
-    throw new Error(`EIA series ${seriesId} failed: ${res.status}`);
-  }
-
-  const json = (await res.json()) as EiaSeriesResponse;
-  if (json.error) {
-    throw new Error(`EIA series ${seriesId}: ${json.error}`);
-  }
-
-  const row = json.response?.data?.[0];
-  const value = Number(row?.value);
-  const period = row?.period;
-  if (!period || !Number.isFinite(value)) return null;
-  return { period, value };
-}
 
 export async function fetchEiaDieselSnapshots(): Promise<FuelSnapshotInput[]> {
   const apiKey = process.env.EIA_API_KEY;
@@ -66,18 +44,41 @@ export async function fetchEiaDieselSnapshots(): Promise<FuelSnapshotInput[]> {
     return [];
   }
 
+  const ids = SERIES.map((s) => s.seriesId).join(";");
+  const url = `https://api.eia.gov/series/?api_key=${encodeURIComponent(apiKey)}&series_id=${encodeURIComponent(ids)}`;
+  const res = await fetch(url, { next: { revalidate: 0 } });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`EIA request failed: ${res.status} ${body.slice(0, 180)}`);
+  }
+
+  const json = (await res.json()) as ClassicSeriesResponse;
+  if (json.data?.error) {
+    throw new Error(`EIA error: ${json.data.error}`);
+  }
+
   const results: FuelSnapshotInput[] = [];
 
   for (const series of SERIES) {
-    const latest = await fetchSeries(apiKey, series.seriesId);
-    if (!latest) continue;
+    const block = json.series?.find((s) => s.series_id === series.seriesId);
+    const point = block?.data?.[0];
+    if (!point) continue;
+    const period = String(point[0]);
+    const value = Number(point[1]);
+    if (!period || !Number.isFinite(value)) continue;
+
     results.push({
       region: series.region,
       regionCode: series.regionCode,
-      priceUsd: latest.value,
-      period: latest.period,
+      priceUsd: value,
+      period,
       source: "eia",
     });
+  }
+
+  if (results.length === 0) {
+    throw new Error("EIA returned no diesel series rows");
   }
 
   return results;

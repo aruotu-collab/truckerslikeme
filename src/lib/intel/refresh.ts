@@ -116,7 +116,20 @@ export async function refreshLiveIntel(): Promise<RefreshResult> {
       errors.push("EIA_API_KEY not set — diesel auto-update skipped.");
     }
   } catch (err) {
-    errors.push(err instanceof Error ? err.message : "EIA fetch failed");
+    const message = err instanceof Error ? err.message : "EIA fetch failed";
+    errors.push(message);
+    await admin.from("system_alerts").upsert(
+      {
+        external_id: "eia-diesel-error",
+        kind: "fuel",
+        message: `Diesel auto-update issue: ${message.slice(0, 160)}`,
+        location: "EIA on-highway diesel",
+        source: "eia",
+        severity: "warn",
+        updated_at: fetchedAt,
+      },
+      { onConflict: "external_id" },
+    );
   }
 
   return {
