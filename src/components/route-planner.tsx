@@ -81,7 +81,7 @@ export function RoutePlanner() {
     }
     setAiUsed(true);
     setAiReply(
-      `For ${origin} → ${destination}: leave before 06:00 to beat Tulsa construction, fuel at Flying J Collinsville ($3.41), and book Love's Springfield early — lot hits 93% by 21:00. Crosswinds on I-70 after mile 480; drop 5 mph if gusts exceed 35.`,
+      `For ${origin} → ${destination} (~925 mi via I-35/I-44/I-55): fuel early at Pilot #701 Ardmore (I-35 Ex 33; Gulf diesel usually under Midwest EIA ~$5.20). Overnight at Petro Joplin (I-44 Ex 4, ~465 spaces) before lots fill mid-afternoon. Watch MoDOT’s St. Clair WB scale rebuild on I-44. Into Chicago, budget I-80 Joliet congestion and intermodal waits over 2 hours — confirm detention terms before you accept the load.`,
     );
   }
 
