@@ -109,7 +109,13 @@ export async function refreshLiveIntel(): Promise<RefreshResult> {
           );
 
           if (alertError) errors.push(`Fuel alert: ${alertError.message}`);
-          else fuelAlerts = 1;
+          else {
+            fuelAlerts = 1;
+            await admin
+              .from("system_alerts")
+              .delete()
+              .eq("external_id", "eia-diesel-error");
+          }
         }
       }
     } else if (!process.env.EIA_API_KEY) {

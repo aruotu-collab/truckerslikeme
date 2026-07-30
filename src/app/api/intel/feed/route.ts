@@ -11,20 +11,27 @@ async function maybeRefreshStaleIntel() {
   const admin = createAdminClient();
   if (!admin) return;
 
-  const [{ data: latestAlert }, { data: latestFuel }] = await Promise.all([
-    admin
-      .from("system_alerts")
-      .select("updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from("fuel_snapshots")
-      .select("fetched_at")
-      .order("fetched_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  // Always try diesel refresh when the last EIA attempt was an error placeholder
+  const [{ data: latestAlert }, { data: latestFuel }, { data: eiaError }] =
+    await Promise.all([
+      admin
+        .from("system_alerts")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("fuel_snapshots")
+        .select("fetched_at")
+        .order("fetched_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("system_alerts")
+        .select("id")
+        .eq("external_id", "eia-diesel-error")
+        .maybeSingle(),
+    ]);
 
   const lastAlert = latestAlert?.updated_at
     ? new Date(latestAlert.updated_at).getTime()
@@ -35,11 +42,11 @@ async function maybeRefreshStaleIntel() {
   const last = Math.max(lastAlert, lastFuel);
   const missingFuel = !latestFuel;
   const stale = Date.now() - last >= STALE_MS;
+  const retryEia = Boolean(eiaError);
 
-  if (!stale && !missingFuel) return;
+  if (!stale && !missingFuel && !retryEia) return;
 
-  // Await when diesel has never been loaded so EIA key setup takes effect immediately
-  if (missingFuel) {
+  if (missingFuel || retryEia) {
     await refreshLiveIntel();
     return;
   }
