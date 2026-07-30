@@ -35,8 +35,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Source | Cadence | What truckers see |
 |--------|---------|-------------------|
 | Driver reports | Realtime + 30s poll | Live activity posts |
-| NWS weather | Hourly cron | Wind, winter, flood, storm alerts on TX/OK/MO/IL/KS/TN/AR |
-| EIA diesel | Hourly cron | U.S. / Midwest / Gulf Coast $/gal |
+| NWS weather | Daily cron + on-demand if stale | Wind, winter, flood, storm alerts on TX/OK/MO/IL/KS/TN/AR |
+| EIA diesel | Daily cron + on-demand if stale | U.S. / Midwest / Gulf Coast $/gal |
 | Seed corridor intel | Always | Researched baseline stops/issues |
 
 Manual cron test:

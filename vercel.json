@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/refresh-live-intel",
-      "schedule": "0 * * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }
