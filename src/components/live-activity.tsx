@@ -1,13 +1,12 @@
 "use client";
 
-import { liveActivities } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import { liveActivities as seedActivities } from "@/lib/mock-data";
 import { useAuthGate } from "@/lib/auth-gate";
-import type { ActivityKind } from "@/types";
+import { ReportIncidentModal } from "@/components/report-incident-modal";
+import type { ActivityKind, LiveActivity } from "@/types";
 
-const kindMeta: Record<
-  ActivityKind,
-  { label: string; tone: string }
-> = {
+const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
   parking: { label: "Parking", tone: "text-amber" },
   traffic: { label: "Traffic", tone: "text-alert" },
   fuel: { label: "Fuel", tone: "text-diesel" },
@@ -17,7 +16,26 @@ const kindMeta: Record<
 };
 
 export function LiveActivity() {
-  const { openGate } = useAuthGate();
+  const { isSignedIn, openGate } = useAuthGate();
+  const [items, setItems] = useState<LiveActivity[]>(seedActivities);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [awaitingAuth, setAwaitingAuth] = useState(false);
+
+  useEffect(() => {
+    if (isSignedIn && awaitingAuth) {
+      setAwaitingAuth(false);
+      setReportOpen(true);
+    }
+  }, [isSignedIn, awaitingAuth]);
+
+  function handleReportClick() {
+    if (!isSignedIn) {
+      setAwaitingAuth(true);
+      openGate("report-alert");
+      return;
+    }
+    setReportOpen(true);
+  }
 
   return (
     <section id="live" className="relative scroll-mt-8 py-12 sm:py-16">
@@ -40,7 +58,7 @@ export function LiveActivity() {
           </div>
           <button
             type="button"
-            onClick={() => openGate("report-alert")}
+            onClick={handleReportClick}
             className="self-start rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road sm:self-auto"
           >
             Report an incident
@@ -48,13 +66,13 @@ export function LiveActivity() {
         </div>
 
         <ul className="mt-12 divide-y divide-asphalt/10 border-y border-asphalt/10">
-          {liveActivities.map((item, index) => {
+          {items.map((item, index) => {
             const meta = kindMeta[item.kind];
             return (
               <li
                 key={item.id}
                 className="animate-slide-up flex flex-col gap-2 py-5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
-                style={{ animationDelay: `${index * 60}ms` }}
+                style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
               >
                 <div>
                   <span
@@ -68,13 +86,19 @@ export function LiveActivity() {
                   <p className="mt-1 text-sm text-muted">{item.location}</p>
                 </div>
                 <time className="shrink-0 text-sm text-muted">
-                  {item.minutesAgo}m ago
+                  {item.minutesAgo === 0 ? "Just now" : `${item.minutesAgo}m ago`}
                 </time>
               </li>
             );
           })}
         </ul>
       </div>
+
+      <ReportIncidentModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSubmitted={(item) => setItems((prev) => [item, ...prev])}
+      />
     </section>
   );
 }
