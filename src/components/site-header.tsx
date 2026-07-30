@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuthGate } from "@/lib/auth-gate";
 
 export function SiteHeader() {
-  const { isSignedIn, signOut, openGate } = useAuthGate();
+  const { isSignedIn, user, signOut, openGate } = useAuthGate();
 
   return (
     <header className="absolute inset-x-0 top-0 z-30">
@@ -30,13 +30,21 @@ export function SiteHeader() {
             See live activity
           </a>
           {isSignedIn ? (
-            <button
-              type="button"
-              onClick={signOut}
-              className="rounded-sm border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white transition hover:bg-white/20 sm:text-sm"
-            >
-              Sign out
-            </button>
+            <>
+              <span
+                className="hidden max-w-[14rem] truncate text-xs text-white/85 sm:inline sm:text-sm"
+                title={user?.email ?? undefined}
+              >
+                {user?.email}
+              </span>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="rounded-sm border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white transition hover:bg-white/20 sm:text-sm"
+              >
+                Sign out
+              </button>
+            </>
           ) : (
             <button
               type="button"
