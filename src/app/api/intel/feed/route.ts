@@ -11,17 +11,34 @@ async function maybeRefreshStaleIntel() {
   const admin = createAdminClient();
   if (!admin) return;
 
-  const { data } = await admin
-    .from("system_alerts")
-    .select("updated_at")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: latestAlert }, { data: latestFuel }] = await Promise.all([
+    admin
+      .from("system_alerts")
+      .select("updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("fuel_snapshots")
+      .select("fetched_at")
+      .order("fetched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const last = data?.updated_at ? new Date(data.updated_at).getTime() : 0;
-  if (Date.now() - last < STALE_MS) return;
+  const lastAlert = latestAlert?.updated_at
+    ? new Date(latestAlert.updated_at).getTime()
+    : 0;
+  const lastFuel = latestFuel?.fetched_at
+    ? new Date(latestFuel.fetched_at).getTime()
+    : 0;
+  const last = Math.max(lastAlert, lastFuel);
+  const missingFuel = !latestFuel;
+  const stale = Date.now() - last >= STALE_MS;
 
-  // Fire-and-forget so the feed stays fast
+  // Refresh if intel is stale, or diesel has never been fetched (e.g. EIA key just added)
+  if (!stale && !missingFuel) return;
+
   void refreshLiveIntel();
 }
 
