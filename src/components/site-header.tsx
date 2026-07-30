@@ -10,6 +10,11 @@ type SiteHeaderProps = {
 export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
   const { isSignedIn, user, signOut, openGate } = useAuthGate();
   const solid = variant === "solid";
+  const shortName =
+    (typeof user?.user_metadata?.display_name === "string" &&
+      user.user_metadata.display_name) ||
+    user?.email?.split("@")[0] ||
+    null;
 
   return (
     <header
@@ -20,12 +25,23 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8">
-        <Link
-          href="/"
-          className="shrink-0 font-display text-lg tracking-[0.08em] text-white uppercase sm:text-2xl"
-        >
-          Truckers<span className="text-amber-hot">Like</span>Me
-        </Link>
+        <div className="min-w-0">
+          <Link
+            href="/"
+            className="block font-display text-lg tracking-[0.08em] text-white uppercase sm:text-2xl"
+          >
+            Truckers<span className="text-amber-hot">Like</span>Me
+          </Link>
+          {isSignedIn && shortName && (
+            <Link
+              href="/members"
+              className="mt-0.5 block truncate text-xs text-white/75 transition hover:text-amber-hot sm:text-sm"
+              title={user?.email ?? undefined}
+            >
+              Welcome, {shortName}
+            </Link>
+          )}
+        </div>
 
         <nav className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <Link
@@ -42,13 +58,6 @@ export function SiteHeader({ variant = "overlay" }: SiteHeaderProps) {
           </Link>
           {isSignedIn ? (
             <>
-              <Link
-                href="/members"
-                className="hidden max-w-[14rem] truncate text-xs text-white/85 transition hover:text-amber-hot sm:inline sm:text-sm"
-                title={user?.email ?? undefined}
-              >
-                {user?.email}
-              </Link>
               <Link
                 href="/members"
                 className="rounded-sm border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20 sm:text-sm"
