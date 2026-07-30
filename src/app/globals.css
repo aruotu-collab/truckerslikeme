@@ -15,7 +15,6 @@
   --foreground: #1a1d23;
   --muted: #5c6570;
   --h-scroll-fade: var(--background);
-  --app-tab-h: 3.75rem;
 }
 
 @theme inline {
@@ -36,12 +35,11 @@
   --font-display: var(--font-oswald);
 }
 
-/* App-still: page can only scroll vertically — no left/right slide */
+/* Mobile web: vertical scroll only — no sideways page slide */
 html {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  overscroll-behavior: none;
   overscroll-behavior-x: none;
   -webkit-text-size-adjust: 100%;
 }
@@ -50,9 +48,7 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  overscroll-behavior: none;
   overscroll-behavior-x: none;
-  /* Critical: ignore horizontal pans on the document */
   touch-action: pan-y;
   background: var(--background);
   color: var(--foreground);
@@ -60,27 +56,18 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Room for fixed mobile tab bar */
-.app-shell {
+.site-shell {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   overflow-x: clip;
   min-height: 100%;
-  padding-bottom: calc(var(--app-tab-h) + env(safe-area-inset-bottom, 0px));
 }
 
-@media (min-width: 768px) {
-  .app-shell {
-    padding-bottom: 0;
-  }
-}
-
-/* Only these strips may scroll sideways */
+/* Filter / nav strips may scroll sideways; page may not */
 .h-scroll {
   max-width: 100%;
   min-width: 0;
-  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   touch-action: pan-x;
@@ -93,34 +80,7 @@ body {
 }
 
 .h-scroll > * {
-  scroll-snap-align: start;
   flex-shrink: 0;
-}
-
-/* Portrait: compact header actions */
-@media (orientation: portrait) and (max-width: 767px) {
-  .app-header-inner {
-    padding-top: 0.65rem;
-    padding-bottom: 0.65rem;
-  }
-}
-
-/* Landscape phone: shorter chrome, keep content usable */
-@media (orientation: landscape) and (max-height: 500px) {
-  .app-header-inner {
-    padding-top: 0.4rem;
-    padding-bottom: 0.4rem;
-  }
-
-  .mobile-tab-bar {
-    --app-tab-h: 2.75rem;
-  }
-
-  .mobile-tab-bar a,
-  .mobile-tab-bar button {
-    padding-top: 0.35rem;
-    padding-bottom: 0.35rem;
-  }
 }
 
 ::selection {

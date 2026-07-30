@@ -267,12 +267,12 @@ export function LiveActivity() {
                 </button>
               )}
             </div>
-            <h2 className="font-display text-3xl tracking-wide text-asphalt uppercase sm:text-5xl">
+            <h2 className="font-display text-3xl leading-tight tracking-wide text-asphalt uppercase sm:text-5xl">
               What&apos;s ahead on the haul
             </h2>
-            <p className="mt-3 max-w-xl text-muted">
-              Ranked by risk for drivers — tap a category when you need parking,
-              fuel, weigh, or repair only.
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+              Ranked by risk — tap Parking, Fuel, Weigh, or Repair when that&apos;s
+              all you need.
             </p>
           </div>
           <button

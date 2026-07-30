@@ -181,10 +181,10 @@ export function RoutePlanner() {
           <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
             Route planner
           </p>
-          <h2 className="mt-3 font-display text-4xl tracking-wide uppercase sm:text-5xl">
+          <h2 className="mt-3 font-display text-3xl leading-tight tracking-wide uppercase sm:text-5xl">
             Search a corridor. See the road ahead.
           </h2>
-          <p className="mt-3 text-chrome">
+          <p className="mt-3 text-base leading-relaxed text-chrome sm:text-lg">
             No account needed to search. Sign up when you want to save the trip
             or ask AI for more than one free tip.
           </p>
