@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TruckersLikeMe
 
-## Getting Started
+Live road intelligence for truck drivers — parking, fuel, delays, and route tips. Browse without an account; sign up when you save, post, or ask AI.
 
-First, run the development server:
+## Stack
+
+- **Next.js** (App Router) + TypeScript + Tailwind
+- **Supabase** for auth + Postgres (keys optional for local demo)
+- Progressive auth gate (demo mode works without Supabase)
+- Stripe / Mapbox / OpenAI stubs for later phases
+
+## Quick start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### What you can try now
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Browse **Live activity** with no login
+2. **Search a route** (Dallas → Chicago sample)
+3. Click **Ask AI once** (one free guest tip)
+4. Click **Save this route** or **Report an incident** → auth gate
+5. Use **Continue with demo account** to unlock gated actions
 
-## Learn More
+## Connect Supabase
 
-To learn more about Next.js, take a look at the following resources:
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy `.env.example` → `.env.local` and fill in URL + anon key
+3. Run `supabase/schema.sql` in the Supabase SQL editor
+4. Enable Email auth (or Google) in Authentication → Providers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Until keys are set, the app uses a local demo sign-in so you can ship UI without a backend.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project layout
 
-## Deploy on Vercel
+```
+src/app              # pages + global styles
+src/components       # hero, live feed, route planner, auth modal
+src/lib              # mock data, auth gate, supabase clients
+supabase/schema.sql  # Phase 1 tables + RLS
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Roadmap
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Phase | Focus |
+|-------|--------|
+| 1 (done) | Landing, live intel, route shell, progressive auth |
+| 2 | Real alerts + truck stops in Supabase, Mapbox map |
+| 3 | Real AI + Stripe Pro (£24–39/mo) |
+| 4 | Saved routes, notifications, reviews |
+
+## Design
+
+Highway asphalt / safety amber palette with Oswald + Barlow. Full-bleed hero, live feed below the fold, no login wall on first paint.
