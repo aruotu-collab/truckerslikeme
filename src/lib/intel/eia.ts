@@ -6,18 +6,59 @@ export type FuelSnapshotInput = {
   source: string;
 };
 
-const SERIES: { regionCode: string; region: string; duoarea: string }[] = [
-  { regionCode: "US", region: "U.S. average", duoarea: "NUS" },
-  { regionCode: "MW", region: "Midwest (PADD 2)", duoarea: "R20" },
-  { regionCode: "GC", region: "Gulf Coast (PADD 3)", duoarea: "R30" },
+const SERIES: {
+  regionCode: string;
+  region: string;
+  seriesId: string;
+}[] = [
+  {
+    regionCode: "US",
+    region: "U.S. average",
+    seriesId: "PET.EMD_EPD2D_PTE_NUS_DPG.W",
+  },
+  {
+    regionCode: "MW",
+    region: "Midwest (PADD 2)",
+    seriesId: "PET.EMD_EPD2D_PTE_R20_DPG.W",
+  },
+  {
+    regionCode: "GC",
+    region: "Gulf Coast (PADD 3)",
+    seriesId: "PET.EMD_EPD2D_PTE_R30_DPG.W",
+  },
 ];
 
-type EiaRow = {
-  period?: string;
-  duoarea?: string;
-  "area-name"?: string;
-  value?: number | string;
+type EiaSeriesResponse = {
+  response?: {
+    data?: Array<{
+      period?: string;
+      value?: number | string;
+    }>;
+  };
+  error?: string;
 };
+
+async function fetchSeries(
+  apiKey: string,
+  seriesId: string,
+): Promise<{ period: string; value: number } | null> {
+  const url = `https://api.eia.gov/v2/seriesid/${encodeURIComponent(seriesId)}?api_key=${encodeURIComponent(apiKey)}&length=1`;
+  const res = await fetch(url, { next: { revalidate: 0 } });
+  if (!res.ok) {
+    throw new Error(`EIA series ${seriesId} failed: ${res.status}`);
+  }
+
+  const json = (await res.json()) as EiaSeriesResponse;
+  if (json.error) {
+    throw new Error(`EIA series ${seriesId}: ${json.error}`);
+  }
+
+  const row = json.response?.data?.[0];
+  const value = Number(row?.value);
+  const period = row?.period;
+  if (!period || !Number.isFinite(value)) return null;
+  return { period, value };
+}
 
 export async function fetchEiaDieselSnapshots(): Promise<FuelSnapshotInput[]> {
   const apiKey = process.env.EIA_API_KEY;
@@ -25,47 +66,19 @@ export async function fetchEiaDieselSnapshots(): Promise<FuelSnapshotInput[]> {
     return [];
   }
 
-  const params = new URLSearchParams();
-  params.set("api_key", apiKey);
-  params.set("frequency", "weekly");
-  params.set("data[0]", "value");
-  params.set("facets[product][]", "EPD2D");
+  const results: FuelSnapshotInput[] = [];
+
   for (const series of SERIES) {
-    params.append("facets[duoarea][]", series.duoarea);
-  }
-  params.set("sort[0][column]", "period");
-  params.set("sort[0][direction]", "desc");
-  params.set("length", "12");
-
-  const url = `https://api.eia.gov/v2/petroleum/pri/gnd/data/?${params.toString()}`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-
-  if (!res.ok) {
-    throw new Error(`EIA request failed: ${res.status}`);
-  }
-
-  const json = (await res.json()) as { response?: { data?: EiaRow[] } };
-  const rows = json.response?.data ?? [];
-  const latestByArea = new Map<string, FuelSnapshotInput>();
-
-  for (const row of rows) {
-    const duoarea = row.duoarea;
-    const period = row.period;
-    const value = Number(row.value);
-    if (!duoarea || !period || !Number.isFinite(value)) continue;
-
-    const meta = SERIES.find((s) => s.duoarea === duoarea);
-    if (!meta) continue;
-    if (latestByArea.has(meta.regionCode)) continue;
-
-    latestByArea.set(meta.regionCode, {
-      region: meta.region,
-      regionCode: meta.regionCode,
-      priceUsd: value,
-      period,
+    const latest = await fetchSeries(apiKey, series.seriesId);
+    if (!latest) continue;
+    results.push({
+      region: series.region,
+      regionCode: series.regionCode,
+      priceUsd: latest.value,
+      period: latest.period,
       source: "eia",
     });
   }
 
-  return [...latestByArea.values()];
+  return results;
 }

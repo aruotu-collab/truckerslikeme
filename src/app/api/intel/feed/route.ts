@@ -36,8 +36,13 @@ async function maybeRefreshStaleIntel() {
   const missingFuel = !latestFuel;
   const stale = Date.now() - last >= STALE_MS;
 
-  // Refresh if intel is stale, or diesel has never been fetched (e.g. EIA key just added)
   if (!stale && !missingFuel) return;
+
+  // Await when diesel has never been loaded so EIA key setup takes effect immediately
+  if (missingFuel) {
+    await refreshLiveIntel();
+    return;
+  }
 
   void refreshLiveIntel();
 }
