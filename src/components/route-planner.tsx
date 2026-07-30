@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { citySuggestions, sampleRoute } from "@/lib/mock-data";
+import {
+  getCorridorSupport,
+  supportKindLabel,
+} from "@/lib/corridor-support";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { writeLastCorridor } from "@/lib/corridor-store";
 import { RouteMap } from "@/components/route-map";
-import type { PlannedRoute } from "@/types";
+import type { CorridorSupportKind, PlannedRoute } from "@/types";
 
 export function RoutePlanner() {
   const { isSignedIn, user, openGate } = useAuthGate();
@@ -19,6 +23,9 @@ export function RoutePlanner() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [awaitingAuthToSave, setAwaitingAuthToSave] = useState(false);
+  const [supportFilter, setSupportFilter] = useState<
+    CorridorSupportKind | "all"
+  >("all");
 
   const canSearch = origin.trim() && destination.trim();
 
@@ -30,6 +37,17 @@ export function RoutePlanner() {
       alerts: route.stops.filter((s) => s.type === "alert").length,
     };
   }, [route]);
+
+  const support = useMemo(() => {
+    if (!route) return null;
+    return getCorridorSupport(route.origin, route.destination);
+  }, [route]);
+
+  const filteredSupportPlaces = useMemo(() => {
+    if (!support) return [];
+    if (supportFilter === "all") return support.places;
+    return support.places.filter((p) => p.kind === supportFilter);
+  }, [support, supportFilter]);
 
   useEffect(() => {
     if (isSignedIn && awaitingAuthToSave && route && user) {
@@ -53,6 +71,7 @@ export function RoutePlanner() {
     setAiReply(null);
     setSaved(false);
     setSaveError(null);
+    setSupportFilter("all");
   }
 
   async function persistRoute(planned: PlannedRoute) {
@@ -193,6 +212,101 @@ export function RoutePlanner() {
                 <p className="mt-4 text-sm text-amber-hot">
                   Saved to your Members page.
                 </p>
+              )}
+
+              {support && (
+                <div className="mt-8 border-t border-white/10 pt-8">
+                  <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+                    Along this corridor
+                  </p>
+                  <p className="mt-2 max-w-xl text-sm text-chrome">
+                    {support.note}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-6">
+                    {(
+                      [
+                        {
+                          key: "repair" as const,
+                          count: support.counts.repair,
+                          label: "Truck repair",
+                          hint: "shops on route",
+                        },
+                        {
+                          key: "lodging" as const,
+                          count: support.counts.lodging,
+                          label: "Truck lodging",
+                          hint: "motels w/ trailer parking",
+                        },
+                        {
+                          key: "parking" as const,
+                          count: support.counts.parking,
+                          label: "Parking lots",
+                          hint: "major overnight stops",
+                        },
+                      ] as const
+                    ).map((item) => {
+                      const active = supportFilter === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            setSupportFilter(active ? "all" : item.key)
+                          }
+                          className={`border-l-2 py-1 pl-3 text-left transition ${
+                            active
+                              ? "border-amber"
+                              : "border-white/20 hover:border-amber/60"
+                          }`}
+                        >
+                          <p className="font-display text-3xl tracking-wide text-white sm:text-4xl">
+                            {item.count}
+                          </p>
+                          <p className="mt-1 text-xs tracking-wide text-amber uppercase sm:text-sm">
+                            {item.label}
+                          </p>
+                          <p className="mt-0.5 text-xs text-chrome">
+                            {item.hint}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {filteredSupportPlaces.length > 0 && (
+                    <ul className="mt-6 space-y-0 border-t border-white/10">
+                      {filteredSupportPlaces.map((place) => (
+                        <li
+                          key={place.id}
+                          className="grid grid-cols-[auto_1fr] gap-4 border-b border-white/10 py-3"
+                        >
+                          <div className="pt-0.5 text-right font-display text-sm text-amber">
+                            mi {place.mile}
+                          </div>
+                          <div>
+                            <p className="font-medium text-white">
+                              <span className="mr-2 font-display text-xs tracking-wider text-chrome uppercase">
+                                {supportKindLabel[place.kind]}
+                              </span>
+                              {place.name}
+                            </p>
+                            <p className="mt-1 text-sm text-chrome">
+                              {place.detail}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {support.places.length === 0 && (
+                    <p className="mt-5 text-sm text-chrome">
+                      Place-level list coming for this corridor. Counts above
+                      are corridor estimates.
+                    </p>
+                  )}
+                </div>
               )}
 
               <ul className="mt-6 space-y-4">

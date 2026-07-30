@@ -37,6 +37,29 @@ export type PlannedRoute = {
   insights: string[];
 };
 
+/** Truck-side support along a planned corridor (not consumer lodging). */
+export type CorridorSupportKind = "repair" | "lodging" | "parking";
+
+export type CorridorSupportPlace = {
+  id: string;
+  kind: CorridorSupportKind;
+  name: string;
+  detail: string;
+  mile: number;
+};
+
+export type CorridorSupport = {
+  corridorKey: string;
+  label: string;
+  note: string;
+  counts: {
+    repair: number;
+    lodging: number;
+    parking: number;
+  };
+  places: CorridorSupportPlace[];
+};
+
 export type AuthGateAction =
   | "save-route"
   | "report-alert"
