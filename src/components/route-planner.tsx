@@ -175,8 +175,8 @@ export function RoutePlanner() {
   }
 
   return (
-    <section className="bg-asphalt py-12 text-white sm:py-28">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+    <section className="w-full min-w-0 max-w-full overflow-x-clip bg-asphalt py-12 text-white sm:py-28">
+      <div className="mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-8">
         <div className="max-w-2xl">
           <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
             Route planner
@@ -237,14 +237,14 @@ export function RoutePlanner() {
         </form>
 
         {route && (
-          <div className="animate-fade-in mt-12 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="order-2 lg:order-1">
-              <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-                <div>
-                  <p className="font-display text-2xl tracking-wide uppercase sm:text-3xl">
+          <div className="animate-fade-in mt-12 grid w-full min-w-0 max-w-full gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="order-2 min-w-0 max-w-full lg:order-1">
+              <div className="flex min-w-0 flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-display text-2xl tracking-wide break-words uppercase sm:text-3xl">
                     {route.origin} → {route.destination}
                   </p>
-                  <p className="mt-1 text-sm text-chrome sm:text-base">
+                  <p className="mt-1 break-words text-sm text-chrome sm:text-base">
                     {route.miles} miles · ~{route.hours} driving hours
                     {statusCounts &&
                       ` · ${statusCounts.fuel} fuel · ${statusCounts.parking} parking · ${statusCounts.alerts} alerts`}
@@ -282,17 +282,20 @@ export function RoutePlanner() {
                 </p>
               )}
 
-              <div className="mt-8 border-t border-white/10 pt-8">
+              <div className="mt-8 min-w-0 border-t border-white/10 pt-8">
                 <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
                   Along this corridor
                 </p>
-                <p className="mt-2 max-w-xl text-sm text-chrome">
+                <p className="mt-2 max-w-xl break-words text-sm leading-relaxed text-chrome">
                   {support?.note ??
                     "Tap a category to see only that service — same pattern as Live."}
                 </p>
 
-                <div className="mt-6 [--h-scroll-fade:#1a1d23]">
-                  <HScroll aria-label="Filter corridor services">
+                <div className="mt-6 w-full min-w-0 [--h-scroll-fade:#1a1d23]">
+                  <HScroll
+                    aria-label="Filter corridor services"
+                    hint="Swipe filters →"
+                  >
                     {planFilterChips.map((chip) => {
                       const active = planFilter === chip.id;
                       const count = filterCounts[chip.id];
@@ -311,7 +314,7 @@ export function RoutePlanner() {
                               window.scrollTo(0, y);
                             });
                           }}
-                          className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                          className={`shrink-0 border-b-2 px-1.5 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                             active
                               ? "border-white text-white"
                               : "border-transparent text-chrome hover:text-white"
@@ -332,23 +335,23 @@ export function RoutePlanner() {
                 </div>
 
                 {filteredServices.length > 0 ? (
-                  <ul className="mt-6 space-y-0 border-t border-white/10">
+                  <ul className="mt-6 space-y-0 border-t border-white/10 pb-16">
                     {filteredServices.map((place) => (
                       <li
                         key={place.id}
-                        className="grid grid-cols-[auto_1fr] gap-4 border-b border-white/10 py-3"
+                        className="grid min-w-0 grid-cols-[auto_1fr] gap-3 border-b border-white/10 py-3 sm:gap-4"
                       >
                         <div className="pt-0.5 text-right font-display text-sm text-amber">
                           mi {place.mile}
                         </div>
-                        <div>
-                          <p className="font-medium text-white">
+                        <div className="min-w-0">
+                          <p className="break-words font-medium text-white">
                             <span className="mr-2 font-display text-xs tracking-wider text-chrome uppercase">
                               {serviceLabel[place.kind]}
                             </span>
                             {place.name}
                           </p>
-                          <p className="mt-1 text-sm text-chrome">
+                          <p className="mt-1 break-words text-sm text-chrome">
                             {place.detail}
                           </p>
                         </div>
@@ -414,7 +417,7 @@ export function RoutePlanner() {
               </ol>
             </div>
 
-            <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+            <div className="order-1 min-w-0 max-w-full lg:order-2 lg:sticky lg:top-6 lg:self-start">
               <RouteMap
                 route={route}
                 supportPlaces={support?.places ?? []}

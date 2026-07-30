@@ -141,24 +141,24 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-sm border border-white/10 bg-road">
+    <div className="relative w-full min-w-0 max-w-full overflow-hidden rounded-sm border border-white/10 bg-road">
       <div className="absolute inset-0 opacity-40">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#4a6f86_0%,transparent_45%),radial-gradient(circle_at_80%_70%,#2c313a_0%,transparent_40%)]" />
         <div className="highway-lines absolute inset-x-8 top-1/2 h-1 opacity-70" />
       </div>
 
-      <div className="relative p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="relative w-full min-w-0 p-3 sm:p-5">
+        <div className="mb-2 flex min-w-0 flex-col gap-1 sm:mb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <p className="font-display text-sm tracking-[0.18em] text-chrome uppercase">
             Corridor map
           </p>
           <p className="text-xs text-chrome">
-            {visible.length} shown · by mile
+            {visible.length} of {markers.length} · by mile
           </p>
         </div>
 
-        <div className="mb-4 [--h-scroll-fade:#2c313a]">
-          <HScroll aria-label="Filter map services">
+        <div className="mb-3 w-full min-w-0 [--h-scroll-fade:#2c313a]">
+          <HScroll aria-label="Filter map services" hint="Swipe filters →">
             {filterChips.map((chip) => {
               const active = layer === chip.id;
               const count =
@@ -179,7 +179,7 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
                     setLayer(chip.id);
                     setSelectedId(null);
                   }}
-                  className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                  className={`shrink-0 border-b-2 px-1.5 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                     active
                       ? "border-white text-white"
                       : "border-transparent text-chrome hover:text-white"
@@ -200,18 +200,20 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
         </div>
 
         {selected && (
-          <div className="mb-4 border-l-2 border-amber pl-3">
+          <div className="mb-3 min-w-0 border-l-2 border-amber pl-3">
             <p className="font-display text-[11px] tracking-[0.18em] text-amber uppercase">
               {selected.id === nextService?.id ? "Next up" : "Selected"} · mi{" "}
               {selected.mile}
             </p>
-            <p className="mt-1 text-sm text-white">
+            <p className="mt-1 break-words text-sm text-white">
               <span className="mr-2 text-xs tracking-wider text-chrome uppercase">
                 {layerLabel[selected.layer]}
               </span>
               {selected.label}
             </p>
-            <p className="mt-0.5 text-xs text-chrome">{selected.detail}</p>
+            <p className="mt-0.5 break-words text-xs text-chrome">
+              {selected.detail}
+            </p>
             {nextService && selected.id === nextService.id && route.miles > 0 && (
               <p className="mt-1 text-xs text-amber-hot">
                 ~{Math.max(0, Math.round((selected.mile / route.miles) * route.hours * 10) / 10)}{" "}
@@ -221,72 +223,87 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
           </div>
         )}
 
-        <svg
-          viewBox="0 0 400 220"
-          className="h-auto w-full"
-          role="img"
-          aria-label={`Route map from ${route.origin} to ${route.destination} with corridor services`}
-        >
-          <path
-            ref={pathRef}
-            id={pathId}
-            d={PATH_D}
-            fill="none"
-            stroke="#e09b1e"
-            strokeWidth="3"
-            strokeDasharray="10 8"
-            opacity="0.9"
-          />
-          <circle cx="28" cy="170" r="8" fill="#f0b429" />
-          <circle cx="372" cy="70" r="8" fill="#f0b429" />
-          <text x="28" y="196" fill="#c5ccd4" fontSize="11" textAnchor="middle">
-            {route.origin.split(",")[0]}
-          </text>
-          <text x="372" y="56" fill="#c5ccd4" fontSize="11" textAnchor="middle">
-            {route.destination.split(",")[0]}
-          </text>
+        <div className="w-full min-w-0 overflow-hidden rounded-sm bg-asphalt/30">
+          <svg
+            viewBox="0 0 400 220"
+            className="block h-auto w-full max-w-full"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label={`Route map from ${route.origin} to ${route.destination} with corridor services`}
+          >
+            <path
+              ref={pathRef}
+              id={pathId}
+              d={PATH_D}
+              fill="none"
+              stroke="#e09b1e"
+              strokeWidth="3"
+              strokeDasharray="10 8"
+              opacity="0.9"
+            />
+            <circle cx="28" cy="170" r="8" fill="#f0b429" />
+            <circle cx="372" cy="70" r="8" fill="#f0b429" />
+            <text
+              x="28"
+              y="196"
+              fill="#c5ccd4"
+              fontSize="11"
+              textAnchor="middle"
+            >
+              {route.origin.split(",")[0]}
+            </text>
+            <text
+              x="372"
+              y="56"
+              fill="#c5ccd4"
+              fontSize="11"
+              textAnchor="middle"
+            >
+              {route.destination.split(",")[0]}
+            </text>
 
-          {positioned.map((point) => {
-            const active = selected?.id === point.id;
-            return (
-              <g
-                key={point.id}
-                className="cursor-pointer"
-                onClick={() => setSelectedId(point.id)}
-              >
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={active ? 9 : 6}
-                  fill={layerColor[point.layer]}
-                  stroke="#1a1d23"
-                  strokeWidth="2"
-                  opacity={active ? 1 : 0.92}
-                />
-                {active && (
-                  <text
-                    x={point.x}
-                    y={point.y - 14}
-                    fill="#edf1f4"
-                    fontSize="10"
-                    textAnchor="middle"
-                  >
-                    mi {point.mile}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+            {positioned.map((point) => {
+              const active = selected?.id === point.id;
+              return (
+                <g
+                  key={point.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedId(point.id)}
+                >
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={active ? 9 : 6}
+                    fill={layerColor[point.layer]}
+                    stroke="#1a1d23"
+                    strokeWidth="2"
+                    opacity={active ? 1 : 0.92}
+                  />
+                  {active && (
+                    <text
+                      x={point.x}
+                      y={point.y - 14}
+                      fill="#edf1f4"
+                      fontSize="10"
+                      textAnchor="middle"
+                    >
+                      mi {point.mile}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
 
-        <ul className="mt-4 grid grid-cols-3 gap-2 text-xs text-chrome sm:grid-cols-6">
+        <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-chrome sm:grid-cols-3">
           {(Object.keys(layerLabel) as Exclude<MapLayer, "all">[]).map((key) => (
-            <li key={key} className="flex items-center gap-2">
+            <li key={key} className="flex min-w-0 items-center gap-2">
               <span
-                className="size-2.5 rounded-full"
+                className="size-2.5 shrink-0 rounded-full"
                 style={{ background: layerColor[key] }}
               />
-              {layerLabel[key]}
+              <span className="truncate">{layerLabel[key]}</span>
             </li>
           ))}
         </ul>

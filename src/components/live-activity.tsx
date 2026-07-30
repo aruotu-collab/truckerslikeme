@@ -236,8 +236,8 @@ export function LiveActivity() {
   }
 
   return (
-    <section className="relative scroll-mt-8 py-8 sm:py-16">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+    <section className="relative w-full min-w-0 max-w-full overflow-x-clip py-8 sm:py-16">
+      <div className="mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -333,8 +333,8 @@ export function LiveActivity() {
           </div>
         </div>
 
-        <div className="mt-6 [--h-scroll-fade:var(--background)]">
-          <HScroll aria-label="Filter live feed by type">
+        <div className="mt-6 w-full min-w-0 [--h-scroll-fade:var(--background)]">
+          <HScroll aria-label="Filter live feed by type" hint="Swipe filters →">
             {filterChips.map((chip) => {
               const active = feedFilter === chip.id;
               const count = filterCounts[chip.id];
@@ -353,7 +353,7 @@ export function LiveActivity() {
                       window.scrollTo(0, y);
                     });
                   }}
-                  className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                  className={`shrink-0 border-b-2 px-1.5 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                     active
                       ? "border-asphalt text-asphalt"
                       : "border-transparent text-muted hover:text-asphalt"

@@ -158,7 +158,7 @@ const dallasChicago = buildSupport(
   "dallas-chicago",
   "Dallas → Chicago via I-35 / I-44 / I-55",
   dallasChicagoPlaces,
-  "Counts are mapped truck stops, shops, and motels with trailer parking — not a roadside standby crew.",
+  "Tap a filter below. These are real stops on the corridor — not a standby crew.",
 );
 
 /** Fallback when the corridor isn't fully mapped yet. */
