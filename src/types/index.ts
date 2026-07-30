@@ -14,6 +14,11 @@ export type LiveActivity = {
   minutesAgo: number;
 };
 
+export type LiveFeedItem = LiveActivity & {
+  source?: string;
+  updatedAt?: string;
+};
+
 export type RouteStop = {
   id: string;
   type: "parking" | "fuel" | "alert" | "weigh";
