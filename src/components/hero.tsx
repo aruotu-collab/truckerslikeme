@@ -1,6 +1,6 @@
 export function Hero() {
   return (
-    <section className="relative isolate overflow-x-clip bg-asphalt py-10 sm:py-14">
+    <section className="relative isolate w-full max-w-full overflow-x-clip bg-asphalt py-8 sm:py-14">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -10,11 +10,11 @@ export function Hero() {
       />
       <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background to-transparent" />
 
-      <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
-        <h1 className="max-w-2xl text-3xl font-medium leading-tight text-white sm:text-4xl md:text-5xl">
+      <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-8">
+        <h1 className="max-w-2xl text-2xl font-medium leading-snug break-words text-white sm:text-4xl md:text-5xl">
           Live road intel for the corridor you&apos;re hauling.
         </h1>
-        <p className="mt-4 max-w-lg text-lg leading-relaxed text-chrome sm:text-xl">
+        <p className="mt-3 max-w-lg text-base leading-relaxed text-chrome sm:mt-4 sm:text-xl">
           Parking, fuel, delays — big and clear. Built to check at a stop, not
           while the wheels are turning.
         </p>
