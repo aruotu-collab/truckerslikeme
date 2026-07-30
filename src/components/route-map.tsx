@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CorridorSupportPlace, PlannedRoute } from "@/types";
 
-type MapLayer =
+export type MapLayer =
   | "all"
   | "fuel"
   | "parking"
@@ -43,6 +43,8 @@ const PATH_D = "M28 170 C 90 150, 120 60, 200 90 S 320 40, 372 70";
 type RouteMapProps = {
   route: PlannedRoute;
   supportPlaces?: CorridorSupportPlace[];
+  layer?: MapLayer;
+  onLayerChange?: (layer: MapLayer) => void;
 };
 
 function buildMarkers(
@@ -78,12 +80,23 @@ function buildMarkers(
     .sort((a, b) => a.mile - b.mile);
 }
 
-export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
+export function RouteMap({
+  route,
+  supportPlaces = [],
+  layer: controlledLayer,
+  onLayerChange,
+}: RouteMapProps) {
   const pathId = useId();
   const pathRef = useRef<SVGPathElement | null>(null);
   const [pathLen, setPathLen] = useState(0);
-  const [layer, setLayer] = useState<MapLayer>("all");
+  const [internalLayer, setInternalLayer] = useState<MapLayer>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const layer = controlledLayer ?? internalLayer;
+
+  function setLayer(next: MapLayer) {
+    if (onLayerChange) onLayerChange(next);
+    else setInternalLayer(next);
+  }
 
   const markers = useMemo(
     () => buildMarkers(route, supportPlaces),
@@ -178,14 +191,18 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
                   setLayer(chip.id);
                   setSelectedId(null);
                 }}
-                className={`shrink-0 border-b-2 px-1 pb-1.5 text-xs font-semibold tracking-wide uppercase transition ${
+                className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
                   active
-                    ? "border-amber text-white"
+                    ? "border-white text-white"
                     : "border-transparent text-chrome hover:text-white"
                 }`}
               >
                 {chip.label}
-                <span className="ml-1 text-[10px] font-normal text-amber">
+                <span
+                  className={`ml-1.5 text-xs font-normal ${
+                    active ? "text-amber" : "text-chrome/70"
+                  }`}
+                >
                   {count}
                 </span>
               </button>

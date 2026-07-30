@@ -2,15 +2,43 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { citySuggestions, sampleRoute } from "@/lib/mock-data";
-import {
-  getCorridorSupport,
-  supportKindLabel,
-} from "@/lib/corridor-support";
+import { getCorridorSupport } from "@/lib/corridor-support";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { writeLastCorridor } from "@/lib/corridor-store";
-import { RouteMap } from "@/components/route-map";
-import type { CorridorSupportKind, PlannedRoute } from "@/types";
+import { RouteMap, type MapLayer } from "@/components/route-map";
+import type { PlannedRoute } from "@/types";
+
+type PlanFilter = "all" | "parking" | "fuel" | "repair" | "lodging" | "weigh";
+
+const planFilterChips: { id: PlanFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "parking", label: "Parking" },
+  { id: "fuel", label: "Fuel" },
+  { id: "repair", label: "Repair" },
+  { id: "lodging", label: "Lodging" },
+  { id: "weigh", label: "Weigh" },
+];
+
+const serviceLabel: Record<Exclude<PlanFilter, "all">, string> = {
+  parking: "Parking",
+  fuel: "Fuel",
+  repair: "Truck repair",
+  lodging: "Truck lodging",
+  weigh: "Weigh",
+};
+
+type PlanService = {
+  id: string;
+  kind: Exclude<PlanFilter, "all">;
+  name: string;
+  detail: string;
+  mile: number;
+};
+
+function toMapLayer(filter: PlanFilter): MapLayer {
+  return filter;
+}
 
 export function RoutePlanner() {
   const { isSignedIn, user, openGate } = useAuthGate();
@@ -23,9 +51,7 @@ export function RoutePlanner() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [awaitingAuthToSave, setAwaitingAuthToSave] = useState(false);
-  const [supportFilter, setSupportFilter] = useState<
-    CorridorSupportKind | "all"
-  >("all");
+  const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
 
   const canSearch = origin.trim() && destination.trim();
 
@@ -43,11 +69,54 @@ export function RoutePlanner() {
     return getCorridorSupport(route.origin, route.destination);
   }, [route]);
 
-  const filteredSupportPlaces = useMemo(() => {
-    if (!support) return [];
-    if (supportFilter === "all") return support.places;
-    return support.places.filter((p) => p.kind === supportFilter);
-  }, [support, supportFilter]);
+  const services = useMemo((): PlanService[] => {
+    if (!route) return [];
+    const fromSupport: PlanService[] = (support?.places ?? []).map((place) => ({
+      id: `support-${place.id}`,
+      kind: place.kind,
+      name: place.name,
+      detail: place.detail,
+      mile: place.mile,
+    }));
+    const fromStops: PlanService[] = route.stops
+      .filter((stop) => stop.type === "fuel" || stop.type === "weigh" || stop.type === "parking")
+      .map((stop) => ({
+        id: `stop-${stop.id}`,
+        kind: stop.type as "fuel" | "weigh" | "parking",
+        name: stop.label,
+        detail: stop.detail,
+        mile: stop.mile,
+      }));
+
+    const merged = [...fromSupport, ...fromStops];
+    const seen = new Set<string>();
+    return merged
+      .filter((item) => {
+        const key = `${item.kind}:${Math.round(item.mile / 8)}:${item.name.toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => a.mile - b.mile);
+  }, [route, support]);
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<PlanFilter, number> = {
+      all: services.length,
+      parking: 0,
+      fuel: 0,
+      repair: 0,
+      lodging: 0,
+      weigh: 0,
+    };
+    for (const item of services) counts[item.kind] += 1;
+    return counts;
+  }, [services]);
+
+  const filteredServices = useMemo(() => {
+    if (planFilter === "all") return services;
+    return services.filter((item) => item.kind === planFilter);
+  }, [services, planFilter]);
 
   useEffect(() => {
     if (isSignedIn && awaitingAuthToSave && route && user) {
@@ -71,7 +140,7 @@ export function RoutePlanner() {
     setAiReply(null);
     setSaved(false);
     setSaveError(null);
-    setSupportFilter("all");
+    setPlanFilter("all");
   }
 
   async function persistRoute(planned: PlannedRoute) {
@@ -214,100 +283,80 @@ export function RoutePlanner() {
                 </p>
               )}
 
-              {support && (
-                <div className="mt-8 border-t border-white/10 pt-8">
-                  <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-                    Along this corridor
-                  </p>
-                  <p className="mt-2 max-w-xl text-sm text-chrome">
-                    {support.note}
-                  </p>
+              <div className="mt-8 border-t border-white/10 pt-8">
+                <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+                  Along this corridor
+                </p>
+                <p className="mt-2 max-w-xl text-sm text-chrome">
+                  {support?.note ??
+                    "Tap a category to see only that service — same pattern as Live."}
+                </p>
 
-                  <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-6">
-                    {(
-                      [
-                        {
-                          key: "repair" as const,
-                          count: support.counts.repair,
-                          label: "Truck repair",
-                          hint: "shops on route",
-                        },
-                        {
-                          key: "lodging" as const,
-                          count: support.counts.lodging,
-                          label: "Truck lodging",
-                          hint: "motels w/ trailer parking",
-                        },
-                        {
-                          key: "parking" as const,
-                          count: support.counts.parking,
-                          label: "Parking lots",
-                          hint: "major overnight stops",
-                        },
-                      ] as const
-                    ).map((item) => {
-                      const active = supportFilter === item.key;
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() =>
-                            setSupportFilter(active ? "all" : item.key)
-                          }
-                          className={`border-l-2 py-1 pl-3 text-left transition ${
-                            active
-                              ? "border-amber"
-                              : "border-white/20 hover:border-amber/60"
+                <div
+                  className="mt-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  role="tablist"
+                  aria-label="Filter corridor services"
+                >
+                  {planFilterChips.map((chip) => {
+                    const active = planFilter === chip.id;
+                    const count = filterCounts[chip.id];
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => setPlanFilter(chip.id)}
+                        className={`shrink-0 border-b-2 px-1 pb-2 text-sm font-semibold tracking-wide uppercase transition ${
+                          active
+                            ? "border-white text-white"
+                            : "border-transparent text-chrome hover:text-white"
+                        }`}
+                      >
+                        {chip.label}
+                        <span
+                          className={`ml-1.5 text-xs font-normal ${
+                            active ? "text-amber" : "text-chrome/70"
                           }`}
                         >
-                          <p className="font-display text-3xl tracking-wide text-white sm:text-4xl">
-                            {item.count}
-                          </p>
-                          <p className="mt-1 text-xs tracking-wide text-amber uppercase sm:text-sm">
-                            {item.label}
-                          </p>
-                          <p className="mt-0.5 text-xs text-chrome">
-                            {item.hint}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {filteredSupportPlaces.length > 0 && (
-                    <ul className="mt-6 space-y-0 border-t border-white/10">
-                      {filteredSupportPlaces.map((place) => (
-                        <li
-                          key={place.id}
-                          className="grid grid-cols-[auto_1fr] gap-4 border-b border-white/10 py-3"
-                        >
-                          <div className="pt-0.5 text-right font-display text-sm text-amber">
-                            mi {place.mile}
-                          </div>
-                          <div>
-                            <p className="font-medium text-white">
-                              <span className="mr-2 font-display text-xs tracking-wider text-chrome uppercase">
-                                {supportKindLabel[place.kind]}
-                              </span>
-                              {place.name}
-                            </p>
-                            <p className="mt-1 text-sm text-chrome">
-                              {place.detail}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {support.places.length === 0 && (
-                    <p className="mt-5 text-sm text-chrome">
-                      Place-level list coming for this corridor. Counts above
-                      are corridor estimates.
-                    </p>
-                  )}
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+
+                {filteredServices.length > 0 ? (
+                  <ul className="mt-6 space-y-0 border-t border-white/10">
+                    {filteredServices.map((place) => (
+                      <li
+                        key={place.id}
+                        className="grid grid-cols-[auto_1fr] gap-4 border-b border-white/10 py-3"
+                      >
+                        <div className="pt-0.5 text-right font-display text-sm text-amber">
+                          mi {place.mile}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">
+                            <span className="mr-2 font-display text-xs tracking-wider text-chrome uppercase">
+                              {serviceLabel[place.kind]}
+                            </span>
+                            {place.name}
+                          </p>
+                          <p className="mt-1 text-sm text-chrome">
+                            {place.detail}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-5 text-sm text-chrome">
+                    No {planFilter === "all" ? "mapped" : planFilter} services
+                    for this corridor yet.
+                  </p>
+                )}
+              </div>
 
               <ul className="mt-6 space-y-4">
                 {route.insights.map((insight) => (
@@ -363,6 +412,19 @@ export function RoutePlanner() {
             <RouteMap
               route={route}
               supportPlaces={support?.places ?? []}
+              layer={toMapLayer(planFilter)}
+              onLayerChange={(next) => {
+                if (
+                  next === "all" ||
+                  next === "parking" ||
+                  next === "fuel" ||
+                  next === "repair" ||
+                  next === "lodging" ||
+                  next === "weigh"
+                ) {
+                  setPlanFilter(next);
+                }
+              }}
             />
           </div>
         )}
