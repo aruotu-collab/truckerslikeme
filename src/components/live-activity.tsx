@@ -13,6 +13,8 @@ import {
 } from "@/lib/intel/rank";
 import { ReportIncidentModal } from "@/components/report-incident-modal";
 import { HScroll } from "@/components/h-scroll";
+import { CorridorIntelMap } from "@/components/corridor-intel-map";
+import { itemMatchesState, type UsStateCode } from "@/lib/us-corridor-states";
 import type { ActivityKind, LiveFeedItem } from "@/types";
 
 const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
@@ -86,6 +88,7 @@ export function LiveActivity() {
   const [corridor, setCorridor] = useState<CorridorFocus | null>(null);
   const [corridorOnly, setCorridorOnly] = useState(true);
   const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
+  const [stateFocus, setStateFocus] = useState<UsStateCode | null>(null);
   const [newCount, setNewCount] = useState(0);
   const knownIds = useRef<Set<string>>(new Set());
   const primed = useRef(false);
@@ -132,6 +135,7 @@ export function LiveActivity() {
       const detail = (event as CustomEvent<CorridorFocus>).detail;
       setCorridor(detail);
       setCorridorOnly(true);
+      setStateFocus(null);
     };
     window.addEventListener("tlm:corridor", onCorridor);
     return () => window.removeEventListener("tlm:corridor", onCorridor);
@@ -214,10 +218,13 @@ export function LiveActivity() {
     return counts;
   }, [ranked]);
 
-  const filtered = useMemo(
-    () => ranked.filter((item) => matchesFilter(item, feedFilter)),
-    [ranked, feedFilter],
-  );
+  const filtered = useMemo(() => {
+    return ranked
+      .filter((item) => matchesFilter(item, feedFilter))
+      .filter((item) =>
+        stateFocus ? itemMatchesState(item, stateFocus) : true,
+      );
+  }, [ranked, feedFilter, stateFocus]);
 
   const hero: RankedFeedItem | null = filtered[0] ?? null;
   const rest = filtered.slice(1);
@@ -271,8 +278,8 @@ export function LiveActivity() {
               What&apos;s ahead on the haul
             </h2>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-              Ranked by risk — tap Parking, Fuel, Weigh, or Repair when that&apos;s
-              all you need.
+              Intelligence for the states you&apos;re in and the states
+              you&apos;re going — tap a category or a state on the map.
             </p>
           </div>
           <button
@@ -332,6 +339,12 @@ export function LiveActivity() {
             )}
           </div>
         </div>
+
+        <CorridorIntelMap
+          corridor={corridor}
+          items={items}
+          onSelectState={setStateFocus}
+        />
 
         <div className="mt-6 w-full min-w-0 [--h-scroll-fade:var(--background)]">
           <HScroll aria-label="Filter live feed by type" hint="Swipe filters →">

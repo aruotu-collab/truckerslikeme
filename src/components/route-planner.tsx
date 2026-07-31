@@ -8,7 +8,17 @@ import { saveRoute } from "@/lib/supabase/data";
 import { writeLastCorridor } from "@/lib/corridor-store";
 import { RouteMap } from "@/components/route-map";
 import { HScroll } from "@/components/h-scroll";
+import { CorridorIntelMap } from "@/components/corridor-intel-map";
+import { corridorFromSearch } from "@/lib/intel/rank";
+import { liveActivities } from "@/lib/mock-data";
 import type { PlannedRoute } from "@/types";
+import type { LiveFeedItem } from "@/types";
+
+const seedFeedItems: LiveFeedItem[] = liveActivities.map((item) => ({
+  ...item,
+  source: "seed",
+  updatedAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(),
+}));
 
 type PlanFilter = "all" | "parking" | "fuel" | "repair" | "lodging" | "weigh";
 
@@ -237,7 +247,22 @@ export function RoutePlanner() {
         </form>
 
         {route && (
-          <div className="animate-fade-in mt-12 grid w-full min-w-0 max-w-full gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <>
+            <div className="mt-10">
+              <CorridorIntelMap
+                corridor={corridorFromSearch(route.origin, route.destination)}
+                items={seedFeedItems}
+              />
+              <p className="mt-3 text-center text-sm text-chrome">
+                Open{" "}
+                <a href="/live" className="text-amber underline">
+                  Live activity
+                </a>{" "}
+                for the full risk-ranked feed on these states.
+              </p>
+            </div>
+
+          <div className="animate-fade-in mt-10 grid w-full min-w-0 max-w-full gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="order-2 min-w-0 max-w-full lg:order-1">
               <div className="flex min-w-0 flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                 <div className="min-w-0">
@@ -424,6 +449,7 @@ export function RoutePlanner() {
               />
             </div>
           </div>
+          </>
         )}
       </div>
     </section>
