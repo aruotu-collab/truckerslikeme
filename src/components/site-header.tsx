@@ -10,7 +10,7 @@ type SiteHeaderProps = {
 
 export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const pathname = usePathname();
-  const { isSignedIn, user, signOut, openGate } = useAuthGate();
+  const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
   const solid = variant !== "overlay";
   const shortName =
     (typeof user?.user_metadata?.display_name === "string" &&
@@ -21,6 +21,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const planActive = pathname === "/plan";
   const liveActive = pathname === "/live";
   const membersActive = pathname === "/members";
+  const adminActive = pathname.startsWith("/admin");
 
   const btn =
     "inline-flex min-h-11 w-full items-center justify-center rounded-sm px-3 py-2.5 text-center text-sm font-semibold tracking-wide uppercase transition";
@@ -34,7 +35,6 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
       }
     >
       <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-8 sm:py-4">
-        {/* Brand + auth — never overflow the screen */}
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href="/"
@@ -71,20 +71,20 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             title={user?.email ?? undefined}
           >
             Welcome, {shortName}
+            {isAdmin ? " · Admin" : ""}
           </Link>
         )}
 
-        {/* Mobile + tablet: 2 equal buttons that always fit */}
         <nav
-          className="mt-3 grid grid-cols-2 gap-2 md:hidden"
+          className={`mt-3 grid gap-2 md:hidden ${
+            isAdmin && isSignedIn ? "grid-cols-2" : "grid-cols-2"
+          }`}
           aria-label="Main"
         >
           <Link
             href="/plan"
             className={`${btn} ${
-              planActive
-                ? "bg-amber text-asphalt"
-                : "bg-amber/90 text-asphalt"
+              planActive ? "bg-amber text-asphalt" : "bg-amber/90 text-asphalt"
             }`}
           >
             Plan
@@ -102,7 +102,9 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           {isSignedIn && (
             <Link
               href="/members"
-              className={`${btn} col-span-2 ${
+              className={`${btn} ${
+                isAdmin ? "" : "col-span-2 "
+              }${
                 membersActive
                   ? "border border-amber bg-amber/15 text-amber-hot"
                   : "border border-white/30 bg-white/10 text-white"
@@ -111,9 +113,20 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
               Members
             </Link>
           )}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`${btn} ${
+                adminActive
+                  ? "border border-amber bg-amber/15 text-amber-hot"
+                  : "border border-white/30 bg-white/10 text-white"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </nav>
 
-        {/* Desktop nav */}
         <nav
           className="mt-4 hidden flex-wrap items-center gap-2 md:flex"
           aria-label="Main"
@@ -148,6 +161,18 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
               }`}
             >
               Members
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`${btn} w-auto px-5 ${
+                adminActive
+                  ? "border border-amber bg-amber/15 text-amber-hot"
+                  : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              Admin
             </Link>
           )}
         </nav>

@@ -12,9 +12,12 @@ import {
 import type { User } from "@supabase/supabase-js";
 import type { AuthGateAction } from "@/types";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { userLooksAdmin } from "@/lib/admin-shared";
 
 type AuthGateContextValue = {
   isSignedIn: boolean;
+  isAdmin: boolean;
+  isPro: boolean;
   user: User | null;
   loading: boolean;
   configured: boolean;
@@ -94,6 +97,8 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
   }, [configured]);
 
   const isSignedIn = Boolean(user);
+  const isAdmin = userLooksAdmin(user);
+  const isPro = isAdmin; // Admin unlocks Pro capabilities site-wide
 
   const openGate = useCallback(
     (action: AuthGateAction) => {
@@ -117,6 +122,8 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isSignedIn,
+      isAdmin,
+      isPro,
       user,
       loading,
       configured,
@@ -127,6 +134,8 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
     }),
     [
       isSignedIn,
+      isAdmin,
+      isPro,
       user,
       loading,
       configured,

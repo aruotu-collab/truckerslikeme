@@ -3,6 +3,7 @@
 create extension if not exists "pgcrypto";
 
 create type public.plan_tier as enum ('free', 'pro');
+create type public.user_role as enum ('driver', 'admin');
 create type public.activity_kind as enum (
   'parking',
   'traffic',
@@ -17,6 +18,8 @@ create type public.activity_kind as enum (
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text,
+  email text,
+  role public.user_role not null default 'driver',
   plan public.plan_tier not null default 'free',
   ai_queries_used integer not null default 0,
   created_at timestamptz not null default now()
@@ -119,8 +122,14 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)));
+  insert into public.profiles (id, display_name, email, role, plan)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+    new.email,
+    case when lower(new.email) = 'aruotu@gmail.com' then 'admin'::public.user_role else 'driver'::public.user_role end,
+    case when lower(new.email) = 'aruotu@gmail.com' then 'pro'::public.plan_tier else 'free'::public.plan_tier end
+  );
   return new;
 end;
 $$;

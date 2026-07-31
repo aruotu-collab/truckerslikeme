@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/auth/", "/members"],
+        disallow: ["/api/", "/auth/", "/members", "/admin"],
       },
     ],
     sitemap: "https://truckerslikeme.com/sitemap.xml",

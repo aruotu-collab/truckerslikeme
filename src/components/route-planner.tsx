@@ -38,7 +38,7 @@ type PlanService = {
 };
 
 export function RoutePlanner() {
-  const { isSignedIn, user, openGate } = useAuthGate();
+  const { isSignedIn, isAdmin, isPro, user, openGate } = useAuthGate();
   const [origin, setOrigin] = useState("Dallas, TX");
   const [destination, setDestination] = useState("Chicago, IL");
   const [route, setRoute] = useState<PlannedRoute | null>(null);
@@ -165,7 +165,7 @@ export function RoutePlanner() {
   }
 
   function handleAskAi() {
-    if (aiUsed) {
+    if (aiUsed && !isAdmin && !isPro) {
       if (!openGate("ask-ai")) return;
     }
     setAiUsed(true);

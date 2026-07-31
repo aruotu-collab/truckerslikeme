@@ -29,6 +29,7 @@ export async function ensureProfile(user: User) {
     {
       id: user.id,
       display_name: displayName,
+      email: user.email ?? null,
     },
     { onConflict: "id" },
   );

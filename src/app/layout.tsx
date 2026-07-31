@@ -4,6 +4,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { AuthGateProvider } from "@/lib/auth-gate";
 import { AuthGateModal } from "@/components/auth-gate-modal";
 import { LockHorizontalPan } from "@/components/lock-horizontal-pan";
+import { VisitBeacon } from "@/components/visit-beacon";
 import "./globals.css";
 
 const barlow = Barlow({
@@ -78,6 +79,7 @@ export default function RootLayout({
       <body className="min-h-full overflow-x-clip font-sans text-foreground">
         <AuthGateProvider>
           <LockHorizontalPan />
+          <VisitBeacon />
           <div className="site-shell">{children}</div>
           <AuthGateModal />
         </AuthGateProvider>
