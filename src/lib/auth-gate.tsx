@@ -25,6 +25,7 @@ type AuthGateContextValue = {
   openGate: (action: AuthGateAction) => boolean;
   closeGate: () => void;
   signOut: () => Promise<void>;
+  refreshPlan: () => Promise<void>;
 };
 
 const AuthGateContext = createContext<AuthGateContextValue | null>(null);
@@ -55,10 +56,25 @@ export function getAuthGateCopy(action: AuthGateAction) {
 export function AuthGateProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured();
   const [user, setUser] = useState<User | null>(null);
+  const [planPro, setPlanPro] = useState(false);
   const [loading, setLoading] = useState(configured);
   const [pendingAction, setPendingAction] = useState<AuthGateAction | null>(
     null,
   );
+
+  const refreshPlan = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me/plan");
+      if (!res.ok) {
+        setPlanPro(false);
+        return;
+      }
+      const data = (await res.json()) as { isPro?: boolean };
+      setPlanPro(Boolean(data.isPro));
+    } catch {
+      setPlanPro(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!configured) {
@@ -78,6 +94,8 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setUser(data.user);
       setLoading(false);
+      if (data.user) void refreshPlan();
+      else setPlanPro(false);
     });
 
     const {
@@ -87,6 +105,9 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       if (session?.user) {
         setPendingAction(null);
+        void refreshPlan();
+      } else {
+        setPlanPro(false);
       }
     });
 
@@ -94,11 +115,11 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [configured]);
+  }, [configured, refreshPlan]);
 
   const isSignedIn = Boolean(user);
   const isAdmin = userLooksAdmin(user);
-  const isPro = isAdmin; // Admin unlocks Pro capabilities site-wide
+  const isPro = isAdmin || planPro;
 
   const openGate = useCallback(
     (action: AuthGateAction) => {
@@ -117,6 +138,7 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
     }
     setUser(null);
+    setPlanPro(false);
   }, []);
 
   const value = useMemo(
@@ -131,6 +153,7 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       openGate,
       closeGate,
       signOut,
+      refreshPlan,
     }),
     [
       isSignedIn,
@@ -143,6 +166,7 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
       openGate,
       closeGate,
       signOut,
+      refreshPlan,
     ],
   );
 

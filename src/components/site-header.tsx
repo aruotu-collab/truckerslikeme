@@ -20,6 +20,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
 
   const planActive = pathname === "/plan";
   const liveActive = pathname === "/live";
+  const moneyActive = pathname.startsWith("/money");
   const membersActive = pathname === "/members";
   const adminActive = pathname.startsWith("/admin");
 
@@ -99,12 +100,20 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           >
             Live
           </Link>
+          <Link
+            href="/money"
+            className={`${btn} ${
+              moneyActive
+                ? "border border-amber bg-amber/15 text-amber-hot"
+                : "border border-white/30 bg-white/10 text-white"
+            }`}
+          >
+            Money
+          </Link>
           {isSignedIn && (
             <Link
               href="/members"
               className={`${btn} ${
-                isAdmin ? "" : "col-span-2 "
-              }${
                 membersActive
                   ? "border border-amber bg-amber/15 text-amber-hot"
                   : "border border-white/30 bg-white/10 text-white"
@@ -150,6 +159,16 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             }`}
           >
             Live activity
+          </Link>
+          <Link
+            href="/money"
+            className={`${btn} w-auto px-5 ${
+              moneyActive
+                ? "border border-amber bg-amber/15 text-amber-hot"
+                : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            Money
           </Link>
           {isSignedIn && (
             <Link

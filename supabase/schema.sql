@@ -22,6 +22,13 @@ create table public.profiles (
   role public.user_role not null default 'driver',
   plan public.plan_tier not null default 'free',
   ai_queries_used integer not null default 0,
+  mpg numeric(4, 1) not null default 6.5,
+  cost_per_mile numeric(6, 3) not null default 0.65,
+  diesel_price_override numeric(6, 3),
+  analyses_used integer not null default 0,
+  analyses_reset_at timestamptz,
+  stripe_customer_id text,
+  stripe_subscription_id text,
   created_at timestamptz not null default now()
 );
 
@@ -72,11 +79,36 @@ create table public.reviews (
   created_at timestamptz not null default now()
 );
 
+create table public.load_analyses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles (id) on delete set null,
+  origin text,
+  destination text,
+  miles integer not null,
+  rate_total numeric(12, 2) not null,
+  rate_per_mile numeric(8, 3),
+  diesel_price numeric(6, 3),
+  mpg numeric(4, 1),
+  cost_per_mile numeric(6, 3),
+  fuel_cost numeric(12, 2),
+  operating_cost numeric(12, 2),
+  net_profit numeric(12, 2),
+  net_per_mile numeric(8, 3),
+  score text not null,
+  raw_input text,
+  payload jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create index load_analyses_user_created_idx
+  on public.load_analyses (user_id, created_at desc);
+
 alter table public.profiles enable row level security;
 alter table public.alerts enable row level security;
 alter table public.truck_stops enable row level security;
 alter table public.saved_routes enable row level security;
 alter table public.reviews enable row level security;
+alter table public.load_analyses enable row level security;
 
 create policy "Public can read alerts"
   on public.alerts for select using (true);
@@ -114,6 +146,14 @@ create policy "Public can read reviews"
 
 create policy "Users insert own reviews"
   on public.reviews for insert with check (auth.uid() = user_id);
+
+create policy "Users read own load analyses"
+  on public.load_analyses for select
+  using (auth.uid() = user_id);
+
+create policy "Users insert own load analyses"
+  on public.load_analyses for insert
+  with check (auth.uid() = user_id);
 
 create or replace function public.handle_new_user()
 returns trigger

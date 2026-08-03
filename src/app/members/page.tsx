@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabase/data";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { UpgradeToProButton } from "@/components/upgrade-to-pro";
 import type { ActivityKind, LiveActivity } from "@/types";
 
 const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
@@ -26,13 +27,42 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
 
 export default function MembersPage() {
   const router = useRouter();
-  const { isSignedIn, user, loading, openGate, signOut } = useAuthGate();
+  const {
+    isSignedIn,
+    isPro,
+    user,
+    loading,
+    openGate,
+    signOut,
+    refreshPlan,
+  } = useAuthGate();
   const [routes, setRoutes] = useState<SavedRouteRow[]>([]);
   const [routesLoading, setRoutesLoading] = useState(false);
   const [routesError, setRoutesError] = useState<string | null>(null);
   const [reports, setReports] = useState<LiveActivity[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
+  const [stripeReady, setStripeReady] = useState(false);
+  const [upgraded, setUpgraded] = useState(false);
+  const [analyses, setAnalyses] = useState<
+    {
+      id: string;
+      origin: string | null;
+      destination: string | null;
+      miles: number;
+      net_profit: number;
+      net_per_mile: number;
+      score: string;
+      created_at: string;
+    }[]
+  >([]);
+  const [analysesError, setAnalysesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setUpgraded(params.get("upgraded") === "1");
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -40,6 +70,12 @@ export default function MembersPage() {
       openGate("join-community");
     }
   }, [loading, isSignedIn, openGate]);
+
+  useEffect(() => {
+    if (upgraded && isSignedIn) {
+      void refreshPlan();
+    }
+  }, [upgraded, isSignedIn, refreshPlan]);
 
   useEffect(() => {
     if (!isSignedIn || !user) {
@@ -52,17 +88,28 @@ export default function MembersPage() {
     setRoutesLoading(true);
     setReportsLoading(true);
 
-    Promise.all([fetchSavedRoutes(user.id), fetchMyAlerts(user.id)]).then(
-      ([routesResult, alertsResult]) => {
-        if (!mounted) return;
-        setRoutes(routesResult.routes);
-        setRoutesError(routesResult.error);
-        setRoutesLoading(false);
-        setReports(alertsResult.items);
-        setReportsError(alertsResult.error);
-        setReportsLoading(false);
-      },
-    );
+    Promise.all([
+      fetchSavedRoutes(user.id),
+      fetchMyAlerts(user.id),
+      fetch("/api/me/plan").then((r) => r.json()),
+      fetch("/api/loads/history").then((r) => r.json()),
+    ]).then(([routesResult, alertsResult, plan, hist]) => {
+      if (!mounted) return;
+      setRoutes(routesResult.routes);
+      setRoutesError(routesResult.error);
+      setRoutesLoading(false);
+      setReports(alertsResult.items);
+      setReportsError(alertsResult.error);
+      setReportsLoading(false);
+      setStripeReady(Boolean((plan as { stripeReady?: boolean }).stripeReady));
+      const items = (hist as { items?: typeof analyses }).items ?? [];
+      setAnalyses(items);
+      if ((hist as { error?: string }).error) {
+        setAnalysesError(
+          "History needs schema-money.sql in Supabase if this stays empty after scoring loads.",
+        );
+      }
+    });
 
     return () => {
       mounted = false;
@@ -123,7 +170,10 @@ export default function MembersPage() {
               <p className="mt-3 text-lg text-muted">{user?.email}</p>
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
                 <span>
-                  Plan: <strong className="text-asphalt">Free</strong>
+                  Plan:{" "}
+                  <strong className="text-asphalt">
+                    {isPro ? "Pro" : "Free"}
+                  </strong>
                 </span>
                 {joined && (
                   <span>
@@ -131,7 +181,18 @@ export default function MembersPage() {
                   </span>
                 )}
               </div>
+              {upgraded && (
+                <p className="mt-4 border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
+                  Welcome to Pro — unlimited load profit scores are unlocked.
+                </p>
+              )}
               <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/money"
+                  className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
+                >
+                  Score a load
+                </Link>
                 <Link
                   href="/plan"
                   className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase transition hover:bg-road"
@@ -267,19 +328,68 @@ export default function MembersPage() {
 
             <section className="border-t border-asphalt/10 pt-10">
               <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
+                Load profit history
+              </h2>
+              <p className="mt-2 max-w-xl text-muted">
+                Scores you saved from the Money tool.
+              </p>
+              {analysesError ? (
+                <p className="mt-4 text-sm text-muted">{analysesError}</p>
+              ) : analyses.length === 0 ? (
+                <div className="mt-6 border border-dashed border-asphalt/20 bg-white/50 px-5 py-10 text-center">
+                  <p className="font-display text-sm tracking-[0.18em] text-muted uppercase">
+                    No scores yet
+                  </p>
+                  <Link
+                    href="/money"
+                    className="mt-4 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
+                  >
+                    Score a load →
+                  </Link>
+                </div>
+              ) : (
+                <ul className="mt-6 divide-y divide-asphalt/10 border-y border-asphalt/10">
+                  {analyses.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between"
+                    >
+                      <div>
+                        <p className="text-lg text-asphalt">
+                          {[item.origin, item.destination]
+                            .filter(Boolean)
+                            .join(" → ") || `${item.miles} mi`}
+                        </p>
+                        <p className="text-sm text-muted">
+                          Net ${Number(item.net_profit).toFixed(0)} · $
+                          {Number(item.net_per_mile).toFixed(2)}/mi ·{" "}
+                          <span className="uppercase">{item.score}</span>
+                        </p>
+                      </div>
+                      <time className="text-sm text-muted">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section id="pro" className="border-t border-asphalt/10 pt-10">
+              <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
                 TruckersLikeMe Pro
               </h2>
               <p className="mt-2 max-w-xl text-muted">
-                Unlimited AI trip tips, advanced corridor planning, and premium
-                alerts — coming soon.
+                Unlimited load profit scores, saved trip money history, and
+                upcoming AI trip + detention tools. Free includes 2 load analyzes
+                per month.
               </p>
-              <button
-                type="button"
-                disabled
-                className="mt-5 cursor-not-allowed rounded-sm bg-amber/50 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt/70 uppercase"
-              >
-                Upgrade — coming soon
-              </button>
+              <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-muted">
+                <li>Unlimited true-profit load scoring</li>
+                <li>Priority corridor intel features as we ship them</li>
+                <li>Cancel anytime via Stripe</li>
+              </ul>
+              <UpgradeToProButton isPro={isPro} stripeReady={stripeReady} />
             </section>
           </div>
         )}
