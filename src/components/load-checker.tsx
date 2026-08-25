@@ -873,9 +873,7 @@ export function LoadChecker() {
                     <dd>{miles || "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-muted uppercase">
-                      Rate / your bid
-                    </dt>
+                    <dt className="text-xs text-muted uppercase">Your bid</dt>
                     <dd>{rateTotal || "—"}</dd>
                   </div>
                 </dl>
@@ -909,7 +907,7 @@ export function LoadChecker() {
             </label>
             <label className="block">
               <span className="text-xs tracking-wide text-muted uppercase">
-                Total rate / quote
+                Your bid
               </span>
               <input
                 type="number"
