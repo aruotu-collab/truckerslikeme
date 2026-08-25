@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
 import { readCheckDraft } from "@/lib/check-draft";
@@ -13,6 +13,44 @@ import {
   type PlaceResult,
 } from "@/lib/places";
 
+const kindOptions: {
+  id: PlaceKind;
+  label: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  cta: string;
+  feedback: string;
+}[] = [
+  {
+    id: "parking",
+    label: "Parking",
+    eyebrow: "Hold the truck",
+    title: "Nearest parking",
+    body: "Overnight holding, secure yards, and truck parks near you — TruckersLikeMe first, then the open web.",
+    cta: "Show parking near me",
+    feedback: "Did you manage to park here?",
+  },
+  {
+    id: "diesel",
+    label: "Fuel",
+    eyebrow: "Fill up",
+    title: "Nearest fuel",
+    body: "Diesel and HGV pumps near you — check card acceptance and truck access before you divert.",
+    cta: "Show fuel near me",
+    feedback: "Did you fuel here?",
+  },
+  {
+    id: "repair",
+    label: "Repair",
+    eyebrow: "Get fixed",
+    title: "Nearest repair",
+    body: "Workshops and tyre places that take commercial vehicles — call ahead if you’re loaded or broken down.",
+    cta: "Show repair near me",
+    feedback: "Did you get fixed here?",
+  },
+];
+
 const truckOptions = [
   { id: "van", label: "Van" },
   { id: "rigid", label: "Rigid" },
@@ -20,19 +58,61 @@ const truckOptions = [
   { id: "40ft", label: "40ft container" },
 ] as const;
 
-const whenOptions = [
-  { id: "now", label: "Now" },
-  { id: "tonight", label: "Tonight" },
-  { id: "overnight", label: "Overnight" },
-  { id: "tomorrow", label: "Tomorrow" },
-] as const;
+const whenByKind: Record<
+  PlaceKind,
+  readonly { id: string; label: string }[]
+> = {
+  parking: [
+    { id: "now", label: "Now" },
+    { id: "tonight", label: "Tonight" },
+    { id: "overnight", label: "Overnight" },
+    { id: "tomorrow", label: "Tomorrow" },
+  ],
+  diesel: [
+    { id: "now", label: "Now" },
+    { id: "tonight", label: "Tonight" },
+    { id: "tomorrow", label: "Tomorrow" },
+  ],
+  repair: [
+    { id: "now", label: "Now / open" },
+    { id: "tonight", label: "Tonight" },
+    { id: "tomorrow", label: "Tomorrow" },
+  ],
+};
 
-const priorityOptions = [
-  { id: "safe", label: "Safe & secure" },
-  { id: "cheap", label: "Cheapest" },
-  { id: "closest", label: "Closest" },
-  { id: "overnight", label: "Overnight OK" },
-] as const;
+const priorityByKind: Record<
+  PlaceKind,
+  readonly { id: string; label: string }[]
+> = {
+  parking: [
+    { id: "safe", label: "Safe & secure" },
+    { id: "cheap", label: "Cheapest" },
+    { id: "closest", label: "Closest" },
+    { id: "overnight", label: "Overnight OK" },
+  ],
+  diesel: [
+    { id: "closest", label: "Closest" },
+    { id: "cheap", label: "Cheapest diesel" },
+    { id: "hgv", label: "HGV pumps" },
+    { id: "24h", label: "Open 24h" },
+  ],
+  repair: [
+    { id: "closest", label: "Closest" },
+    { id: "open", label: "Open now" },
+    { id: "tyres", label: "Tyres / recovery" },
+    { id: "24h", label: "Open 24h" },
+  ],
+};
+
+function defaultWhen(kind: PlaceKind) {
+  return kind === "parking" ? "overnight" : "now";
+}
+
+function defaultPriority(kind: PlaceKind) {
+  if (kind === "parking") return "safe";
+  if (kind === "diesel") return "closest";
+  return "open";
+}
 
 function Chip({
   active,
@@ -59,6 +139,7 @@ function Chip({
 }
 
 export function FindPanel() {
+  const router = useRouter();
   const params = useSearchParams();
   const { isSignedIn, openGate } = useAuthGate();
   const { setFromCountryCode } = useMarket();
@@ -75,6 +156,27 @@ export function FindPanel() {
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [feedbackBusy, setFeedbackBusy] = useState<string | null>(null);
 
+  const copy = useMemo(
+    () => kindOptions.find((k) => k.id === kind) ?? kindOptions[0],
+    [kind],
+  );
+  const whenOptions = whenByKind[kind];
+  const priorityOptions = priorityByKind[kind];
+
+  function applyKind(next: PlaceKind, syncUrl: boolean) {
+    setKind(next);
+    setResults([]);
+    setProvider(null);
+    setError(null);
+    setWhen(defaultWhen(next));
+    setPriority(defaultPriority(next));
+    if (!syncUrl) return;
+    const sp = new URLSearchParams(params.toString());
+    sp.set("need", next);
+    if (near.trim()) sp.set("near", near.trim());
+    router.replace(`/find?${sp.toString()}`, { scroll: false });
+  }
+
   useEffect(() => {
     const n = params.get("near");
     const need = params.get("need");
@@ -86,17 +188,22 @@ export function FindPanel() {
       const place = draft?.corridor?.destination || draft?.location;
       if (place) setNear(place);
     }
-    if (need === "diesel" || need === "repair" || need === "parking") {
-      setKind(need);
-    }
+    const nextKind: PlaceKind =
+      need === "diesel" || need === "repair" || need === "parking"
+        ? need
+        : "parking";
+    setKind((prev) => {
+      if (prev !== nextKind) {
+        setResults([]);
+        setProvider(null);
+        setError(null);
+        setWhen(defaultWhen(nextKind));
+        setPriority(defaultPriority(nextKind));
+      }
+      return nextKind;
+    });
     if (w) setWhen(w);
   }, [params]);
-
-  const title = useMemo(() => {
-    if (kind === "diesel") return "Nearest fuel";
-    if (kind === "repair") return "Nearest repair";
-    return "Nearest parking";
-  }, [kind]);
 
   async function runSearch() {
     setError(null);
@@ -186,18 +293,32 @@ export function FindPanel() {
       <ResumeCheckBanner />
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          Near you
+          {copy.eyebrow}
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
-          {title}
+          {copy.title}
         </h1>
-        <p className="mt-3 max-w-2xl text-lg text-muted">
-          We check TruckersLikeMe first, then the open web — and we never call a
-          web result “safe” without a badge.
-        </p>
+        <p className="mt-3 max-w-2xl text-lg text-muted">{copy.body}</p>
       </section>
 
       <section className="space-y-5">
+        <div>
+          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+            Looking for
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {kindOptions.map((c) => (
+              <Chip
+                key={c.id}
+                active={kind === c.id}
+                onClick={() => applyKind(c.id, true)}
+              >
+                {c.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label className="block">
             <span className="font-display text-xs tracking-[0.16em] text-muted uppercase">
@@ -280,7 +401,13 @@ export function FindPanel() {
               value={freeText}
               onChange={(e) => setFreeText(e.target.value)}
               rows={3}
-              placeholder="Guarded spot for a loaded reefer until 5am…"
+              placeholder={
+                kind === "parking"
+                  ? "Guarded spot for a loaded reefer until 5am…"
+                  : kind === "diesel"
+                    ? "HGV diesel with AdBlue, card accepted…"
+                    : "Puncture on the trailer, need mobile tyre if possible…"
+              }
               className="mt-2 w-full rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt focus:border-amber focus:outline-none"
             />
           )}
@@ -292,7 +419,7 @@ export function FindPanel() {
           onClick={() => void runSearch()}
           className="w-full rounded-sm bg-amber px-5 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:opacity-60 sm:w-auto"
         >
-          {loading ? "Searching…" : "Show me where"}
+          {loading ? "Searching…" : copy.cta}
         </button>
 
         {error && (
@@ -306,7 +433,7 @@ export function FindPanel() {
         <section className="space-y-4 border-t border-asphalt/10 pt-8">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
-              Results
+              {copy.label} results
             </h2>
             {provider && (
               <p className="text-xs tracking-wide text-muted uppercase">
@@ -346,24 +473,25 @@ export function FindPanel() {
                     <p className="mt-3 text-sm text-muted">{place.summary}</p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-                    {place.overnight != null && (
+                    {kind === "parking" && place.overnight != null && (
                       <span>
                         Overnight:{" "}
                         {place.overnight ? "reported yes" : "unclear / no"}
                       </span>
                     )}
-                    {place.security != null && (
+                    {kind === "parking" && place.security != null && (
                       <span>
                         Security: {place.security ? "reported" : "unknown"}
                       </span>
                     )}
+                    {place.priceNote && <span>{place.priceNote}</span>}
                     {place.phone && <span>Tel: {place.phone}</span>}
                     {place.distanceNote && <span>{place.distanceNote}</span>}
                   </div>
                   {place.id && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span className="mr-2 self-center text-xs text-muted">
-                        Did you manage to use this?
+                        {copy.feedback}
                       </span>
                       <button
                         type="button"
