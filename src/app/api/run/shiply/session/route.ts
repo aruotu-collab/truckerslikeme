@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       sessionId: session.sessionId,
       liveViewUrl: session.liveViewUrl,
       contextId: session.contextId,
-      tip: "In the browser below, open shiply.com, log in, run your search, then scan the results list.",
+      tip: "Shiply should open in the browser below. Log in, run your search, then scan the results list.",
     });
   } catch (err) {
     const msg =
