@@ -47,11 +47,11 @@ export async function POST(request: Request) {
     rateTotal = parsed.ratePerMile * miles;
   }
 
-  if (!Number.isFinite(miles) || miles < 10) {
+  if (!Number.isFinite(miles) || miles < 1) {
     return NextResponse.json(
       {
         error:
-          "Need trip miles (at least 10). Paste a rate confirmation or enter miles.",
+          "Need trip miles (at least 1). Paste a job, upload a screenshot, or enter miles.",
         parse: parsed,
       },
       { status: 400 },

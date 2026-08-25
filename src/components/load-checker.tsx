@@ -77,6 +77,9 @@ export function LoadChecker() {
   const [mpg, setMpg] = useState("6.5");
   const [costPerMile, setCostPerMile] = useState("0.65");
   const [loading, setLoading] = useState(false);
+  const [extractBusy, setExtractBusy] = useState(false);
+  const [extractNotes, setExtractNotes] = useState<string[]>([]);
+  const [shotPreview, setShotPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [requiresPro, setRequiresPro] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
@@ -203,6 +206,92 @@ export function LoadChecker() {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
     );
+  }
+
+  async function extractFromImage(fileOrDataUrl: File | string) {
+    setExtractBusy(true);
+    setError(null);
+    setExtractNotes([]);
+    try {
+      let dataUrl: string;
+      if (typeof fileOrDataUrl === "string") {
+        dataUrl = fileOrDataUrl;
+      } else {
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("Could not read image"));
+          reader.readAsDataURL(fileOrDataUrl);
+        });
+      }
+      setShotPreview(dataUrl);
+
+      const res = await fetch("/api/loads/extract-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: dataUrl }),
+      });
+      const data = (await res.json()) as {
+        extracted?: {
+          origin: string | null;
+          destination: string | null;
+          miles: number | null;
+          rateTotal: number | null;
+          currency: string | null;
+          item: string | null;
+          notes: string[];
+          rawText: string | null;
+        };
+        error?: string;
+      };
+      if (!res.ok) {
+        setError(data.error || "Could not read that screenshot.");
+        return;
+      }
+      const ex = data.extracted;
+      if (!ex) {
+        setError("No job details found in that image.");
+        return;
+      }
+
+      const lines = [
+        ex.item ? `Item: ${ex.item}` : null,
+        ex.origin && ex.destination
+          ? `${ex.origin} → ${ex.destination}`
+          : ex.origin || ex.destination,
+        ex.miles != null ? `Miles: ${ex.miles}` : null,
+        ex.rateTotal != null
+          ? `Rate: ${ex.currency === "GBP" ? "£" : ex.currency === "EUR" ? "€" : "$"}${ex.rateTotal}`
+          : null,
+        ex.rawText,
+      ].filter(Boolean);
+      setText(lines.join("\n"));
+      if (ex.miles != null) setMiles(String(ex.miles));
+      if (ex.rateTotal != null) setRateTotal(String(ex.rateTotal));
+      setExtractNotes([
+        ...(ex.notes ?? []),
+        ex.rateTotal == null
+          ? "No pay/quote found — enter the amount you’d bid, then Check load."
+          : "",
+      ].filter(Boolean));
+    } catch {
+      setError("Could not process that screenshot.");
+    } finally {
+      setExtractBusy(false);
+    }
+  }
+
+  function onPasteJob(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) void extractFromImage(file);
+        return;
+      }
+    }
   }
 
   async function checkLoad(asPreview?: boolean) {
@@ -360,25 +449,61 @@ export function LoadChecker() {
             {geoNote && <p className="mt-1 text-xs text-muted">{geoNote}</p>}
           </div>
 
-          <label className="block">
-            <span className="font-display text-xs tracking-[0.18em] text-muted uppercase">
-              2. Paste the load or rate conf
-            </span>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={7}
-              placeholder={SAMPLE}
-              className="mt-2 w-full resize-y rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt placeholder:text-muted/60 focus:border-amber focus:outline-none"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => setText(SAMPLE)}
-            className="text-sm font-medium text-amber transition hover:text-asphalt"
-          >
-            Fill sample load →
-          </button>
+          <div onPaste={onPasteJob}>
+            <label className="block">
+              <span className="font-display text-xs tracking-[0.18em] text-muted uppercase">
+                2. Paste the load, or paste / upload a screenshot
+              </span>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={7}
+                placeholder={SAMPLE}
+                className="mt-2 w-full resize-y rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt placeholder:text-muted/60 focus:border-amber focus:outline-none"
+              />
+            </label>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <label className="cursor-pointer text-sm font-medium text-amber transition hover:text-asphalt">
+                {extractBusy ? "Reading screenshot…" : "Upload screenshot →"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={extractBusy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void extractFromImage(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setText(SAMPLE)}
+                className="text-sm font-medium text-amber transition hover:text-asphalt"
+              >
+                Fill sample load →
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Tip: copy a Shiply job screenshot and paste it here (Ctrl+V / ⌘V).
+            </p>
+            {shotPreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={shotPreview}
+                alt="Job screenshot preview"
+                className="mt-3 max-h-40 rounded-sm border border-asphalt/10 object-contain"
+              />
+            )}
+            {extractNotes.length > 0 && (
+              <ul className="mt-2 list-inside list-disc text-sm text-muted">
+                {extractNotes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
@@ -395,7 +520,7 @@ export function LoadChecker() {
             </label>
             <label className="block">
               <span className="text-xs tracking-wide text-muted uppercase">
-                Total rate ($)
+                Total rate / quote
               </span>
               <input
                 type="number"
