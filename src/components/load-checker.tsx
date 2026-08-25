@@ -411,6 +411,16 @@ export function LoadChecker() {
     corridor?.destination || location || "",
   )}&need=parking&when=overnight`;
 
+  const planRouteHref = (() => {
+    const origin = corridor?.origin || location || "";
+    const dest = corridor?.destination || "";
+    if (!origin && !dest) return "/plan";
+    const q = new URLSearchParams();
+    if (origin) q.set("from", origin);
+    if (dest) q.set("to", dest);
+    return `/plan?${q.toString()}`;
+  })();
+
   return (
     <div className="space-y-10">
       <section>
@@ -750,24 +760,24 @@ export function LoadChecker() {
 
               <div className="mt-6 border-t border-current/15 pt-5">
                 <p className="font-display text-xs tracking-[0.16em] uppercase opacity-80">
-                  Trip assistant
+                  Next on this haul
                 </p>
                 <p className="mt-2 text-sm opacity-90">
-                  Next: find truck parking near your destination or along the
-                  haul.
+                  Plan the corridor — fuel, parking, and repair between A and B
+                  — or find a stop near delivery.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <Link
-                    href={tripFindHref}
+                    href={planRouteHref}
                     className="rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
                   >
-                    Find parking
+                    Plan this trip
                   </Link>
                   <Link
-                    href="/trip?tab=plan"
+                    href={tripFindHref}
                     className="rounded-sm border border-current/30 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
                   >
-                    Open trip tools
+                    Find parking
                   </Link>
                 </div>
               </div>

@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
-import { RoutePlanner } from "@/components/route-planner";
+import { Suspense } from "react";
+import { PlanRoutePanel } from "@/components/plan-route-panel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Plan a route — TruckersLikeMe",
+  title: "Plan route | TruckersLikeMe",
   description:
-    "Search a corridor for fuel, parking, weigh stations, and trip tips.",
+    "See fuel, parking, repair, and alerts along your haul — from origin to delivery.",
 };
 
 export default function PlanPage() {
   return (
-    <div className="flex min-h-full flex-col bg-asphalt">
+    <div className="flex min-h-full flex-col bg-background">
       <SiteHeader variant="solid" />
-      <main className="flex-1">
-        <RoutePlanner />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+        <Suspense fallback={<p className="text-muted">Loading route planner…</p>}>
+          <PlanRoutePanel />
+        </Suspense>
       </main>
       <SiteFooter />
     </div>

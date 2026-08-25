@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { LiveActivity } from "@/components/live-activity";
-import { RoutePlanner } from "@/components/route-planner";
 
 type Tab = "assist" | "live" | "plan";
 
@@ -74,16 +73,17 @@ export function TripPageClient() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="border border-asphalt/10 bg-white px-5 py-6">
               <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-                Check a load first
+                Plan the corridor
               </h2>
               <p className="mt-2 text-muted">
-                Score the money, then we help you park and plan the corridor.
+                See fuel, parking, and repair from origin to delivery on one
+                line.
               </p>
               <Link
-                href="/"
+                href="/plan"
                 className="mt-5 inline-flex rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
               >
-                Open load checker
+                Plan route
               </Link>
             </div>
             <div className="border border-asphalt/10 bg-white px-5 py-6">
@@ -94,10 +94,10 @@ export function TripPageClient() {
                 Tap-first parking, diesel, and repair — with trust badges.
               </p>
               <Link
-                href="/find"
+                href="/find?need=parking"
                 className="mt-5 inline-flex rounded-sm bg-asphalt px-4 py-3 text-sm font-semibold tracking-wide text-white uppercase"
               >
-                Open find
+                Nearest parking
               </Link>
             </div>
           </div>
@@ -111,9 +111,23 @@ export function TripPageClient() {
       )}
 
       {active === "plan" && (
-        <div className="bg-asphalt pt-4">
-          <RoutePlanner />
-        </div>
+        <section className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+          <div className="border border-asphalt/10 bg-white px-5 py-8">
+            <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
+              Plan route moved
+            </h2>
+            <p className="mt-2 max-w-xl text-muted">
+              Corridor planning now lives under Plan Route in the main menu —
+              with a visual haul line for fuel, parking, and repair.
+            </p>
+            <Link
+              href="/plan"
+              className="mt-5 inline-flex rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
+            >
+              Open plan route
+            </Link>
+          </div>
+        </section>
       )}
     </main>
   );
