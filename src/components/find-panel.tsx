@@ -34,7 +34,7 @@ const priorityOptions = [
 
 const needOptions: { id: PlaceKind; label: string }[] = [
   { id: "parking", label: "Parking" },
-  { id: "diesel", label: "Diesel" },
+  { id: "diesel", label: "Fuel" },
   { id: "repair", label: "Repair" },
 ];
 
@@ -91,9 +91,9 @@ export function FindPanel() {
   }, [params]);
 
   const title = useMemo(() => {
-    if (kind === "diesel") return "Find diesel";
-    if (kind === "repair") return "Find repair";
-    return "Find truck parking";
+    if (kind === "diesel") return "Nearest fuel";
+    if (kind === "repair") return "Nearest repair";
+    return "Nearest parking";
   }, [kind]);
 
   async function runSearch() {

@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
+import { HScroll } from "@/components/h-scroll";
 
 type SiteHeaderProps = {
   variant?: "overlay" | "solid";
@@ -12,30 +14,104 @@ type SiteHeaderProps = {
 const primaryNav = [
   {
     href: "/",
-    label: "Check",
-    match: (p: string) =>
-      p === "/" || p.startsWith("/check") || p.startsWith("/money"),
+    label: "Check Load",
+    match: (pathname: string, _need: string | null) =>
+      pathname === "/" ||
+      pathname.startsWith("/check") ||
+      pathname.startsWith("/money"),
   },
   {
-    href: "/find",
-    label: "Find",
-    match: (p: string) => p.startsWith("/find"),
+    href: "/find?need=parking",
+    label: "Nearest Parking",
+    match: (pathname: string, need: string | null) =>
+      pathname.startsWith("/find") && (need === "parking" || !need),
   },
   {
-    href: "/trip",
-    label: "Trip",
-    match: (p: string) =>
-      p.startsWith("/trip") || p.startsWith("/live") || p.startsWith("/plan"),
+    href: "/find?need=diesel",
+    label: "Nearest Fuel",
+    match: (pathname: string, need: string | null) =>
+      pathname.startsWith("/find") && need === "diesel",
   },
   {
-    href: "/me",
-    label: "Me",
-    match: (p: string) => p.startsWith("/me") || p.startsWith("/members"),
+    href: "/find?need=repair",
+    label: "Nearest Repair",
+    match: (pathname: string, need: string | null) =>
+      pathname.startsWith("/find") && need === "repair",
   },
 ] as const;
 
-export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
+function NavScroll({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const need = searchParams.get("need");
+
+  return (
+    <div className="[--h-scroll-fade:#1a1d23]">
+      <HScroll
+        aria-label="Main"
+        role="navigation"
+        hint=""
+        className="px-0"
+      >
+        {primaryNav.map((item) => {
+          const active = item.match(pathname, need);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
+                active
+                  ? "bg-amber text-asphalt"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+        <Link
+          href="/me"
+          className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
+            pathname.startsWith("/me") || pathname.startsWith("/members")
+              ? "bg-amber text-asphalt"
+              : "text-white/80 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          Me
+        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
+              pathname.startsWith("/admin")
+                ? "bg-amber text-asphalt"
+                : "text-white/80 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            Admin
+          </Link>
+        )}
+      </HScroll>
+    </div>
+  );
+}
+
+function NavScrollFallback() {
+  return (
+    <div className="flex gap-2 overflow-hidden px-0.5 pb-2">
+      {primaryNav.map((item) => (
+        <span
+          key={item.href}
+          className="shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide text-white/50 uppercase sm:text-sm"
+        >
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
   const { market, resolved } = useMarket();
   const solid = variant !== "overlay";
@@ -45,10 +121,6 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
     user?.email?.split("@")[0] ||
     null;
 
-  const linkBase =
-    "shrink-0 text-sm font-semibold tracking-wide text-white/75 uppercase transition hover:text-white";
-  const linkActive = "text-amber-hot";
-
   return (
     <header
       className={
@@ -57,18 +129,18 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           : "absolute inset-x-0 top-0 z-30 w-full max-w-full overflow-x-clip"
       }
     >
-      {/* Primary bar — brand left, nav + account right (ZeroSpenders-style) */}
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-8 sm:py-3.5">
-        <div className="min-w-0 shrink-0">
+      {/* Brand + account */}
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-8 sm:py-3.5">
+        <div className="min-w-0 shrink">
           <Link
             href="/"
             className="block font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
           >
             <span className="whitespace-nowrap">
               Truckers<span className="text-amber-hot">Like</span>Me
-            {resolved ? (
-              <span className="text-white"> - {market.countryLabel}</span>
-            ) : null}
+              {resolved ? (
+                <span className="text-white"> - {market.countryLabel}</span>
+              ) : null}
             </span>
           </Link>
           <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
@@ -76,35 +148,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           </p>
         </div>
 
-        <nav
-          className="ml-auto hidden min-w-0 items-center gap-5 md:flex"
-          aria-label="Main"
-        >
-          {primaryNav.map((item) => {
-            const active = item.match(pathname);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${linkBase} ${active ? linkActive : ""}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`${linkBase} ${
-                pathname.startsWith("/admin") ? linkActive : ""
-              }`}
-            >
-              Admin
-            </Link>
-          )}
-        </nav>
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {isSignedIn && shortName ? (
             <Link
               href="/me"
@@ -136,41 +180,13 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
         </div>
       </div>
 
-      {/* Secondary bar — compact horizontal links on small screens only */}
-      <div className="border-t border-white/10 md:hidden">
-        <nav
-          className="h-scroll mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-3 py-2 sm:px-8"
-          aria-label="Sections"
-        >
-          {primaryNav.map((item) => {
-            const active = item.match(pathname);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
-                  active
-                    ? "bg-amber text-asphalt"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
-                pathname.startsWith("/admin")
-                  ? "bg-amber text-asphalt"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              Admin
-            </Link>
-          )}
-        </nav>
+      {/* Sliding section menu under the logo — same on mobile and desktop */}
+      <div className="border-t border-white/10">
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-3 py-2 sm:px-8">
+          <Suspense fallback={<NavScrollFallback />}>
+            <NavScroll isAdmin={isAdmin} />
+          </Suspense>
+        </div>
       </div>
     </header>
   );
