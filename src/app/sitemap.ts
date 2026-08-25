@@ -13,22 +13,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${siteUrl}/live`,
+      url: `${siteUrl}/find`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.95,
+    },
+    {
+      url: `${siteUrl}/trip`,
       lastModified: now,
       changeFrequency: "hourly",
       priority: 0.9,
     },
     {
-      url: `${siteUrl}/plan`,
+      url: `${siteUrl}/me`,
       lastModified: now,
       changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    {
-      url: `${siteUrl}/money`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.85,
+      priority: 0.7,
     },
   ];
 }

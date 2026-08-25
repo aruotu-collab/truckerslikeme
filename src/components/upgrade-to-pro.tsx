@@ -61,10 +61,10 @@ export function UpgradeToProButton({
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/money"
+            href="/"
             className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
           >
-            Score a load free
+            Check a load free
           </Link>
           <span className="inline-flex items-center rounded-sm border border-asphalt/15 px-5 py-3 text-sm text-muted">
             Pro checkout — coming with Stripe

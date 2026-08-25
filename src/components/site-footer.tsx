@@ -8,21 +8,21 @@ export function SiteFooter() {
           Truckers<span className="text-amber">Like</span>Me
         </p>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
-          <Link href="/live" className="transition hover:text-asphalt">
-            Live
+          <Link href="/" className="transition hover:text-asphalt">
+            Check
           </Link>
-          <Link href="/money" className="transition hover:text-asphalt">
-            Money
+          <Link href="/find" className="transition hover:text-asphalt">
+            Find
           </Link>
-          <Link href="/plan" className="transition hover:text-asphalt">
-            Plan
+          <Link href="/trip" className="transition hover:text-asphalt">
+            Trip
           </Link>
-          <Link href="/members" className="transition hover:text-asphalt">
-            Members
+          <Link href="/me" className="transition hover:text-asphalt">
+            Me
           </Link>
         </nav>
         <p className="text-sm text-muted">
-          Live intel · Load profit · Pro when it pays
+          Load decisions · Places drivers trust · Worldwide
         </p>
       </div>
     </footer>

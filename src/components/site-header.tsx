@@ -8,6 +8,13 @@ type SiteHeaderProps = {
   variant?: "overlay" | "solid";
 };
 
+const primaryNav = [
+  { href: "/", label: "Check", match: (p: string) => p === "/" || p.startsWith("/check") || p.startsWith("/money") },
+  { href: "/find", label: "Find", match: (p: string) => p.startsWith("/find") },
+  { href: "/trip", label: "Trip", match: (p: string) => p.startsWith("/trip") || p.startsWith("/live") || p.startsWith("/plan") },
+  { href: "/me", label: "Me", match: (p: string) => p.startsWith("/me") || p.startsWith("/members") },
+] as const;
+
 export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const pathname = usePathname();
   const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
@@ -17,12 +24,6 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
       user.user_metadata.display_name) ||
     user?.email?.split("@")[0] ||
     null;
-
-  const planActive = pathname === "/plan";
-  const liveActive = pathname === "/live";
-  const moneyActive = pathname.startsWith("/money");
-  const membersActive = pathname === "/members";
-  const adminActive = pathname.startsWith("/admin");
 
   const btn =
     "inline-flex min-h-11 w-full items-center justify-center rounded-sm px-3 py-2.5 text-center text-sm font-semibold tracking-wide uppercase transition";
@@ -67,7 +68,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
 
         {isSignedIn && shortName && (
           <Link
-            href="/members"
+            href="/me"
             className="mt-1 block truncate text-sm text-white/80 transition hover:text-amber-hot"
             title={user?.email ?? undefined}
           >
@@ -76,59 +77,52 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           </Link>
         )}
 
+        <nav className="mt-3 grid grid-cols-4 gap-2 md:hidden" aria-label="Main">
+          {primaryNav.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${btn} ${
+                  active
+                    ? "bg-amber text-asphalt"
+                    : "border border-white/30 bg-white/10 text-white"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
         <nav
-          className={`mt-3 grid gap-2 md:hidden ${
-            isAdmin && isSignedIn ? "grid-cols-2" : "grid-cols-2"
-          }`}
+          className="mt-4 hidden flex-wrap items-center gap-2 md:flex"
           aria-label="Main"
         >
-          <Link
-            href="/plan"
-            className={`${btn} ${
-              planActive ? "bg-amber text-asphalt" : "bg-amber/90 text-asphalt"
-            }`}
-          >
-            Plan
-          </Link>
-          <Link
-            href="/live"
-            className={`${btn} ${
-              liveActive
-                ? "border border-amber bg-amber/15 text-amber-hot"
-                : "border border-white/30 bg-white/10 text-white"
-            }`}
-          >
-            Live
-          </Link>
-          <Link
-            href="/money"
-            className={`${btn} ${
-              moneyActive
-                ? "border border-amber bg-amber/15 text-amber-hot"
-                : "border border-white/30 bg-white/10 text-white"
-            }`}
-          >
-            Money
-          </Link>
-          {isSignedIn && (
-            <Link
-              href="/members"
-              className={`${btn} ${
-                membersActive
-                  ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white"
-              }`}
-            >
-              Members
-            </Link>
-          )}
+          {primaryNav.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${btn} w-auto px-5 ${
+                  active
+                    ? "bg-amber text-asphalt"
+                    : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
           {isAdmin && (
             <Link
               href="/admin"
-              className={`${btn} ${
-                adminActive
+              className={`${btn} w-auto px-5 ${
+                pathname.startsWith("/admin")
                   ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white"
+                  : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
               }`}
             >
               Admin
@@ -136,65 +130,20 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           )}
         </nav>
 
-        <nav
-          className="mt-4 hidden flex-wrap items-center gap-2 md:flex"
-          aria-label="Main"
-        >
-          <Link
-            href="/plan"
-            className={`${btn} w-auto px-5 ${
-              planActive
-                ? "bg-amber text-asphalt"
-                : "bg-amber/90 text-asphalt hover:bg-amber-hot"
-            }`}
-          >
-            Plan a route
-          </Link>
-          <Link
-            href="/live"
-            className={`${btn} w-auto px-5 ${
-              liveActive
-                ? "border border-amber bg-amber/15 text-amber-hot"
-                : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
-            }`}
-          >
-            Live activity
-          </Link>
-          <Link
-            href="/money"
-            className={`${btn} w-auto px-5 ${
-              moneyActive
-                ? "border border-amber bg-amber/15 text-amber-hot"
-                : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
-            }`}
-          >
-            Money
-          </Link>
-          {isSignedIn && (
-            <Link
-              href="/members"
-              className={`${btn} w-auto px-5 ${
-                membersActive
-                  ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
-              }`}
-            >
-              Members
-            </Link>
-          )}
-          {isAdmin && (
+        {isAdmin && (
+          <div className="mt-2 md:hidden">
             <Link
               href="/admin"
-              className={`${btn} w-auto px-5 ${
-                adminActive
+              className={`${btn} ${
+                pathname.startsWith("/admin")
                   ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                  : "border border-white/30 bg-white/10 text-white"
               }`}
             >
               Admin
             </Link>
-          )}
-        </nav>
+          </div>
+        )}
       </div>
     </header>
   );

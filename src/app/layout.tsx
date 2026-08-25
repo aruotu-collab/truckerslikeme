@@ -26,11 +26,11 @@ const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "TruckersLikeMe — Live road intelligence for truck drivers",
+    default: "TruckersLikeMe — Should I take this load?",
     template: "%s · TruckersLikeMe",
   },
   description:
-    "Parking, fuel, delays, and route intel from drivers on your corridor. Browse freely. Sign up when you save, post, or ask AI.",
+    "Check any load for true profit, find truck parking worldwide, and build trusted stops with other drivers.",
   applicationName: "TruckersLikeMe",
   alternates: {
     canonical: "/",
@@ -40,15 +40,15 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     siteName: "TruckersLikeMe",
-    title: "TruckersLikeMe — Live road intelligence for truck drivers",
+    title: "TruckersLikeMe — Should I take this load?",
     description:
-      "Parking, fuel, delays, and route intel from drivers on your corridor.",
+      "Load decisions, parking find, and trip tools for drivers — anywhere.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "TruckersLikeMe — Live road intelligence for truck drivers",
+    title: "TruckersLikeMe — Should I take this load?",
     description:
-      "Parking, fuel, delays, and route intel from drivers on your corridor.",
+      "Load decisions, parking find, and trip tools for drivers — anywhere.",
   },
   verification: googleVerification
     ? { google: googleVerification }

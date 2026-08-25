@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
-import { LoadChecker } from "@/components/load-checker";
+import { Suspense } from "react";
+import { FindPanel } from "@/components/find-panel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Should I take this load? | TruckersLikeMe",
+  title: "Find parking, diesel & repair | TruckersLikeMe",
   description:
-    "Check any load offer for true profit after fuel and costs. Manual location first — GPS when you want it.",
+    "Tap-first search for truck parking, diesel, and repair worldwide — with trust badges.",
 };
 
-export default function HomePage() {
+export default function FindPage() {
   return (
     <div className="flex min-h-full flex-col bg-background">
       <SiteHeader variant="solid" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-        <LoadChecker />
+        <Suspense fallback={<p className="text-muted">Loading find…</p>}>
+          <FindPanel />
+        </Suspense>
       </main>
       <SiteFooter />
     </div>
