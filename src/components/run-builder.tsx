@@ -890,10 +890,41 @@ export function RunBuilder() {
               <p className="mt-2 font-display text-3xl tracking-wide uppercase">
                 Finish {best.finishAt || "TBD"}
               </p>
+              <p className="mt-1 text-sm font-medium text-emerald-900">
+                {best.jobs.length > 1
+                  ? `Combined run · ${best.jobs.length} jobs`
+                  : "Single job"}
+              </p>
               <p className="mt-2 text-muted">{best.summary}</p>
+              {best.payMissing && (
+                <p className="mt-3 border border-alert/30 bg-red-50 px-3 py-2 text-sm text-alert">
+                  Pay wasn’t captured on one or more legs (showing £0 revenue).
+                  Profit is cost-only until we read the customer budget from the
+                  full Shiply job page — re-open those jobs or paste screenshots.
+                </p>
+              )}
+              {best.legs && best.legs.length > 0 && (
+                <ul className="mt-4 space-y-1.5 text-sm text-muted">
+                  {best.legs.map((leg, i) => (
+                    <li key={`${leg.label}-${i}`}>
+                      Leg {i + 1}: {leg.label} · {leg.miles} mi ·{" "}
+                      {leg.revenue > 0 ? money(leg.revenue) : "pay missing"}
+                    </li>
+                  ))}
+                  {best.jobs.length > 1 && (
+                    <li className="font-medium text-asphalt">
+                      Combined revenue {money(best.revenue)} − costs{" "}
+                      {money(best.estimatedCost)} (incl. {best.emptyMiles} empty
+                      mi between legs) = {money(best.estimatedProfit)}
+                    </li>
+                  )}
+                </ul>
+              )}
               <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
-                  <dt className="text-xs uppercase text-muted">Revenue</dt>
+                  <dt className="text-xs uppercase text-muted">
+                    {best.jobs.length > 1 ? "Combined revenue" : "Revenue"}
+                  </dt>
                   <dd className="text-xl font-medium">{money(best.revenue)}</dd>
                 </div>
                 <div>
@@ -982,8 +1013,12 @@ export function RunBuilder() {
                     </p>
                     <p className="mt-1 text-sm text-muted">{c.summary}</p>
                     <p className="mt-1 text-sm text-muted">
+                      {c.jobs.length > 1
+                        ? `${c.jobs.length}-job combo · `
+                        : "Solo · "}
                       Profit {money(c.estimatedProfit)} · Revenue{" "}
                       {money(c.revenue)}
+                      {c.payMissing ? " · pay missing" : ""}
                     </p>
                   </li>
                 ))}

@@ -33,6 +33,10 @@ export type RunCombo = {
   emptyMiles: number;
   utilisationPct: number;
   summary: string;
+  /** True when one or more legs have no captured pay */
+  payMissing?: boolean;
+  /** Per-leg money/miles used in the combined total */
+  legs?: { label: string; revenue: number; miles: number }[];
 };
 
 export type RunPrefs = {
@@ -177,11 +181,72 @@ function money(n: number | null | undefined) {
   return typeof n === "number" && Number.isFinite(n) ? n : 0;
 }
 
+function hasPay(j: RunJob) {
+  return typeof j.rateTotal === "number" && Number.isFinite(j.rateTotal) && j.rateTotal > 0;
+}
+
 function miles(n: number | null | undefined) {
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 80;
 }
 
-/** Rough chain: sort by revenue density, attach next job if pickup mentions prior delivery city. */
+function cityKey(place: string | null | undefined) {
+  return (place || "").split(",")[0]?.trim().toLowerCase() || "";
+}
+
+function placesLink(a: string | null | undefined, b: string | null | undefined) {
+  const ca = cityKey(a);
+  const cb = cityKey(b);
+  if (!ca || !cb) return false;
+  return ca.includes(cb) || cb.includes(ca);
+}
+
+function comboFromJobs(
+  jobs: RunJob[],
+  id: string,
+  label: string,
+  costPerMile: number,
+): RunCombo {
+  const legs = jobs.map((j) => ({
+    label: `${j.origin || "?"} → ${j.destination || "?"}`,
+    revenue: money(j.rateTotal),
+    miles: miles(j.miles),
+  }));
+  const revenue = legs.reduce((s, l) => s + l.revenue, 0);
+  const loaded = legs.reduce((s, l) => s + l.miles, 0);
+
+  // Empty between consecutive legs: small if delivery≈next pickup, larger if not.
+  let empty = 0;
+  for (let i = 0; i < jobs.length - 1; i++) {
+    const linked = placesLink(jobs[i]?.destination, jobs[i + 1]?.origin);
+    const hop = linked
+      ? Math.max(8, Math.round(miles(jobs[i + 1]?.miles) * 0.06))
+      : Math.max(
+          35,
+          Math.round((miles(jobs[i]?.miles) + miles(jobs[i + 1]?.miles)) * 0.1),
+        );
+    empty += hop;
+  }
+
+  const cost = (loaded + empty) * costPerMile;
+  const payMissing = jobs.some((j) => !hasPay(j));
+  return {
+    id,
+    label,
+    jobs,
+    finishAt: jobs[jobs.length - 1]?.destination ?? null,
+    revenue: Math.round(revenue * 100) / 100,
+    estimatedCost: Math.round(cost * 100) / 100,
+    estimatedProfit: Math.round((revenue - cost) * 100) / 100,
+    emptyMiles: empty,
+    utilisationPct:
+      loaded + empty > 0 ? Math.round((loaded / (loaded + empty)) * 100) : 0,
+    summary: legs.map((l) => l.label).join(" · "),
+    payMissing,
+    legs,
+  };
+}
+
+/** Build solo + multi-leg runs; combo profit = sum(leg pay) − cost(all loaded + empty between). */
 export function rankRunCombos(
   jobs: RunJob[],
   prefs: RunPrefs,
@@ -199,6 +264,10 @@ export function rankRunCombos(
   if (usable.length === 0) return [];
 
   const scored = [...usable].sort((a, b) => {
+    // Known pay first, then revenue density
+    const payA = hasPay(a) ? 1 : 0;
+    const payB = hasPay(b) ? 1 : 0;
+    if (payA !== payB) return payB - payA;
     const da = money(a.rateTotal) / miles(a.miles);
     const db = money(b.rateTotal) / miles(b.miles);
     return db - da;
@@ -206,26 +275,17 @@ export function rankRunCombos(
 
   const combos: RunCombo[] = [];
 
-  // Single-job baselines
   for (const j of scored.slice(0, 5)) {
-    const m = miles(j.miles);
-    const rev = money(j.rateTotal);
-    const cost = m * costPerMile;
-    combos.push({
-      id: `solo-${j.id}`,
-      label: `Solo · finish ${j.destination}`,
-      jobs: [j],
-      finishAt: j.destination,
-      revenue: rev,
-      estimatedCost: Math.round(cost * 100) / 100,
-      estimatedProfit: Math.round((rev - cost) * 100) / 100,
-      emptyMiles: 0,
-      utilisationPct: 100,
-      summary: `${j.origin} → ${j.destination}`,
-    });
+    combos.push(
+      comboFromJobs(
+        [j],
+        `solo-${j.id}`,
+        `Solo · finish ${j.destination}`,
+        costPerMile,
+      ),
+    );
   }
 
-  // Greedy 2–3 leg chains
   for (const first of scored.slice(0, 4)) {
     const chain: RunJob[] = [first];
     let tip = (first.destination || "").toLowerCase();
@@ -249,9 +309,7 @@ export function rankRunCombos(
           .toLowerCase()
           .includes(prefs.destination.split(",")[0].trim().toLowerCase());
       if (linked || homeBias || destBias || chain.length === 1) {
-        // Allow second leg somewhat freely for profit mode
         if (prefs.mode === "profit" && chain.length >= 1 && !linked) {
-          // weak attach: only if high verdict
           if (candidate.verdict !== "open" && candidate.verdict !== "high") {
             continue;
           }
@@ -262,29 +320,23 @@ export function rankRunCombos(
       }
     }
     if (chain.length < 2) continue;
-    const rev = chain.reduce((s, j) => s + money(j.rateTotal), 0);
-    const loaded = chain.reduce((s, j) => s + miles(j.miles), 0);
-    const empty = Math.max(15, Math.round(loaded * 0.12));
-    const cost = (loaded + empty) * costPerMile;
     const finish = chain[chain.length - 1]?.destination ?? null;
-    combos.push({
-      id: `chain-${chain.map((c) => c.id).join("-")}`,
-      label: `Run · finish ${finish}`,
-      jobs: chain,
-      finishAt: finish,
-      revenue: Math.round(rev * 100) / 100,
-      estimatedCost: Math.round(cost * 100) / 100,
-      estimatedProfit: Math.round((rev - cost) * 100) / 100,
-      emptyMiles: empty,
-      utilisationPct: Math.round((loaded / (loaded + empty)) * 100),
-      summary: chain
-        .map((j) => `${j.origin} → ${j.destination}`)
-        .join(" · "),
-    });
+    combos.push(
+      comboFromJobs(
+        chain,
+        `chain-${chain.map((c) => c.id).join("-")}`,
+        `Run · ${chain.length} jobs · finish ${finish}`,
+        costPerMile,
+      ),
+    );
   }
 
-  // Prefer home/destination finishes when modes ask for it
   const ranked = combos.sort((a, b) => {
+    // Prefer runs where we actually know the pay
+    const payA = a.payMissing ? 0 : 1;
+    const payB = b.payMissing ? 0 : 1;
+    if (payA !== payB) return payB - payA;
+
     let scoreA = a.estimatedProfit;
     let scoreB = b.estimatedProfit;
     if (prefs.mode === "home" && prefs.home) {
@@ -297,17 +349,21 @@ export function rankRunCombos(
       if ((a.finishAt || "").toLowerCase().includes(d)) scoreA += 80;
       if ((b.finishAt || "").toLowerCase().includes(d)) scoreB += 80;
     }
+    // Slightly prefer longer chains when pay is known
+    if (!a.payMissing) scoreA += a.jobs.length * 5;
+    if (!b.payMissing) scoreB += b.jobs.length * 5;
     return scoreB - scoreA;
   });
 
-  // Dedupe similar
   const seen = new Set<string>();
-  return ranked.filter((c) => {
-    const key = c.summary.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 5);
+  return ranked
+    .filter((c) => {
+      const key = c.summary.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
 }
 
 export type { ProfitResult };
