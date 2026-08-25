@@ -1,14 +1,9 @@
 import Browserbase from "@browserbasehq/sdk";
 import { chromium, type Browser, type Page } from "playwright-core";
+import { shiplyConnectConfigured } from "@/lib/shiply-connect-config";
 
 export const SHIPLY_HOME = "https://www.shiply.com/";
-
-export function shiplyConnectConfigured() {
-  return Boolean(
-    process.env.BROWSERBASE_API_KEY?.trim() &&
-      process.env.BROWSERBASE_PROJECT_ID?.trim(),
-  );
-}
+export { shiplyConnectConfigured };
 
 export function getBrowserbase() {
   const apiKey = process.env.BROWSERBASE_API_KEY?.trim();

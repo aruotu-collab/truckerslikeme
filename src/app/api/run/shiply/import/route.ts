@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  captureVisibleShiply,
-  connectShiplyPage,
-  shiplyConnectConfigured,
-} from "@/lib/shiply-browser";
+import { shiplyConnectConfigured } from "@/lib/shiply-connect-config";
 import type { RunJob } from "@/lib/run-builder";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +111,9 @@ export async function POST(request: Request) {
 
   let browser;
   try {
+    const { captureVisibleShiply, connectShiplyPage } = await import(
+      "@/lib/shiply-browser"
+    );
     const connected = await connectShiplyPage(sessionId);
     browser = connected.browser;
     const page = connected.page;

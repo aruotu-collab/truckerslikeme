@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  createShiplySession,
-  shiplyConnectConfigured,
-} from "@/lib/shiply-browser";
+import { shiplyConnectConfigured } from "@/lib/shiply-connect-config";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +31,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { createShiplySession } = await import("@/lib/shiply-browser");
     const session = await createShiplySession({
       contextId: body.contextId,
     });
@@ -45,7 +43,8 @@ export async function POST(request: Request) {
       tip: "Log into Shiply in the browser below, run your search, then scan the results list.",
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not start Shiply session.";
+    const msg =
+      err instanceof Error ? err.message : "Could not start Shiply session.";
     return NextResponse.json({ error: msg, enabled: true }, { status: 502 });
   }
 }
