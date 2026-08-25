@@ -66,9 +66,9 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           >
             <span className="whitespace-nowrap">
               Truckers<span className="text-amber-hot">Like</span>Me
-              {resolved ? (
-                <span className="text-white/70"> - {market.countryLabel}</span>
-              ) : null}
+            {resolved ? (
+              <span className="text-white"> - {market.countryLabel}</span>
+            ) : null}
             </span>
           </Link>
           <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
