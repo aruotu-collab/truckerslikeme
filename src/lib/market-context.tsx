@@ -13,6 +13,7 @@ import {
   DEFAULT_MARKET,
   formatMoney,
   inferCountryFromLocation,
+  inferCountryFromNavigator,
   marketBadge,
   marketFromCountryCode,
   marketFromCurrency,
@@ -36,6 +37,44 @@ type MarketContextValue = {
 
 const MarketContext = createContext<MarketContextValue | null>(null);
 
+function detectInitialMarket(): { market: DriverMarket; resolved: boolean } {
+  if (typeof window === "undefined") {
+    return { market: DEFAULT_MARKET, resolved: false };
+  }
+
+  const stored = readStoredMarket();
+  if (stored) return { market: stored, resolved: true };
+
+  const ip = readIpCountryCookie();
+  if (ip) {
+    const market = marketFromCountryCode(ip);
+    writeStoredMarket(market);
+    return { market, resolved: true };
+  }
+
+  try {
+    const inferred = inferCountryFromLocation(
+      localStorage.getItem(LOCATION_KEY),
+    );
+    if (inferred) {
+      const market = marketFromCountryCode(inferred);
+      writeStoredMarket(market);
+      return { market, resolved: true };
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const locale = inferCountryFromNavigator();
+  if (locale) {
+    const market = marketFromCountryCode(locale);
+    writeStoredMarket(market);
+    return { market, resolved: true };
+  }
+
+  return { market: DEFAULT_MARKET, resolved: false };
+}
+
 export function MarketProvider({ children }: { children: ReactNode }) {
   const [market, setMarket] = useState<DriverMarket>(DEFAULT_MARKET);
   const [resolved, setResolved] = useState(false);
@@ -46,40 +85,24 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     writeStoredMarket(next);
   }, []);
 
+  // Resolve on the client as soon as possible (locale / saved place / cookie)
   useEffect(() => {
-    const stored = readStoredMarket();
-    if (stored) {
-      setMarket(stored);
+    const initial = detectInitialMarket();
+    if (initial.resolved) {
+      setMarket(initial.market);
       setResolved(true);
       return;
     }
 
-    const fromIpCookie = readIpCountryCookie();
-    if (fromIpCookie) {
-      apply(marketFromCountryCode(fromIpCookie));
-      return;
-    }
-
-    try {
-      const savedPlace = localStorage.getItem(LOCATION_KEY);
-      const inferred = inferCountryFromLocation(savedPlace);
-      if (inferred) {
-        apply(marketFromCountryCode(inferred));
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-
-    // Fallback: ask the server (reads Vercel IP country header)
     let cancelled = false;
-    fetch("/api/geo")
-      .then((r) => r.json())
-      .then((d: { country?: string | null }) => {
-        if (cancelled || !d.country) return;
-        // Don't overwrite if something else resolved meanwhile
-        const again = readStoredMarket();
-        if (again) return;
+    fetch("/api/ip-country")
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return r.json() as Promise<{ country?: string | null }>;
+      })
+      .then((d) => {
+        if (cancelled || !d?.country) return;
+        if (readStoredMarket()) return;
         apply(marketFromCountryCode(d.country));
       })
       .catch(() => {

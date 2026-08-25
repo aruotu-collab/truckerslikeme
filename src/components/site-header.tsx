@@ -59,15 +59,17 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
     >
       {/* Primary bar — brand left, nav + account right (ZeroSpenders-style) */}
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-8 sm:py-3.5">
-        <div className="min-w-0 shrink">
+        <div className="min-w-0 shrink-0">
           <Link
             href="/"
-            className="block truncate font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
+            className="block font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
           >
-            Truckers<span className="text-amber-hot">Like</span>Me
-            {resolved ? (
-              <span className="text-white/70"> - {market.countryLabel}</span>
-            ) : null}
+            <span className="whitespace-nowrap">
+              Truckers<span className="text-amber-hot">Like</span>Me
+              {resolved ? (
+                <span className="text-white/70"> - {market.countryLabel}</span>
+              ) : null}
+            </span>
           </Link>
           <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
             Load decisions · Places drivers trust

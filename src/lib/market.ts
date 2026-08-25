@@ -156,3 +156,20 @@ export function inferCountryFromLocation(
   }
   return null;
 }
+
+/** Browser locale region, e.g. en-GB → GB (no permission needed). */
+export function inferCountryFromNavigator(): string | null {
+  if (typeof navigator === "undefined") return null;
+  const candidates = [
+    navigator.language,
+    ...(navigator.languages ?? []),
+  ].filter(Boolean);
+  for (const locale of candidates) {
+    const parts = String(locale).split(/[-_]/);
+    if (parts.length < 2) continue;
+    const region = parts[parts.length - 1].toUpperCase();
+    if (region === "UK") return "GB";
+    if (region.length === 2) return region;
+  }
+  return null;
+}
