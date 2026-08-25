@@ -577,6 +577,7 @@ export function RunBuilder() {
                       key={shot.id}
                       className="relative w-28 overflow-hidden border border-asphalt/10 bg-concrete/30"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={shot.preview}
                         alt={`Results screenshot ${i + 1}`}
