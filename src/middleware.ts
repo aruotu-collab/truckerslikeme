@@ -6,17 +6,12 @@ const IP_COUNTRY_COOKIE = "tlm_ip_country";
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request);
 
-  // Vercel provides request.geo / x-vercel-ip-country — no GPS permission needed.
+  // Vercel / Cloudflare edge headers — no GPS permission needed.
   const country =
-    request.geo?.country ||
     request.headers.get("x-vercel-ip-country") ||
     request.headers.get("cf-ipcountry");
 
-  if (
-    country &&
-    country !== "XX" &&
-    country.length === 2
-  ) {
+  if (country && country !== "XX" && country.length === 2) {
     response.cookies.set(IP_COUNTRY_COOKIE, country.toUpperCase(), {
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
