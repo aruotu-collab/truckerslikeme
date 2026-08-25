@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   bidPlansToRunRows,
   buildConnectionMatrix,
@@ -27,6 +27,7 @@ type Props = {
   driver: JobsMapDriver | null;
   formatMoney: (n: number) => string;
   runPrefs?: RunBuilderPrefs;
+  initialChainIds?: string[];
 };
 
 const TABS: { id: PlannerTab; label: string }[] = [
@@ -64,6 +65,7 @@ export function JobsPlannerGrid({
   driver,
   formatMoney,
   runPrefs = DEFAULT_RUN_PREFS,
+  initialChainIds,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>("jobs");
   const [sort, setSort] = useState<PlannerSort>("pay");
@@ -73,6 +75,13 @@ export function JobsPlannerGrid({
   const [chainIds, setChainIds] = useState<string[]>([]);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [matrixMaxDeadhead, setMatrixMaxDeadhead] = useState(80);
+
+  useEffect(() => {
+    if (initialChainIds?.length) {
+      setChainIds(initialChainIds);
+      setTab("jobs");
+    }
+  }, [initialChainIds]);
 
   const rows = useMemo(
     () => buildPlannerRows(jobs, driver, runPrefs),

@@ -11,7 +11,7 @@ import {
   type MapJob,
 } from "@/lib/jobs-map";
 
-export type MapViewMode = "explore" | "connections" | "runs";
+export type MapViewMode = "explore" | "connections";
 
 export type SortMode = "money" | "jobs" | "rpm" | "distance";
 

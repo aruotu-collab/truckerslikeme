@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BidPlanCard } from "@/components/bid-plan-card";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
+import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
-import { JobsRunMap } from "@/components/jobs-run-map";
 import { JobsTubeMap } from "@/components/jobs-tube-map";
 import { useMarket } from "@/lib/market-context";
 import {
@@ -19,9 +18,7 @@ import {
 import {
   buildBidPlans,
   DEFAULT_RUN_PREFS,
-  RUN_GOAL_LABELS,
   type RunBuilderPrefs,
-  type RunGoal,
 } from "@/lib/jobs-run-builder";
 import {
   filterMapJobs,
@@ -58,11 +55,6 @@ const VIEW_MODES: { id: MapViewMode; label: string; hint: string }[] = [
     label: "Connections",
     hint: "Tube map for one hub city",
   },
-  {
-    id: "runs",
-    label: "Suggested runs",
-    hint: "Logistics-style bid plans scored by deadhead & £/mi",
-  },
 ];
 
 const SORTS: { id: SortMode; label: string }[] = [
@@ -72,7 +64,7 @@ const SORTS: { id: SortMode; label: string }[] = [
   { id: "distance", label: "Shortest" },
 ];
 
-type PanelMode = "planner" | "map";
+type PanelMode = "map" | "lanes" | "runs";
 
 export function JobsMapPanel() {
   const { money } = useMarket();
@@ -82,7 +74,7 @@ export function JobsMapPanel() {
   const [geoBusy, setGeoBusy] = useState(false);
   const [filter, setFilter] = useState<JobsMapFilter>("all");
   const [viewMode, setViewMode] = useState<MapViewMode>("explore");
-  const [panelMode, setPanelMode] = useState<PanelMode>("planner");
+  const [panelMode, setPanelMode] = useState<PanelMode>("lanes");
   const [sortMode, setSortMode] = useState<SortMode>("money");
   const [selectedDirection, setSelectedDirection] =
     useState<DirectionId | null>(null);
@@ -93,7 +85,7 @@ export function JobsMapPanel() {
   const [headingToward, setHeadingToward] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [runPrefs, setRunPrefs] = useState<RunBuilderPrefs>(DEFAULT_RUN_PREFS);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [runChainIds, setRunChainIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -146,22 +138,6 @@ export function JobsMapPanel() {
   const runBuilder = useMemo(
     () => buildBidPlans(visible, driver, runPrefs),
     [visible, driver, runPrefs],
-  );
-
-  const selectedPlan =
-    runBuilder.plans.find((p) => p.id === selectedPlanId) ??
-    runBuilder.plans[0] ??
-    null;
-
-  useEffect(() => {
-    if (runBuilder.plans.length && !selectedPlanId) {
-      setSelectedPlanId(runBuilder.plans[0]!.id);
-    }
-  }, [runBuilder.plans, selectedPlanId]);
-
-  const myRunJobs = useMemo(
-    () => visible.filter((j) => j.status === "won" || j.status === "bidding"),
-    [visible],
   );
 
   const unmapped = useMemo(() => unmappedJobs(visible), [visible]);
@@ -374,9 +350,11 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          {panelMode === "planner"
-            ? `${visible.length} jobs — sort, filter, and chain bids in a logistics spreadsheet. Map view for geographic discovery.`
-            : `${visible.length} jobs near your routes — explore by direction on the map, or switch to Planner to build runs.`}
+          {panelMode === "lanes"
+            ? `${visible.length} jobs — scan pickup→drop lanes in the heatmap matrix, then build runs.`
+            : panelMode === "runs"
+              ? `${visible.length} jobs — sort, filter, and chain bids in the logistics spreadsheet.`
+              : `${visible.length} jobs near your routes — explore by direction on the map.`}
         </p>
       </header>
 
@@ -585,9 +563,11 @@ export function JobsMapPanel() {
               {visible.length} jobs on board
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {panelMode === "planner"
-                ? "Excel-style logistics grid — tick jobs to build your bid plan"
-                : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
+              {panelMode === "lanes"
+                ? "Origin–destination matrix — darker cells mean more jobs on that lane"
+                : panelMode === "runs"
+                  ? "Excel-style logistics grid — tick jobs to build your bid plan"
+                  : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -596,19 +576,6 @@ export function JobsMapPanel() {
               role="tablist"
               aria-label="View mode"
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelMode === "planner"}
-                onClick={() => setPanelMode("planner")}
-                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                  panelMode === "planner"
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                Planner
-              </button>
               <button
                 type="button"
                 role="tab"
@@ -621,6 +588,32 @@ export function JobsMapPanel() {
                 }`}
               >
                 Map
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={panelMode === "lanes"}
+                onClick={() => setPanelMode("lanes")}
+                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                  panelMode === "lanes"
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                Lanes
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={panelMode === "runs"}
+                onClick={() => setPanelMode("runs")}
+                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                  panelMode === "runs"
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                Runs
               </button>
             </div>
             {panelMode === "map" && (
@@ -672,12 +665,25 @@ export function JobsMapPanel() {
           </div>
         </div>
 
-        {panelMode === "planner" && (
+        {panelMode === "lanes" && (
+          <JobsLaneMatrix
+            jobs={visible}
+            driver={driver}
+            formatMoney={money}
+            onAddToRun={(laneJobs) => {
+              setRunChainIds(laneJobs.map((j) => j.id));
+              setPanelMode("runs");
+            }}
+          />
+        )}
+
+        {panelMode === "runs" && (
           <JobsPlannerGrid
             jobs={visible}
             driver={driver}
             formatMoney={money}
             runPrefs={runPrefs}
+            initialChainIds={runChainIds}
           />
         )}
 
@@ -793,7 +799,7 @@ export function JobsMapPanel() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setViewMode("runs")}
+                    onClick={() => setPanelMode("runs")}
                     className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
                   >
                     Build my run →
@@ -804,10 +810,7 @@ export function JobsMapPanel() {
                     <button
                       key={plan.id}
                       type="button"
-                      onClick={() => {
-                        setViewMode("runs");
-                        setSelectedPlanId(plan.id);
-                      }}
+                      onClick={() => setPanelMode("runs")}
                       className="border border-asphalt/10 bg-white px-4 py-3 text-left hover:border-amber/50"
                     >
                       <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
@@ -859,174 +862,6 @@ export function JobsMapPanel() {
               <p className="text-sm text-muted">
                 Choose Manchester, Birmingham, London… to open the network view.
               </p>
-            )}
-          </div>
-        )}
-
-        {panelMode === "map" && viewMode === "runs" && (
-          <div className="space-y-5">
-            <div className="border border-asphalt/10 bg-white px-4 py-4 sm:px-5">
-              <h3 className="font-display text-lg tracking-wide text-asphalt uppercase">
-                Build my run
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                Start:{" "}
-                <span className="font-medium text-asphalt">
-                  {driver?.label ? `📍 ${driver.label}` : "Set your location above"}
-                </span>
-              </p>
-
-              <fieldset className="mt-4">
-                <legend className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                  I want
-                </legend>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(Object.keys(RUN_GOAL_LABELS) as RunGoal[]).map((g) => (
-                    <label
-                      key={g}
-                      className={`cursor-pointer rounded-sm px-3 py-2 text-[11px] font-semibold tracking-wide uppercase ${
-                        runPrefs.goal === g
-                          ? "bg-asphalt text-white"
-                          : "border border-asphalt/15 text-muted"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="runGoal"
-                        className="sr-only"
-                        checked={runPrefs.goal === g}
-                        onChange={() =>
-                          setRunPrefs((p) => ({ ...p, goal: g }))
-                        }
-                      />
-                      {RUN_GOAL_LABELS[g]}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    Maximum empty drive (mi)
-                  </span>
-                  <input
-                    type="number"
-                    min={10}
-                    max={120}
-                    value={runPrefs.maxEmptyMi}
-                    onChange={(e) =>
-                      setRunPrefs((p) => ({
-                        ...p,
-                        maxEmptyMi: Number(e.target.value) || 50,
-                      }))
-                    }
-                    className="mt-1 w-full border border-asphalt/15 px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    Maximum jobs
-                  </span>
-                  <input
-                    type="number"
-                    min={2}
-                    max={8}
-                    value={runPrefs.maxJobs}
-                    onChange={(e) =>
-                      setRunPrefs((p) => ({
-                        ...p,
-                        maxJobs: Number(e.target.value) || 4,
-                      }))
-                    }
-                    className="mt-1 w-full border border-asphalt/15 px-3 py-2"
-                  />
-                </label>
-              </div>
-
-              <p className="mt-4 text-sm font-medium text-asphalt">
-                {runBuilder.totalJobs} jobs found
-                {runBuilder.plans.length > 0
-                  ? ` · We found ${runBuilder.plans.length} viable runs · ${runBuilder.unpairedCount} unpaired`
-                  : " · No viable chains yet — check start location and job count"}
-              </p>
-            </div>
-
-            {selectedPlan && driver && (
-              <JobsRunMap
-                plan={selectedPlan}
-                allJobs={visible}
-                driver={driver}
-              />
-            )}
-
-            {runBuilder.plans.length > 0 && (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {runBuilder.plans.map((plan) => (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    onClick={() => setSelectedPlanId(plan.id)}
-                    className={`border px-4 py-3 text-left transition ${
-                      selectedPlan?.id === plan.id
-                        ? "border-amber bg-amber/5 ring-1 ring-amber/30"
-                        : "border-asphalt/10 bg-white hover:border-asphalt/25"
-                    }`}
-                  >
-                    <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
-                      {plan.label}
-                    </p>
-                    <p className="mt-1 font-semibold text-asphalt">
-                      {plan.jobs.length} jobs · {money(plan.revenue)}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {money(plan.revenuePerMile)}/mi · {plan.emptyMiles} empty mi
-                      {plan.endsNearHome ? " · Ends near home" : ""}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {selectedPlan ? (
-              <BidPlanCard
-                plan={selectedPlan}
-                formatMoney={money}
-                selected
-              />
-            ) : (
-              <p className="text-sm text-muted">
-                Need at least 1 mapped job and a start location. Scored runs
-                prefer low deadhead between drop and next pickup.
-              </p>
-            )}
-
-            {myRunJobs.length > 0 && (
-              <div className="space-y-3 border-t border-asphalt/10 pt-5">
-                <h3 className="font-display text-lg tracking-wide text-asphalt uppercase">
-                  My run
-                </h3>
-                <p className="text-sm text-muted">
-                  Jobs you are bidding on or have won — recalculate when more
-                  bids land.
-                </p>
-                <ul className="space-y-2">
-                  {myRunJobs.map((j) => (
-                    <li
-                      key={j.id}
-                      className="border border-asphalt/10 bg-white px-4 py-3 text-sm"
-                    >
-                      <span className="font-medium text-asphalt">
-                        {shortPlace(j.origin)} → {shortPlace(j.destination)}
-                      </span>
-                      <span className="ml-2 text-muted">
-                        {mapStatusMeta[j.status].label}
-                        {j.rateTotal != null ? ` · ${money(j.rateTotal)}` : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             )}
           </div>
         )}
