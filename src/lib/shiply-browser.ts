@@ -10,9 +10,20 @@ export function getBrowserbase() {
   return new Browserbase({ apiKey });
 }
 
-export function connectUrlForSession(sessionId: string) {
+export function connectUrlForSession(
+  sessionId: string,
+  region: string = "eu-central-1",
+) {
   const apiKey = process.env.BROWSERBASE_API_KEY!.trim();
-  return `wss://connect.browserbase.com?apiKey=${encodeURIComponent(apiKey)}&sessionId=${encodeURIComponent(sessionId)}`;
+  // Regional hosts — default connect.browserbase.com only serves us-west-2.
+  const hostByRegion: Record<string, string> = {
+    "us-west-2": "connect.browserbase.com",
+    "us-east-1": "connect.use1.browserbase.com",
+    "eu-central-1": "connect.euc1.browserbase.com",
+    "ap-southeast-1": "connect.apse1.browserbase.com",
+  };
+  const host = hostByRegion[region] || "connect.euc1.browserbase.com";
+  return `wss://${host}?apiKey=${encodeURIComponent(apiKey)}&sessionId=${encodeURIComponent(sessionId)}`;
 }
 
 export async function ensureShiplyContext(existingId?: string | null) {
@@ -131,7 +142,8 @@ export async function createShiplySession(opts?: {
     },
   });
 
-  const connectUrl = session.connectUrl || connectUrlForSession(session.id);
+  const connectUrl =
+    session.connectUrl || connectUrlForSession(session.id, "eu-central-1");
 
   try {
     await cdpGoto(connectUrl, SHIPLY_HOME);

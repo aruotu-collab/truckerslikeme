@@ -17,9 +17,11 @@ export async function connectShiplyPage(sessionId: string): Promise<{
     );
   }
 
-  const browser = await chromium.connectOverCDP(
-    connectUrlForSession(sessionId),
-  );
+  const connectUrl =
+    session.connectUrl ||
+    connectUrlForSession(sessionId, session.region || "eu-central-1");
+
+  const browser = await chromium.connectOverCDP(connectUrl);
   const context = browser.contexts()[0];
   if (!context) {
     await browser.close().catch(() => undefined);
