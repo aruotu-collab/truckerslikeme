@@ -17,6 +17,7 @@ import {
   type WorkWindow,
 } from "@/lib/run-builder";
 import { ShiplyConnect } from "@/components/shiply-connect";
+import { RunCorridorStrip } from "@/components/run-corridor-strip";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build";
 type HuntPath = "screenshots" | "shiply";
@@ -920,6 +921,9 @@ export function RunBuilder() {
                   )}
                 </ul>
               )}
+
+              <RunCorridorStrip combo={best} />
+
               <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <dt className="text-xs uppercase text-muted">
