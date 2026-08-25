@@ -120,27 +120,16 @@ export const sampleRoute: PlannedRoute = {
   miles: 925,
   hours: 14.5,
   insights: [
-    "EIA Midwest diesel ~$5.20/gal (week of Jul 27, 2026) — Gulf Coast stops run cheaper",
-    "I-44 east of Tulsa: watch lane work and the St. Clair weigh-scale rebuild",
     "Parking fills by mid-afternoon on I-40/I-44 — plan overnight by 3–4 PM",
-    "Joliet/Chicago: I-80 backups + intermodal detention often exceed 2 hours",
   ],
   stops: [
     {
       id: "s1",
       type: "fuel",
       label: "Pilot #701 Ardmore",
-      detail: "I-35 Exit 33 · ~$5.05–5.15/gal · 24h · CAT scale · showers",
+      detail: "I-35 Exit 33 · ~$5.05–5.15/gal · 24h · showers",
       mile: 98,
       status: "good",
-    },
-    {
-      id: "s2",
-      type: "alert",
-      label: "I-44 construction / St. Clair scales",
-      detail: "WB weigh site closed for rebuild · expect patrol at EB scale",
-      mile: 520,
-      status: "warn",
     },
     {
       id: "s3",
@@ -165,14 +154,6 @@ export const sampleRoute: PlannedRoute = {
       detail: "I-55 & US-52 · lot tight after 7 PM near freight parks",
       mile: 880,
       status: "warn",
-    },
-    {
-      id: "s6",
-      type: "weigh",
-      label: "Illinois I-55 weigh enforcement",
-      detail: "Check GettingAroundIllinois / 511 · status changes by shift",
-      mile: 840,
-      status: "good",
     },
   ],
 };

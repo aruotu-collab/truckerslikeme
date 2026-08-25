@@ -9,9 +9,7 @@ export type MapLayer =
   | "fuel"
   | "parking"
   | "repair"
-  | "lodging"
-  | "weigh"
-  | "alert";
+  | "lodging";
 
 type MapMarker = {
   id: string;
@@ -26,8 +24,6 @@ const layerColor: Record<Exclude<MapLayer, "all">, string> = {
   parking: "#e09b1e",
   repair: "#8fb4c9",
   lodging: "#c5ccd4",
-  weigh: "#4a6f86",
-  alert: "#c45c26",
 };
 
 const layerLabel: Record<Exclude<MapLayer, "all">, string> = {
@@ -35,8 +31,6 @@ const layerLabel: Record<Exclude<MapLayer, "all">, string> = {
   parking: "Parking",
   repair: "Repair",
   lodging: "Lodging",
-  weigh: "Weigh",
-  alert: "Alert",
 };
 
 const PATH_D = "M28 170 C 90 150, 120 60, 200 90 S 320 40, 372 70";
@@ -50,21 +44,26 @@ function buildMarkers(
   route: PlannedRoute,
   supportPlaces: CorridorSupportPlace[],
 ): MapMarker[] {
-  const fromStops: MapMarker[] = route.stops.map((stop) => ({
-    id: `stop-${stop.id}`,
-    layer: stop.type,
-    label: stop.label,
-    detail: stop.detail,
-    mile: stop.mile,
-  }));
+  const allowed = new Set(["fuel", "parking", "repair", "lodging"]);
+  const fromStops: MapMarker[] = route.stops
+    .filter((stop) => allowed.has(stop.type))
+    .map((stop) => ({
+      id: `stop-${stop.id}`,
+      layer: stop.type as Exclude<MapLayer, "all">,
+      label: stop.label,
+      detail: stop.detail,
+      mile: stop.mile,
+    }));
 
-  const fromSupport: MapMarker[] = supportPlaces.map((place) => ({
-    id: `support-${place.id}`,
-    layer: place.kind,
-    label: place.name,
-    detail: place.detail,
-    mile: place.mile,
-  }));
+  const fromSupport: MapMarker[] = supportPlaces
+    .filter((place) => allowed.has(place.kind))
+    .map((place) => ({
+      id: `support-${place.id}`,
+      layer: place.kind as Exclude<MapLayer, "all">,
+      label: place.name,
+      detail: place.detail,
+      mile: place.mile,
+    }));
 
   // Prefer support parking over duplicate stop parking near the same mile
   const merged = [...fromSupport, ...fromStops];
@@ -124,8 +123,6 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
       parking: 0,
       repair: 0,
       lodging: 0,
-      weigh: 0,
-      alert: 0,
     };
     for (const m of markers) counts[m.layer] += 1;
     return counts;
@@ -137,7 +134,6 @@ export function RouteMap({ route, supportPlaces = [] }: RouteMapProps) {
     { id: "parking", label: "Parking" },
     { id: "repair", label: "Repair" },
     { id: "lodging", label: "Lodging" },
-    { id: "weigh", label: "Weigh" },
   ];
 
   return (

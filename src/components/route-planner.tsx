@@ -20,7 +20,7 @@ const seedFeedItems: LiveFeedItem[] = liveActivities.map((item) => ({
   updatedAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(),
 }));
 
-type PlanFilter = "all" | "parking" | "fuel" | "repair" | "lodging" | "weigh";
+type PlanFilter = "all" | "parking" | "fuel" | "repair" | "lodging";
 
 const planFilterChips: { id: PlanFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -28,7 +28,6 @@ const planFilterChips: { id: PlanFilter; label: string }[] = [
   { id: "fuel", label: "Fuel" },
   { id: "repair", label: "Repair" },
   { id: "lodging", label: "Lodging" },
-  { id: "weigh", label: "Weigh" },
 ];
 
 const serviceLabel: Record<Exclude<PlanFilter, "all">, string> = {
@@ -36,7 +35,6 @@ const serviceLabel: Record<Exclude<PlanFilter, "all">, string> = {
   fuel: "Fuel",
   repair: "Truck repair",
   lodging: "Truck lodging",
-  weigh: "Weigh",
 };
 
 type PlanService = {
@@ -67,7 +65,6 @@ export function RoutePlanner() {
     return {
       fuel: route.stops.filter((s) => s.type === "fuel").length,
       parking: route.stops.filter((s) => s.type === "parking").length,
-      alerts: route.stops.filter((s) => s.type === "alert").length,
     };
   }, [route]);
 
@@ -86,10 +83,10 @@ export function RoutePlanner() {
       mile: place.mile,
     }));
     const fromStops: PlanService[] = route.stops
-      .filter((stop) => stop.type === "fuel" || stop.type === "weigh" || stop.type === "parking")
+      .filter((stop) => stop.type === "fuel" || stop.type === "parking")
       .map((stop) => ({
         id: `stop-${stop.id}`,
-        kind: stop.type as "fuel" | "weigh" | "parking",
+        kind: stop.type as "fuel" | "parking",
         name: stop.label,
         detail: stop.detail,
         mile: stop.mile,
@@ -114,7 +111,6 @@ export function RoutePlanner() {
       fuel: 0,
       repair: 0,
       lodging: 0,
-      weigh: 0,
     };
     for (const item of services) counts[item.kind] += 1;
     return counts;
@@ -272,7 +268,7 @@ export function RoutePlanner() {
                   <p className="mt-1 break-words text-sm text-chrome sm:text-base">
                     {route.miles} miles · ~{route.hours} driving hours
                     {statusCounts &&
-                      ` · ${statusCounts.fuel} fuel · ${statusCounts.parking} parking · ${statusCounts.alerts} alerts`}
+                      ` · ${statusCounts.fuel} fuel · ${statusCounts.parking} parking`}
                   </p>
                 </div>
                 <div className="mt-4 flex w-full flex-col gap-2 sm:mt-0 sm:w-auto sm:flex-row sm:flex-wrap">

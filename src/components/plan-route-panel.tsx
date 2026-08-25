@@ -12,8 +12,8 @@ import { HScroll } from "@/components/h-scroll";
 import { ResumeCheckBanner } from "@/components/resume-check-banner";
 import type { PlannedRoute } from "@/types";
 
-type StopKind = "parking" | "fuel" | "repair" | "weigh" | "alert" | "lodging";
-type Filter = "all" | "parking" | "fuel" | "repair" | "weigh" | "alert";
+type StopKind = "parking" | "fuel" | "repair" | "lodging";
+type Filter = "all" | "parking" | "fuel" | "repair";
 
 type RibbonStop = {
   id: string;
@@ -28,16 +28,12 @@ const filters: { id: Filter; label: string }[] = [
   { id: "fuel", label: "Fuel" },
   { id: "parking", label: "Parking" },
   { id: "repair", label: "Repair" },
-  { id: "weigh", label: "Weigh" },
-  { id: "alert", label: "Alerts" },
 ];
 
 const kindTone: Record<StopKind, string> = {
   fuel: "bg-amber text-asphalt",
   parking: "bg-sky-deep text-white",
   repair: "bg-asphalt text-white",
-  weigh: "bg-concrete text-asphalt",
-  alert: "bg-alert text-white",
   lodging: "bg-road text-white",
 };
 
@@ -45,35 +41,66 @@ const kindMark: Record<StopKind, string> = {
   fuel: "F",
   parking: "P",
   repair: "R",
-  weigh: "W",
-  alert: "!",
   lodging: "L",
 };
 
+const PLAN_STOP_KINDS = new Set<string>([
+  "parking",
+  "fuel",
+  "repair",
+  "lodging",
+]);
+
+function isMappedUsCorridor(origin: string, destination: string) {
+  const o = origin.toLowerCase();
+  const d = destination.toLowerCase();
+  return o.includes("dallas") && (d.includes("chicago") || d.includes("joliet"));
+}
+
 function buildRoute(origin: string, destination: string): PlannedRoute {
+  // Only the Dallas→Chicago seed has real stop data. Never paste US sample
+  // weigh/alerts onto UK or other corridors.
+  if (isMappedUsCorridor(origin, destination)) {
+    return {
+      ...sampleRoute,
+      origin,
+      destination,
+      stops: sampleRoute.stops.filter(
+        (s) => s.type === "fuel" || s.type === "parking",
+      ),
+      insights: sampleRoute.insights,
+    };
+  }
   return {
-    ...sampleRoute,
     origin,
     destination,
+    miles: 0,
+    hours: 0,
+    insights: [],
+    stops: [],
   };
 }
 
 function collectStops(route: PlannedRoute): RibbonStop[] {
   const support = getCorridorSupport(route.origin, route.destination);
-  const fromSupport: RibbonStop[] = (support?.places ?? []).map((place) => ({
-    id: `support-${place.id}`,
-    kind: place.kind,
-    name: place.name,
-    detail: place.detail,
-    mile: place.mile,
-  }));
-  const fromRoute: RibbonStop[] = route.stops.map((stop) => ({
-    id: `stop-${stop.id}`,
-    kind: stop.type,
-    name: stop.label,
-    detail: stop.detail,
-    mile: stop.mile,
-  }));
+  const fromSupport: RibbonStop[] = (support?.places ?? [])
+    .filter((place) => PLAN_STOP_KINDS.has(place.kind))
+    .map((place) => ({
+      id: `support-${place.id}`,
+      kind: place.kind as StopKind,
+      name: place.name,
+      detail: place.detail,
+      mile: place.mile,
+    }));
+  const fromRoute: RibbonStop[] = route.stops
+    .filter((stop) => PLAN_STOP_KINDS.has(stop.type))
+    .map((stop) => ({
+      id: `stop-${stop.id}`,
+      kind: stop.type as StopKind,
+      name: stop.label,
+      detail: stop.detail,
+      mile: stop.mile,
+    }));
 
   const merged = [...fromSupport, ...fromRoute];
   const seen = new Set<string>();
@@ -174,8 +201,8 @@ export function PlanRoutePanel() {
           See the whole haul
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          From and to on one line — fuel, parking, repair, and alerts along the
-          way. Built for the trip you run today.
+          From and to on one line — fuel, parking, and repair along the way.
+          Built for the trip you run today.
         </p>
       </section>
 
@@ -242,8 +269,13 @@ export function PlanRoutePanel() {
                 {route.origin} → {route.destination}
               </p>
               <p className="mt-1 text-sm text-muted">
-                ~{route.miles} mi · ~{route.hours} hrs · {stops.length} stops on
-                the corridor
+                {stops.length > 0
+                  ? `${
+                      route.miles > 0 ? `~${route.miles} mi · ` : ""
+                    }${
+                      route.hours > 0 ? `~${route.hours} hrs · ` : ""
+                    }${stops.length} stops on the corridor`
+                  : "Corridor stops for this haul are not mapped yet — use Find for parking, fuel, or repair near pickup or delivery."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -272,7 +304,9 @@ export function PlanRoutePanel() {
                 Corridor
               </p>
               <p className="mt-1 text-sm text-muted">
-                Swipe the haul. Tap a stop for detail.
+                {stops.length > 0
+                  ? "Swipe the haul. Tap a stop for detail."
+                  : "A → B is set. Mapped fuel, parking, and repair for this corridor come next."}
               </p>
             </div>
             <div className="[--h-scroll-fade:#ffffff] px-3 pt-6 pb-5 sm:px-5">
@@ -417,7 +451,9 @@ export function PlanRoutePanel() {
               ))}
               {filtered.length === 0 && (
                 <li className="py-6 text-sm text-muted">
-                  No {filter} stops on this corridor yet.
+                  {stops.length === 0
+                    ? "No corridor stops mapped for this haul yet."
+                    : `No ${filter} stops on this corridor yet.`}
                 </li>
               )}
             </ul>

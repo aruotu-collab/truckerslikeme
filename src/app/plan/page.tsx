@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Plan route | TruckersLikeMe",
   description:
-    "See fuel, parking, repair, and alerts along your haul — from origin to delivery.",
+    "See fuel, parking, and repair along your haul — from origin to delivery.",
 };
 
 export default function PlanPage() {

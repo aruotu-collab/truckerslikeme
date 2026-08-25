@@ -28,7 +28,7 @@ const kindMeta: Record<ActivityKind, { label: string; tone: string }> = {
   repair: { label: "Repair", tone: "text-diesel" },
 };
 
-type FeedFilter = "all" | "parking" | "fuel" | "traffic" | "weather" | "weigh" | "repair";
+type FeedFilter = "all" | "parking" | "fuel" | "traffic" | "weather" | "repair";
 
 const filterChips: { id: FeedFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -36,7 +36,6 @@ const filterChips: { id: FeedFilter; label: string }[] = [
   { id: "fuel", label: "Fuel" },
   { id: "traffic", label: "Traffic" },
   { id: "weather", label: "Weather" },
-  { id: "weigh", label: "Weigh" },
   { id: "repair", label: "Repair" },
 ];
 
@@ -204,7 +203,6 @@ export function LiveActivity() {
       fuel: 0,
       traffic: 0,
       weather: 0,
-      weigh: 0,
       repair: 0,
     };
     for (const item of ranked) {
@@ -212,7 +210,6 @@ export function LiveActivity() {
       if (item.kind === "fuel") counts.fuel += 1;
       if (item.kind === "traffic" || item.kind === "delay") counts.traffic += 1;
       if (item.kind === "weather") counts.weather += 1;
-      if (item.kind === "weigh") counts.weigh += 1;
       if (item.kind === "repair") counts.repair += 1;
     }
     return counts;
