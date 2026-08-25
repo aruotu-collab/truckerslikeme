@@ -27,6 +27,12 @@ const primaryNav = [
       pathname.startsWith("/run"),
   },
   {
+    href: "/map",
+    label: "Map Jobs",
+    match: (pathname: string, _need: string | null) =>
+      pathname.startsWith("/map"),
+  },
+  {
     href: "/plan",
     label: "Plan Route",
     match: (pathname: string, _need: string | null) =>
