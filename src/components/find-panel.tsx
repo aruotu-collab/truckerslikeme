@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
+import { readCheckDraft } from "@/lib/check-draft";
+import { ResumeCheckBanner } from "@/components/resume-check-banner";
 import {
   confidenceMeta,
   type PlaceConfidence,
@@ -77,7 +79,13 @@ export function FindPanel() {
     const n = params.get("near");
     const need = params.get("need");
     const w = params.get("when");
-    if (n) setNear(n);
+    if (n) {
+      setNear(n);
+    } else {
+      const draft = readCheckDraft();
+      const place = draft?.corridor?.destination || draft?.location;
+      if (place) setNear(place);
+    }
     if (need === "diesel" || need === "repair" || need === "parking") {
       setKind(need);
     }
@@ -175,6 +183,7 @@ export function FindPanel() {
 
   return (
     <div className="space-y-8">
+      <ResumeCheckBanner />
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
           Near you

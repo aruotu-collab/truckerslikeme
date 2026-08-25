@@ -9,6 +9,7 @@ import { writeLastCorridor, readLastCorridor } from "@/lib/corridor-store";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { HScroll } from "@/components/h-scroll";
+import { ResumeCheckBanner } from "@/components/resume-check-banner";
 import type { PlannedRoute } from "@/types";
 
 type StopKind = "parking" | "fuel" | "repair" | "weigh" | "alert" | "lodging";
@@ -163,6 +164,7 @@ export function PlanRoutePanel() {
 
   return (
     <div className="space-y-8">
+      <ResumeCheckBanner />
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
           Plan route

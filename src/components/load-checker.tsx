@@ -10,6 +10,10 @@ import {
   inferCountryFromLocation,
 } from "@/lib/market";
 import type { ProfitResult } from "@/lib/profit";
+import {
+  readCheckDraft,
+  writeCheckDraft,
+} from "@/lib/check-draft";
 
 const LOCATION_KEY = "tlm_last_location";
 const CHECKS_KEY = "tlm_successful_checks";
@@ -92,14 +96,38 @@ export function LoadChecker() {
   } | null>(null);
   const [quotaLabel, setQuotaLabel] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(LOCATION_KEY);
-      if (saved) {
-        setLocation(saved);
-        const inferred = inferCountryFromLocation(saved);
-        if (inferred) setFromCountryCode(inferred);
+      const draft = readCheckDraft();
+      if (draft) {
+        if (draft.location) setLocation(draft.location);
+        if (draft.text) setText(draft.text);
+        if (draft.miles) setMiles(draft.miles);
+        if (draft.rateTotal) setRateTotal(draft.rateTotal);
+        if (draft.dieselPrice) setDieselPrice(draft.dieselPrice);
+        if (draft.mpg) setMpg(draft.mpg);
+        if (draft.costPerMile) setCostPerMile(draft.costPerMile);
+        if (draft.extractNotes?.length) setExtractNotes(draft.extractNotes);
+        if (draft.marketLow != null) setMarketLow(draft.marketLow);
+        if (draft.marketHigh != null) setMarketHigh(draft.marketHigh);
+        if (draft.marketCurrency) setMarketCurrency(draft.marketCurrency);
+        if (draft.result) setResult(draft.result);
+        if (draft.corridor) setCorridor(draft.corridor);
+        setIsPreview(Boolean(draft.isPreview));
+        const place = draft.location || "";
+        if (place) {
+          const inferred = inferCountryFromLocation(place);
+          if (inferred) setFromCountryCode(inferred);
+        }
+      } else {
+        const saved = localStorage.getItem(LOCATION_KEY);
+        if (saved) {
+          setLocation(saved);
+          const inferred = inferCountryFromLocation(saved);
+          if (inferred) setFromCountryCode(inferred);
+        }
       }
       const n = Number(localStorage.getItem(CHECKS_KEY) || "0");
       if (n >= 3 && !localStorage.getItem(GEO_NUDGE_KEY)) {
@@ -107,8 +135,54 @@ export function LoadChecker() {
       }
     } catch {
       /* ignore */
+    } finally {
+      setDraftReady(true);
     }
   }, [setFromCountryCode]);
+
+  // Keep the check filled in when you leave for Plan / Find and come back
+  useEffect(() => {
+    if (!draftReady) return;
+    writeCheckDraft({
+      location,
+      text,
+      miles,
+      rateTotal,
+      dieselPrice,
+      mpg,
+      costPerMile,
+      extractNotes,
+      marketLow,
+      marketHigh,
+      marketCurrency,
+      result,
+      corridor,
+      isPreview,
+    });
+    if (location.trim()) {
+      try {
+        localStorage.setItem(LOCATION_KEY, location.trim());
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [
+    draftReady,
+    location,
+    text,
+    miles,
+    rateTotal,
+    dieselPrice,
+    mpg,
+    costPerMile,
+    extractNotes,
+    marketLow,
+    marketHigh,
+    marketCurrency,
+    result,
+    corridor,
+    isPreview,
+  ]);
 
   const loadPlanAndHistory = useCallback(() => {
     if (!isSignedIn) {
@@ -407,9 +481,9 @@ export function LoadChecker() {
     }
   }
 
-  const tripFindHref = `/find?near=${encodeURIComponent(
-    corridor?.destination || location || "",
-  )}&need=parking&when=overnight`;
+  const nearPlace = corridor?.destination || location || "";
+  const findNear = (need: "parking" | "diesel" | "repair") =>
+    `/find?need=${need}&near=${encodeURIComponent(nearPlace)}&when=overnight`;
 
   const planRouteHref = (() => {
     const origin = corridor?.origin || location || "";
@@ -774,12 +848,28 @@ export function LoadChecker() {
                     Plan this trip
                   </Link>
                   <Link
-                    href={tripFindHref}
+                    href={findNear("parking")}
                     className="rounded-sm border border-current/30 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
                   >
                     Find parking
                   </Link>
+                  <Link
+                    href={findNear("diesel")}
+                    className="rounded-sm border border-current/30 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+                  >
+                    Find fuel
+                  </Link>
+                  <Link
+                    href={findNear("repair")}
+                    className="rounded-sm border border-current/30 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+                  >
+                    Find repairs
+                  </Link>
                 </div>
+                <p className="mt-3 text-xs opacity-75">
+                  Your check stays saved on this device — use Check Load in the
+                  menu to return to it.
+                </p>
               </div>
             </div>
           )}
