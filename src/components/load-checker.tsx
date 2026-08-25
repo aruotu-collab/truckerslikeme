@@ -484,7 +484,12 @@ export function LoadChecker() {
               <input
                 type="text"
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setLocation(value);
+                  const inferred = inferCountryFromLocation(value);
+                  if (inferred) setFromCountryCode(inferred);
+                }}
                 placeholder="Birmingham, UK · Lekki · Houston, TX"
                 className="mt-2 w-full rounded-sm border border-asphalt/15 bg-white px-4 py-3 text-asphalt placeholder:text-muted/60 focus:border-amber focus:outline-none"
               />
