@@ -33,7 +33,9 @@ Return ONLY JSON:
   "rateTotal": number|null,
   "item": string|null,
   "notes": string[]
-}`;
+}
+
+rateTotal = customer budget / suggested pay if shown — never quote-count.`;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
   }
 
   const sessionId = body.sessionId?.trim();
-  const selected = (body.jobs ?? []).slice(0, 5);
+  const selected = (body.jobs ?? []).slice(0, 4);
   if (!sessionId) {
     return NextResponse.json({ error: "Missing session." }, { status: 400 });
   }
@@ -111,35 +113,47 @@ export async function POST(request: Request) {
 
   let browser;
   try {
-    const { captureVisibleShiply, connectShiplyPage } = await import(
-      "@/lib/shiply-playwright"
-    );
+    const {
+      captureVisibleShiply,
+      connectShiplyPage,
+      extractJobAnchors,
+      matchHrefToJob,
+      openShiplyJob,
+    } = await import("@/lib/shiply-playwright");
     const connected = await connectShiplyPage(sessionId);
     browser = connected.browser;
     const page = connected.page;
+    const resultsUrl = page.url();
+    const anchors = await extractJobAnchors(page);
     const enriched: RunJob[] = [];
+    const errors: string[] = [];
 
     for (const job of selected) {
       let detail: Partial<RunJob> = {};
-      const href = job.href?.trim();
-      if (href) {
-        try {
-          const absolute = href.startsWith("http")
-            ? href
-            : new URL(href, page.url() || "https://www.shiply.com/").toString();
-          await page.goto(absolute, {
+      let opened = false;
+      const href = job.href?.trim() || matchHrefToJob(job, anchors);
+      try {
+        // Return to results between jobs so row-clicks still work
+        if (resultsUrl && page.url() !== resultsUrl) {
+          await page.goto(resultsUrl, {
             waitUntil: "domcontentloaded",
             timeout: 45_000,
           });
-          const capture = await captureVisibleShiply(page);
-          detail = await extractFullJob({
-            imageBase64: capture.screenshotBase64,
-            pageText: capture.text,
-            pageUrl: capture.url,
-          });
-        } catch {
-          // Fall back to list-row summary
         }
+        await openShiplyJob(page, { ...job, href });
+        opened = true;
+        const capture = await captureVisibleShiply(page);
+        detail = await extractFullJob({
+          imageBase64: capture.screenshotBase64,
+          pageText: capture.text,
+          pageUrl: capture.url,
+        });
+      } catch (err) {
+        errors.push(
+          err instanceof Error
+            ? err.message
+            : `Could not open ${job.item || job.id}`,
+        );
       }
 
       enriched.push({
@@ -156,14 +170,24 @@ export async function POST(request: Request) {
             : job.rateTotal ?? null,
         item: detail.item ?? job.item ?? null,
         verdict: job.verdict || "open",
-        reason: job.reason || "Selected from Shiply connect",
+        reason: job.reason || "Opened from Shiply connect",
         notes: Array.isArray(detail.notes)
           ? detail.notes.map(String).slice(0, 4)
-          : ["Imported via Connect Shiply"],
+          : [
+              opened
+                ? "Full job page opened automatically"
+                : "List-row only — open failed",
+            ],
       });
     }
 
-    return NextResponse.json({ jobs: enriched });
+    return NextResponse.json({
+      jobs: enriched,
+      openedCount: enriched.filter((j) =>
+        j.notes?.some((n) => /opened automatically/i.test(n)),
+      ).length,
+      errors: errors.slice(0, 4),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Import failed.";
     return NextResponse.json({ error: msg }, { status: 502 });

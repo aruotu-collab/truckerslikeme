@@ -75,11 +75,12 @@ Return ONLY JSON:
 }
 
 Rules:
-- href: absolute or site-relative job link if visible; else null
+- href: absolute or site-relative job detail link if visible; else null
 - Prefer 3–8 open/high unless the list is excellent
-- rateTotal: customer budget or visible pay if shown; else null
+- rateTotal: customer budget or visible pay/offer only. NEVER use "TP's Quoting" / quote counts as money.
+- miles: trip distance if shown
 - coach: one short paragraph on which jobs are worth selecting
-${input.forSelection ? "- Driver will manually tick jobs to analyse — still score each row." : ""}`;
+${input.forSelection ? "- Driver will tick jobs to auto-open — still score each row." : ""}`;
 
   const content: {
     type: string;

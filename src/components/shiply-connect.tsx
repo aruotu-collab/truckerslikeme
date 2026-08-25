@@ -11,10 +11,21 @@ type Props = {
   prefs: RunPrefs;
   busy: boolean;
   setBusy: (v: boolean) => void;
-  onImported: (jobs: RunJob[], coach: string | null) => void;
+  onSession?: (sessionId: string | null) => void;
+  onImported: (
+    jobs: RunJob[],
+    coach: string | null,
+    meta?: { sessionId: string; detailsLoaded: boolean },
+  ) => void;
 };
 
-export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
+export function ShiplyConnect({
+  prefs,
+  busy,
+  setBusy,
+  onImported,
+  onSession,
+}: Props) {
   const { money } = useMarket();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -63,6 +74,7 @@ export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
       }
       setSessionId(data.sessionId ?? null);
       setLiveViewUrl(data.liveViewUrl ?? null);
+      onSession?.(data.sessionId ?? null);
       if (data.tip) setCoach(data.tip);
     } catch {
       setError("Network error starting Shiply connect.");
@@ -135,7 +147,10 @@ export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
         setError(data.error || "Could not import selected jobs.");
         return;
       }
-      onImported(data.jobs ?? [], coach);
+      onImported(data.jobs ?? [], coach, {
+        sessionId,
+        detailsLoaded: true,
+      });
     } catch {
       setError("Network error importing jobs.");
     } finally {
@@ -286,14 +301,14 @@ export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void analyseSelected()}
-            className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase disabled:opacity-60"
-          >
-            {busy ? "Opening jobs…" : "Analyse selected jobs →"}
-          </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void analyseSelected()}
+              className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
+            >
+              {busy ? "Opening jobs…" : "Auto-open selected jobs →"}
+            </button>
         </div>
       )}
 

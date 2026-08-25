@@ -37,12 +37,17 @@ export async function POST(request: Request) {
 
   let browser;
   try {
-    const { captureVisibleShiply, connectShiplyPage } = await import(
-      "@/lib/shiply-playwright"
-    );
+    const {
+      captureVisibleShiply,
+      connectShiplyPage,
+      extractJobAnchors,
+      matchHrefToJob,
+    } = await import("@/lib/shiply-playwright");
     const connected = await connectShiplyPage(body.sessionId.trim());
     browser = connected.browser;
-    const capture = await captureVisibleShiply(connected.page);
+    const page = connected.page;
+    const capture = await captureVisibleShiply(page);
+    const anchors = await extractJobAnchors(page);
 
     const extracted = await extractJobsFromShiplyCapture({
       images: [capture.screenshotBase64],
@@ -56,9 +61,14 @@ export async function POST(request: Request) {
       forSelection: true,
     });
 
+    const jobs = extracted.jobs.map((j) => ({
+      ...j,
+      href: j.href || matchHrefToJob(j, anchors),
+    }));
+
     return NextResponse.json({
       pageUrl: capture.url,
-      jobs: extracted.jobs,
+      jobs,
       coach: extracted.coach,
     });
   } catch (err) {

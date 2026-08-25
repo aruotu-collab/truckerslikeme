@@ -92,6 +92,8 @@ export function RunBuilder() {
   const [best, setBest] = useState<RunCombo | null>(null);
   const [pendingResults, setPendingResults] = useState<PendingShot[]>([]);
   const [huntPath, setHuntPath] = useState<HuntPath>("screenshots");
+  const [shiplySessionId, setShiplySessionId] = useState<string | null>(null);
+  const [detailsFromShiply, setDetailsFromShiply] = useState(false);
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -275,6 +277,56 @@ export function RunBuilder() {
       await buildRun(merged.length ? merged : extracted);
     } catch {
       setError("Could not process job screenshots.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function autoOpenStrongJobs() {
+    if (!shiplySessionId) {
+      setError("Connect Shiply first (Phase 2) so we can open jobs for you.");
+      return;
+    }
+    const strong = jobs
+      .filter(
+        (j) =>
+          j.verdict === "high" ||
+          j.verdict === "open" ||
+          j.verdict === "maybe",
+      )
+      .slice(0, 4);
+    if (!strong.length) {
+      setError("No OPEN / MAYBE jobs to open.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/run/shiply/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: shiplySessionId, jobs: strong }),
+      });
+      const data = (await res.json()) as {
+        jobs?: RunJob[];
+        error?: string;
+        errors?: string[];
+      };
+      if (!res.ok) {
+        setError(data.error || "Could not auto-open those jobs.");
+        return;
+      }
+      const next = data.jobs ?? [];
+      setJobs(next);
+      setDetailsFromShiply(true);
+      setCoach(
+        "We opened the strong jobs in your Shiply session and pulled full details. Build the run when ready.",
+      );
+      if (data.errors?.length) {
+        setError(data.errors.join(" · "));
+      }
+    } catch {
+      setError("Network error auto-opening Shiply jobs.");
     } finally {
       setBusy(false);
     }
@@ -555,11 +607,14 @@ export function RunBuilder() {
               prefs={prefs}
               busy={busy}
               setBusy={setBusy}
-              onImported={(imported, tip) => {
+              onSession={(id) => setShiplySessionId(id)}
+              onImported={(imported, tip, meta) => {
                 setJobs(imported);
+                if (meta?.sessionId) setShiplySessionId(meta.sessionId);
+                setDetailsFromShiply(Boolean(meta?.detailsLoaded));
                 setCoach(
                   tip ||
-                    "Jobs imported from your Shiply session. Upload more detail or build the run.",
+                    "Jobs opened from your Shiply session. Build the run when ready.",
                 );
                 setStep("shortlist");
               }}
@@ -711,40 +766,98 @@ export function RunBuilder() {
             }}
           >
             <p className="font-display text-sm tracking-wide text-asphalt uppercase">
-              Round 2 — open only the strong ones
+              Round 2 — full job details
             </p>
-            <p className="mt-2 text-sm text-muted">
-              Open {openJobs.length || "the OPEN/HIGH"} job
-              {openJobs.length === 1 ? "" : "s"} on Shiply, take full
-              screenshots (scroll if needed), then upload or paste them here.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <label className="inline-flex cursor-pointer rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
-                {busy ? "Reading jobs…" : "Upload full job screenshots →"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  disabled={busy}
-                  onChange={(e) => {
-                    void addFullJobScreenshots(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              <p className="text-sm text-muted">Or paste (Ctrl+V / ⌘V)</p>
-              <button
-                type="button"
-                disabled={
-                  busy || jobs.filter((j) => j.verdict !== "skip").length === 0
-                }
-                onClick={() => void buildRun()}
-                className="rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-40"
-              >
-                Build with shortlist only
-              </button>
-            </div>
+            {detailsFromShiply ? (
+              <>
+                <p className="mt-2 text-sm text-muted">
+                  Full details were pulled from your Shiply session. Build the
+                  run, or upload extra screenshots if something looks incomplete.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void buildRun()}
+                    className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
+                  >
+                    {busy ? "Building…" : "Build my run →"}
+                  </button>
+                  <label className="inline-flex cursor-pointer rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
+                    Add screenshots
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={busy}
+                      onChange={(e) => {
+                        void addFullJobScreenshots(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-muted">
+                  {shiplySessionId
+                    ? "We’ll open the strong jobs in your live Shiply browser and read the full pages — no hunting the list yourself."
+                    : `Open ${openJobs.length || "the OPEN/HIGH"} job${openJobs.length === 1 ? "" : "s"} on Shiply, take full screenshots, then upload or paste them here.`}
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  {shiplySessionId ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void autoOpenStrongJobs()}
+                      className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
+                    >
+                      {busy
+                        ? "Opening jobs in Shiply…"
+                        : "Auto-open strong jobs →"}
+                    </button>
+                  ) : (
+                    <label className="inline-flex cursor-pointer rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
+                      {busy ? "Reading jobs…" : "Upload full job screenshots →"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={busy}
+                        onChange={(e) => {
+                          void addFullJobScreenshots(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {!shiplySessionId && (
+                    <p className="text-sm text-muted">Or paste (Ctrl+V / ⌘V)</p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={
+                      busy ||
+                      jobs.filter((j) => j.verdict !== "skip").length === 0
+                    }
+                    onClick={() => void buildRun()}
+                    className="rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-40"
+                  >
+                    Build with shortlist only
+                  </button>
+                </div>
+                {shiplySessionId && (
+                  <p className="mt-3 text-xs text-muted">
+                    Keep the Shiply results list open in the connected browser.
+                    Prefer Phase 2 · Connect Shiply if you started from
+                    screenshots.
+                  </p>
+                )}
+              </>
+            )}
             {error && <p className="mt-3 text-sm text-alert">{error}</p>}
           </div>
         </section>
