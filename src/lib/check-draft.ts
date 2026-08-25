@@ -41,6 +41,15 @@ export function writeCheckDraft(draft: Omit<CheckDraft, "updatedAt">) {
   }
 }
 
+export function clearCheckDraft() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(CHECK_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function checkDraftSummary(draft: CheckDraft | null): string | null {
   if (!draft) return null;
   const route = [draft.corridor?.origin, draft.corridor?.destination]

@@ -11,6 +11,7 @@ import {
 } from "@/lib/market";
 import type { ProfitResult } from "@/lib/profit";
 import {
+  clearCheckDraft,
   readCheckDraft,
   writeCheckDraft,
 } from "@/lib/check-draft";
@@ -234,6 +235,44 @@ export function LoadChecker() {
     const inferred = inferCountryFromLocation(value);
     if (inferred) setFromCountryCode(inferred);
   }
+
+  function startNewCheck() {
+    // Keep where-you-are; clear the load + verdict
+    setText("");
+    setMiles("");
+    setRateTotal("");
+    setExtractNotes([]);
+    setShotPreview(null);
+    setMarketLow(null);
+    setMarketHigh(null);
+    setMarketCurrency(null);
+    setError(null);
+    setRequiresPro(false);
+    setIsPreview(false);
+    setResult(null);
+    setCorridor(null);
+    clearCheckDraft();
+    writeCheckDraft({
+      location,
+      text: "",
+      miles: "",
+      rateTotal: "",
+      dieselPrice,
+      mpg,
+      costPerMile,
+      extractNotes: [],
+      marketLow: null,
+      marketHigh: null,
+      marketCurrency: null,
+      result: null,
+      corridor: null,
+      isPreview: false,
+    });
+  }
+
+  const hasActiveCheck = Boolean(
+    text.trim() || miles || rateTotal || result || shotPreview,
+  );
 
   function bumpSuccessfulChecks() {
     try {
@@ -508,6 +547,21 @@ export function LoadChecker() {
           Tell us where you are, paste the offer, get a clear take / pass score
           after fuel and real costs — anywhere in the world.
         </p>
+        {hasActiveCheck && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={startNewCheck}
+              className="rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase transition hover:border-amber hover:text-amber"
+            >
+              New check
+            </button>
+            <p className="text-sm text-muted">
+              Clears this load so you can paste the next one. Keeps your
+              location.
+            </p>
+          </div>
+        )}
         {quotaLabel && (
           <p className="mt-3 text-sm text-muted">
             {quotaLabel}
