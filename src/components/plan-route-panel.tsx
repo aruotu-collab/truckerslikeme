@@ -477,7 +477,13 @@ export function PlanRoutePanel() {
             </div>
 
             <div className="[--h-scroll-fade:#ffffff] px-3 py-5 sm:px-5">
-              <HScroll aria-label="Route corridor" role="list" hint="">
+              <HScroll
+                aria-label="Route corridor"
+                role="list"
+                hint="Scroll or drag the slider to see delivery (B)"
+                controls
+                showScrollbar
+              >
                 <div className="flex min-w-min items-start gap-0 px-1">
                   {/* Origin */}
                   <div className="relative z-10 flex w-[4.75rem] shrink-0 flex-col items-center text-center sm:w-24">

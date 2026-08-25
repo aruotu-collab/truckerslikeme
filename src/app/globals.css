@@ -79,7 +79,33 @@ body {
   display: none;
 }
 
-.h-scroll > * {
+.h-scroll-visible {
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 29, 35, 0.35) transparent;
+  -ms-overflow-style: auto;
+}
+
+.h-scroll-visible::-webkit-scrollbar {
+  display: block;
+  height: 8px;
+}
+
+.h-scroll-visible::-webkit-scrollbar-thumb {
+  background: rgba(26, 29, 35, 0.28);
+  border-radius: 4px;
+}
+
+.h-scroll-visible::-webkit-scrollbar-track {
+  background: rgba(26, 29, 35, 0.06);
+}
+
+.h-scroll > *,
+.h-scroll-visible > * {
   flex-shrink: 0;
 }
 
