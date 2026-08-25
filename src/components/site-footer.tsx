@@ -11,11 +11,14 @@ export function SiteFooter() {
           <Link href="/" className="transition hover:text-asphalt">
             Check
           </Link>
+          <Link href="/run" className="transition hover:text-asphalt">
+            Build run
+          </Link>
+          <Link href="/plan" className="transition hover:text-asphalt">
+            Plan
+          </Link>
           <Link href="/find" className="transition hover:text-asphalt">
             Find
-          </Link>
-          <Link href="/trip" className="transition hover:text-asphalt">
-            Trip
           </Link>
           <Link href="/me" className="transition hover:text-asphalt">
             Me

@@ -19,6 +19,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.95,
     },
     {
+      url: `${siteUrl}/run`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.97,
+    },
+    {
       url: `${siteUrl}/plan`,
       lastModified: now,
       changeFrequency: "daily",
