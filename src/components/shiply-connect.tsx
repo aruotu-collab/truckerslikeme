@@ -200,7 +200,18 @@ export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
             </div>
           )}
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
-            <li>Log into Shiply in the window above (saved for next time when possible).</li>
+            <li>
+              In the window above, go to{" "}
+              <a
+                href="https://www.shiply.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber hover:text-asphalt"
+              >
+                shiply.com
+              </a>{" "}
+              and log in (saved for next time when possible).
+            </li>
             <li>Search near {prefs.start || "your start"} as coached.</li>
             <li>Stay on the results list, then scan.</li>
           </ol>

@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // Keep Playwright intact on Vercel (browsers.json must stay on disk).
+  serverExternalPackages: ["playwright-core", "@browserbasehq/sdk"],
+  outputFileTracingIncludes: {
+    "/api/run/shiply/**/*": ["./node_modules/playwright-core/**/*"],
+  },
   images: {
     remotePatterns: [
       {

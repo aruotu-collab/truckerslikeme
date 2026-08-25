@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   let browser;
   try {
     const { captureVisibleShiply, connectShiplyPage } = await import(
-      "@/lib/shiply-browser"
+      "@/lib/shiply-playwright"
     );
     const connected = await connectShiplyPage(body.sessionId.trim());
     browser = connected.browser;
