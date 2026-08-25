@@ -126,6 +126,25 @@ export type RouteConnection = {
   avgMiles: number | null;
 };
 
+export type RunStepKind =
+  | "start"
+  | "pickup"
+  | "deliver"
+  | "handoff"
+  | "finish";
+
+export type RunStep = {
+  place: string;
+  kind: RunStepKind;
+  /** Primary pay line (pickup or deliver amount). */
+  pay: number | null;
+  /** When handoff: deliver amount from previous leg. */
+  deliverPay?: number | null;
+  /** When handoff: pickup amount for next leg. */
+  pickupPay?: number | null;
+  job?: MapJob;
+};
+
 export type PossibleRun = {
   id: string;
   label: string;
@@ -133,6 +152,15 @@ export type PossibleRun = {
   totalPay: number;
   extraMiles: number;
   stops: string[];
+  steps: RunStep[];
+};
+
+export type CorridorBucket = "on_route" | "detour" | "return" | "other";
+
+export type CorridorGroup = {
+  id: CorridorBucket;
+  label: string;
+  jobs: MapJob[];
 };
 
 function jobPay(j: MapJob) {
@@ -309,80 +337,250 @@ export function sortConnections(
   return next;
 }
 
-/** Simple 2–3 job chains where drop city ≈ next collect city. */
+function angleDiff(a: number, b: number) {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/** Classify jobs relative to driver → heading corridor. */
+export function classifyJobsByCorridor(
+  jobs: MapJob[],
+  driver: JobsMapDriver | null,
+  headingToward: string | null,
+): CorridorGroup[] {
+  const driverPt =
+    driver?.lat != null && driver?.lon != null
+      ? { lat: driver.lat, lon: driver.lon }
+      : resolveUkPlace(driver?.label);
+  const headingPt = resolveUkPlace(headingToward);
+
+  const buckets: Record<CorridorBucket, MapJob[]> = {
+    on_route: [],
+    detour: [],
+    return: [],
+    other: [],
+  };
+
+  if (!driverPt || !headingPt) {
+    return [
+      {
+        id: "other",
+        label: "All jobs",
+        jobs: [...jobs],
+      },
+    ];
+  }
+
+  const corridorBearing = bearingDeg(driverPt, headingPt);
+  const homeKey = placeKey(driver?.label);
+
+  for (const j of jobs) {
+    const destPt = resolveUkPlace(j.destination);
+    if (!destPt) {
+      buckets.other.push(j);
+      continue;
+    }
+    const jobBearing = bearingDeg(driverPt, destPt);
+    const diff = angleDiff(corridorBearing, jobBearing);
+    const destKey = placeKey(j.destination);
+    const originKey = placeKey(j.origin);
+
+    if (homeKey && (destKey === homeKey || cityMatch(j.destination, driver?.label))) {
+      buckets.return.push(j);
+    } else if (diff <= 35) {
+      buckets.on_route.push(j);
+    } else if (diff >= 140 && originKey !== homeKey) {
+      buckets.return.push(j);
+    } else if (diff <= 70) {
+      buckets.detour.push(j);
+    } else {
+      buckets.other.push(j);
+    }
+  }
+
+  return (
+    [
+      { id: "on_route" as const, label: "On my route", jobs: buckets.on_route },
+      { id: "detour" as const, label: "Small detour", jobs: buckets.detour },
+      { id: "return" as const, label: "Return loads", jobs: buckets.return },
+      { id: "other" as const, label: "Other jobs", jobs: buckets.other },
+    ] as CorridorGroup[]
+  ).filter((g) => g.jobs.length > 0);
+}
+
+export function buildRunSteps(
+  driver: JobsMapDriver | null,
+  jobs: MapJob[],
+): RunStep[] {
+  if (!jobs.length) return [];
+  const steps: RunStep[] = [
+    {
+      place: shortPlace(driver?.label) || "Start",
+      kind: "start",
+      pay: null,
+    },
+  ];
+
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i]!;
+    const prev = jobs[i - 1];
+    const next = jobs[i + 1];
+    const pay = jobPay(job) || null;
+    const chainsFromPrev =
+      i > 0 && cityMatch(prev?.destination, job.origin);
+    const chainsToNext =
+      Boolean(next) && cityMatch(job.destination, next?.origin);
+
+    if (!chainsFromPrev) {
+      steps.push({
+        place: shortPlace(job.origin),
+        kind: "pickup",
+        pay,
+        job,
+      });
+    } else {
+      steps.push({
+        place: shortPlace(job.origin),
+        kind: "handoff",
+        pay: null,
+        deliverPay: jobPay(prev!) || null,
+        pickupPay: pay,
+        job,
+      });
+    }
+
+    if (!chainsToNext) {
+      steps.push({
+        place: shortPlace(job.destination),
+        kind: i === jobs.length - 1 ? "finish" : "deliver",
+        pay,
+        job,
+      });
+    }
+  }
+
+  return steps;
+}
+
+function buildChain(
+  startJob: MapJob,
+  pool: MapJob[],
+  maxLegs: number,
+): MapJob[] {
+  const chain: MapJob[] = [startJob];
+  let pay = jobPay(startJob);
+  let extra = startJob.miles ?? 80;
+
+  for (let step = 0; step < maxLegs - 1; step++) {
+    const last = chain[chain.length - 1]!;
+    const next = pool.find(
+      (j) =>
+        !chain.includes(j) &&
+        cityMatch(j.origin, last.destination ?? ""),
+    );
+    if (!next) break;
+    chain.push(next);
+    pay += jobPay(next);
+    extra += next.miles ?? 80;
+  }
+
+  return chain;
+}
+
+function runFromChain(
+  chain: MapJob[],
+  label: string,
+  driver: JobsMapDriver | null,
+): PossibleRun {
+  const totalPay = chain.reduce((s, j) => s + jobPay(j), 0);
+  const extraMiles = chain.reduce(
+    (s, j) => s + (j.miles != null && j.miles > 0 ? j.miles : 80),
+    0,
+  );
+  return {
+    id: `run-${chain.map((j) => j.id).join("-")}`,
+    label,
+    jobs: chain,
+    totalPay,
+    extraMiles: Math.round(extraMiles),
+    stops: chain.flatMap((j, idx) =>
+      idx === 0
+        ? [shortPlace(j.origin), shortPlace(j.destination)]
+        : [shortPlace(j.destination)],
+    ),
+    steps: buildRunSteps(driver, chain),
+  };
+}
+
+/** Find chained runs — multiple suggestions like the mockup. */
 export function findPossibleRuns(
   jobs: MapJob[],
   driver: JobsMapDriver | null,
-  max = 5,
+  max = 4,
 ): PossibleRun[] {
   const usable = geocodedJobs(jobs).filter((j) => j.status !== "skipped");
   if (usable.length < 2) return [];
 
   const home = placeKey(driver?.label);
-  const runs: PossibleRun[] = [];
+  const candidates: PossibleRun[] = [];
 
-  for (let i = 0; i < usable.length && runs.length < max * 3; i++) {
-    const chain: MapJob[] = [usable[i]!];
-    let pay = jobPay(usable[i]!);
-    let extra = usable[i]!.miles ?? 80;
+  for (const start of usable) {
+    for (const legs of [2, 3, 4]) {
+      const chain = buildChain(start, usable, legs);
+      if (chain.length < 2) continue;
 
-    for (let step = 0; step < 2; step++) {
-      const last = chain[chain.length - 1]!;
-      const next = usable.find(
-        (j) =>
-          !chain.includes(j) &&
-          cityMatch(j.origin, last.destination ?? ""),
+      const endsNearHome =
+        home &&
+        cityMatch(chain[chain.length - 1]!.destination, driver?.label);
+      const totalPay = chain.reduce((s, j) => s + jobPay(j), 0);
+      const extraMiles = chain.reduce(
+        (s, j) => s + (j.miles ?? 80),
+        0,
       );
-      if (!next) break;
-      chain.push(next);
-      pay += jobPay(next);
-      extra += next.miles ?? 80;
+
+      let label = "Two-leg run";
+      if (chain.length >= 3 && endsNearHome) label = "Return loop";
+      else if (chain.length >= 3) label = "Best revenue";
+      else if (extraMiles <= 120) label = "Least detour";
+
+      candidates.push(runFromChain(chain, label, driver));
     }
-
-    if (chain.length < 2) continue;
-
-    const endsNearHome =
-      home &&
-      cityMatch(chain[chain.length - 1]!.destination || "", home);
-    const label =
-      chain.length >= 3
-        ? endsNearHome
-          ? "Return loop"
-          : "Best revenue"
-        : extra <= 120
-          ? "Least detour"
-          : "Two-leg run";
-
-    runs.push({
-      id: `run-${chain.map((j) => j.id).join("-")}`,
-      label,
-      jobs: chain,
-      totalPay: pay,
-      extraMiles: Math.round(extra),
-      stops: chain.flatMap((j, idx) =>
-        idx === 0
-          ? [shortPlace(j.origin), shortPlace(j.destination)]
-          : [shortPlace(j.destination)],
-      ),
-    });
   }
 
   const seen = new Set<string>();
-  const unique: PossibleRun[] = [];
-  for (const r of runs.sort((a, b) => b.totalPay - a.totalPay)) {
+  const unique = candidates.filter((r) => {
     const key = r.jobs.map((j) => j.id).join(",");
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return false;
     seen.add(key);
-    unique.push(r);
-    if (unique.length >= max) break;
+    return true;
+  });
+
+  const picks: PossibleRun[] = [];
+  const pickBest = (label: string, sort: (a: PossibleRun, b: PossibleRun) => number) => {
+    const match = [...unique]
+      .filter((r) => r.label === label)
+      .sort(sort)[0];
+    if (match && !picks.some((p) => p.id === match.id)) picks.push(match);
+  };
+
+  pickBest("Best revenue", (a, b) => b.totalPay - a.totalPay);
+  pickBest("Return loop", (a, b) => b.totalPay - a.totalPay);
+  pickBest("Least detour", (a, b) => a.extraMiles - b.extraMiles);
+  pickBest("Two-leg run", (a, b) => b.totalPay - a.totalPay);
+
+  for (const r of unique.sort((a, b) => b.totalPay - a.totalPay)) {
+    if (picks.length >= max) break;
+    if (!picks.some((p) => p.id === r.id)) picks.push(r);
   }
-  return unique;
+
+  return picks.slice(0, max);
 }
 
 export type ExploreMapLayout = {
   width: number;
   height: number;
   driver: { x: number; y: number; label: string } | null;
+  ringLabels: Array<{ x: number; y: number; label: string }>;
   /** Compass direction bubbles (default zoom). */
   directions: Array<{
     id: DirectionId;
@@ -609,10 +807,22 @@ export function layoutExploreMap(input: {
       });
     }
   } else if (input.selectedDirection && driverScreen) {
+    const bx =
+      cityBubbles.reduce((s, b) => s + b.x, 0) /
+      Math.max(cityBubbles.length, 1);
+    const by =
+      cityBubbles.reduce((s, b) => s + b.y, 0) /
+      Math.max(cityBubbles.length, 1);
+    const bundle = {
+      x: driverScreen.x + (bx - driverScreen.x) * 0.38,
+      y: driverScreen.y + (by - driverScreen.y) * 0.38,
+    };
     cityBubbles.forEach((b, idx) => {
+      const mid = bundle;
+      const path = `M ${driverScreen!.x} ${driverScreen!.y} Q ${mid.x} ${mid.y} ${b.x} ${b.y}`;
       lines.push({
         id: `you-${b.cluster.destKey}`,
-        path: curvedPath(driverScreen!, { x: b.x, y: b.y }, ((idx % 5) - 2) * 10),
+        path,
         jobCount: b.cluster.jobCount,
         totalPay: b.cluster.totalPay,
         originLabel: driverScreen!.label,
@@ -623,10 +833,27 @@ export function layoutExploreMap(input: {
     });
   }
 
+  const ringLabels: ExploreMapLayout["ringLabels"] = [];
+  if (!input.selectedDirection && !input.selectedCityKey && driverScreen) {
+    const radii = [
+      { scale: 0.22, mi: 50 },
+      { scale: 0.38, mi: 100 },
+    ];
+    for (const { scale, mi } of radii) {
+      const r = Math.min(width, height) * scale;
+      ringLabels.push({
+        x: driverScreen.x + r * 0.72,
+        y: driverScreen.y - 4,
+        label: `~${mi} mi`,
+      });
+    }
+  }
+
   return {
     width,
     height,
     driver: driverScreen,
+    ringLabels,
     directions: input.selectedDirection || input.selectedCityKey ? [] : dirBubbles,
     cities: input.selectedDirection || input.selectedCityKey ? cityBubbles : [],
     lines,

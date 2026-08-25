@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
+import { PossibleRunCard } from "@/components/jobs-possible-run-card";
 import { JobsTubeMap } from "@/components/jobs-tube-map";
 import { useMarket } from "@/lib/market-context";
 import {
   buildRouteConnections,
+  classifyJobsByCorridor,
   findPossibleRuns,
   sortConnections,
   unmappedJobs,
@@ -72,6 +74,8 @@ export function JobsMapPanel() {
   const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hubKey, setHubKey] = useState<string | null>(null);
+  const [headingDraft, setHeadingDraft] = useState("");
+  const [headingToward, setHeadingToward] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -104,14 +108,27 @@ export function JobsMapPanel() {
   const visible = filterMapJobs(jobs, filter);
   const startReady = Boolean(driver?.label.trim());
 
+  const corridorGroups = useMemo(
+    () => classifyJobsByCorridor(visible, driver, headingToward),
+    [visible, driver, headingToward],
+  );
+
+  const exploreJobs = useMemo(() => {
+    if (!headingToward) return visible;
+    const onRoute = corridorGroups.find((g) => g.id === "on_route");
+    const detour = corridorGroups.find((g) => g.id === "detour");
+    const combined = [...(onRoute?.jobs ?? []), ...(detour?.jobs ?? [])];
+    return combined.length ? combined : visible;
+  }, [visible, headingToward, corridorGroups]);
+
   const routes = useMemo(
-    () => sortConnections(buildRouteConnections(visible), sortMode),
-    [visible, sortMode],
+    () => sortConnections(buildRouteConnections(exploreJobs), sortMode),
+    [exploreJobs, sortMode],
   );
 
   const possibleRuns = useMemo(
-    () => findPossibleRuns(visible, driver),
-    [visible, driver],
+    () => findPossibleRuns(exploreJobs, driver),
+    [exploreJobs, driver],
   );
 
   const unmapped = useMemo(() => unmappedJobs(visible), [visible]);
@@ -587,6 +604,69 @@ export function JobsMapPanel() {
 
         {viewMode === "explore" && (
           <>
+            <div className="flex flex-col gap-2 border border-asphalt/10 bg-white px-4 py-3 sm:flex-row sm:items-end">
+              <label className="flex-1 text-sm">
+                <span className="font-medium text-asphalt">
+                  Where are you heading?
+                </span>
+                <input
+                  type="text"
+                  value={headingDraft}
+                  onChange={(e) => setHeadingDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setHeadingToward(headingDraft.trim() || null);
+                    }
+                  }}
+                  placeholder="Anywhere, or e.g. London, Manchester…"
+                  className="mt-1 w-full border border-asphalt/15 bg-concrete/20 px-3 py-2 text-sm outline-none focus:border-amber"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setHeadingToward(headingDraft.trim() || null)
+                }
+                className="shrink-0 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
+              >
+                Apply corridor
+              </button>
+              {headingToward && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeadingToward(null);
+                    setHeadingDraft("");
+                  }}
+                  className="shrink-0 text-xs font-semibold text-muted uppercase"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {headingToward && corridorGroups.length > 1 && (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {corridorGroups.map((g) => (
+                  <div
+                    key={g.id}
+                    className="border border-asphalt/10 bg-white px-3 py-2.5"
+                  >
+                    <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
+                      {g.label}
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold text-asphalt">
+                      {g.jobs.length}{" "}
+                      <span className="text-sm font-normal text-muted">
+                        job{g.jobs.length === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               {SORTS.map((s) => (
                 <button
@@ -604,7 +684,7 @@ export function JobsMapPanel() {
               ))}
             </div>
             <JobsExploreMap
-              jobs={visible}
+              jobs={exploreJobs}
               driver={driver}
               selectedDirection={selectedDirection}
               selectedCityKey={selectedCityKey}
@@ -619,6 +699,26 @@ export function JobsMapPanel() {
                 {unmapped.length} job{unmapped.length === 1 ? "" : "s"} hidden
                 from the map (place not recognised — listed below only).
               </p>
+            )}
+            {possibleRuns.length > 0 && (
+              <div className="space-y-3 border-t border-asphalt/10 pt-4">
+                <h3 className="font-display text-lg tracking-wide text-asphalt uppercase">
+                  Possible runs
+                </h3>
+                <p className="text-sm text-muted">
+                  Chains where one drop connects to the next collect — like your
+                  mockup.
+                </p>
+                <div className="space-y-4">
+                  {possibleRuns.slice(0, 3).map((run) => (
+                    <PossibleRunCard
+                      key={run.id}
+                      run={run}
+                      formatMoney={money}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}
@@ -660,64 +760,20 @@ export function JobsMapPanel() {
         )}
 
         {viewMode === "runs" && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {!possibleRuns.length ? (
               <p className="text-sm text-muted">
                 Need at least 2 mapped jobs that chain (drop ≈ next collect) for
                 run suggestions.
               </p>
             ) : (
-              <ul className="space-y-3">
-                {possibleRuns.map((run) => (
-                  <li
-                    key={run.id}
-                    className="border border-asphalt/10 bg-white px-4 py-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="font-display text-sm tracking-wide text-amber uppercase">
-                          Possible run · {run.label}
-                        </p>
-                        <p className="mt-1 font-medium text-asphalt">
-                          {run.stops.join(" → ")}
-                        </p>
-                        <p className="mt-1 text-sm text-muted">
-                          {run.jobs.length} jobs · {money(run.totalPay)} · ~
-                          {run.extraMiles} mi loaded
-                        </p>
-                      </div>
-                      <a
-                        href="/run"
-                        className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                      >
-                        Build in Run →
-                      </a>
-                    </div>
-                    <ul className="mt-3 space-y-1 border-t border-asphalt/10 pt-3 text-sm">
-                      {run.jobs.map((j) => (
-                        <li key={j.id} className="flex flex-wrap gap-2">
-                          <span>
-                            {shortPlace(j.origin)} → {shortPlace(j.destination)}
-                            {j.rateTotal != null
-                              ? ` · ${money(j.rateTotal)}`
-                              : ""}
-                          </span>
-                          {j.href && (
-                            <a
-                              href={j.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-semibold text-amber"
-                            >
-                              Shiply →
-                            </a>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
+              possibleRuns.map((run) => (
+                <PossibleRunCard
+                  key={run.id}
+                  run={run}
+                  formatMoney={money}
+                />
+              ))
             )}
           </div>
         )}

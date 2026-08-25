@@ -62,7 +62,10 @@ export function JobsExploreMap({
         >
           {!focused && layout.driver && (
             <>
-              {[0.22, 0.38].map((scale) => (
+              {[
+                { scale: 0.22, mi: 50 },
+                { scale: 0.38, mi: 100 },
+              ].map(({ scale, mi }) => (
                 <circle
                   key={scale}
                   cx={layout.driver!.x}
@@ -73,6 +76,17 @@ export function JobsExploreMap({
                   strokeWidth="1"
                   strokeDasharray="5 7"
                 />
+              ))}
+              {layout.ringLabels.map((ring) => (
+                <text
+                  key={ring.label}
+                  x={ring.x}
+                  y={ring.y}
+                  fill="#8a8478"
+                  style={{ fontSize: 9, fontWeight: 600 }}
+                >
+                  {ring.label}
+                </text>
               ))}
             </>
           )}
