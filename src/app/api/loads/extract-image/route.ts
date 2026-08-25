@@ -10,6 +10,10 @@ type ExtractedLoad = {
   rateTotal: number | null;
   currency: string | null;
   item: string | null;
+  /** Competing bids from a quotes table (e.g. Shiply), not your bid. */
+  quotes: number[];
+  lowestQuote: number | null;
+  highestQuote: number | null;
   notes: string[];
   rawText: string | null;
 };
@@ -70,17 +74,21 @@ Return ONLY a JSON object with keys:
 - origin (string|null) pickup place / postcode area
 - destination (string|null) delivery place / postcode area
 - miles (number|null) trip distance in miles if shown
-- rateTotal (number|null) total pay/quote amount as a number only (no currency symbol). Null if not shown.
+- rateTotal (number|null) ONLY if a single posted/offered pay amount is shown (rate conf, "paying $X"). NOT from a competitive quotes table.
 - currency (string|null) e.g. GBP, USD, EUR
 - item (string|null) what is being moved
-- notes (string[]) short notes: missing fields, date window, operable vehicle, etc.
+- quotes (number[]) all Net Quote Amount / bid amounts from a competing quotes table. Empty array if none.
+- lowestQuote (number|null) min of quotes, or null
+- highestQuote (number|null) max of quotes, or null
+- notes (string[]) short notes: date window, weight/size, operable vehicle, etc.
 - rawText (string|null) brief readable summary of the key facts
 
 Rules:
 - Prefer concrete localities/postcodes (e.g. "Edinburgh EH4") over vague regions.
-- If distance is shown as "2 miles", miles=2.
-- If no quote/pay is visible, rateTotal=null and note that.
-- Do not invent rates.`;
+- If distance is shown as "2 miles" or "157 mi", set miles accordingly.
+- If a quotes table lists bids (e.g. £60, £60, £86, £98), put those in quotes[] and set lowestQuote/highestQuote. Leave rateTotal=null — those are other providers' bids, not a confirmed rate.
+- If no pay and no quotes, rateTotal=null and quotes=[].
+- Do not invent rates or quotes.`;
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -124,7 +132,19 @@ Rules:
       choices?: { message?: { content?: string } }[];
     };
     const content = json.choices?.[0]?.message?.content ?? "";
-    const parsed = JSON.parse(stripJsonFence(content)) as ExtractedLoad;
+    const parsed = JSON.parse(stripJsonFence(content)) as ExtractedLoad & {
+      quotes?: unknown;
+    };
+
+    const quotes = Array.isArray(parsed.quotes)
+      ? parsed.quotes
+          .map((q) => Number(q))
+          .filter((q) => Number.isFinite(q) && q > 0)
+      : [];
+    const lowestFromList =
+      quotes.length > 0 ? Math.min(...quotes) : null;
+    const highestFromList =
+      quotes.length > 0 ? Math.max(...quotes) : null;
 
     const extracted: ExtractedLoad = {
       origin: parsed.origin ?? null,
@@ -139,9 +159,30 @@ Rules:
           : null,
       currency: parsed.currency ?? null,
       item: parsed.item ?? null,
+      quotes,
+      lowestQuote:
+        parsed.lowestQuote != null && Number.isFinite(Number(parsed.lowestQuote))
+          ? Number(parsed.lowestQuote)
+          : lowestFromList,
+      highestQuote:
+        parsed.highestQuote != null &&
+        Number.isFinite(Number(parsed.highestQuote))
+          ? Number(parsed.highestQuote)
+          : highestFromList,
       notes: Array.isArray(parsed.notes) ? parsed.notes.map(String) : [],
       rawText: parsed.rawText ?? null,
     };
+
+    // Competitive quotes are market intel — never treat as confirmed pay
+    if (extracted.quotes.length > 0) {
+      extracted.rateTotal = null;
+      if (extracted.lowestQuote == null) {
+        extracted.lowestQuote = lowestFromList;
+      }
+      if (extracted.highestQuote == null) {
+        extracted.highestQuote = highestFromList;
+      }
+    }
 
     return NextResponse.json({ extracted });
   } catch (err) {

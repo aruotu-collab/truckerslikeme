@@ -80,6 +80,9 @@ export function LoadChecker() {
   const [extractBusy, setExtractBusy] = useState(false);
   const [extractNotes, setExtractNotes] = useState<string[]>([]);
   const [shotPreview, setShotPreview] = useState<string | null>(null);
+  const [marketLow, setMarketLow] = useState<number | null>(null);
+  const [marketHigh, setMarketHigh] = useState<number | null>(null);
+  const [marketCurrency, setMarketCurrency] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [requiresPro, setRequiresPro] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
@@ -212,6 +215,9 @@ export function LoadChecker() {
     setExtractBusy(true);
     setError(null);
     setExtractNotes([]);
+    setMarketLow(null);
+    setMarketHigh(null);
+    setMarketCurrency(null);
     try {
       let dataUrl: string;
       if (typeof fileOrDataUrl === "string") {
@@ -239,6 +245,9 @@ export function LoadChecker() {
           rateTotal: number | null;
           currency: string | null;
           item: string | null;
+          quotes?: number[];
+          lowestQuote?: number | null;
+          highestQuote?: number | null;
           notes: string[];
           rawText: string | null;
         };
@@ -254,26 +263,63 @@ export function LoadChecker() {
         return;
       }
 
+      const money = (n: number) => {
+        const c = ex.currency;
+        const sym = c === "GBP" ? "£" : c === "EUR" ? "€" : "$";
+        return `${sym}${n}`;
+      };
+
+      const quotes = (ex.quotes ?? []).filter((q) => Number.isFinite(q) && q > 0);
+      const low =
+        ex.lowestQuote != null && Number.isFinite(ex.lowestQuote)
+          ? ex.lowestQuote
+          : quotes.length
+            ? Math.min(...quotes)
+            : null;
+      const high =
+        ex.highestQuote != null && Number.isFinite(ex.highestQuote)
+          ? ex.highestQuote
+          : quotes.length
+            ? Math.max(...quotes)
+            : null;
+
       const lines = [
         ex.item ? `Item: ${ex.item}` : null,
         ex.origin && ex.destination
           ? `${ex.origin} → ${ex.destination}`
           : ex.origin || ex.destination,
         ex.miles != null ? `Miles: ${ex.miles}` : null,
-        ex.rateTotal != null
-          ? `Rate: ${ex.currency === "GBP" ? "£" : ex.currency === "EUR" ? "€" : "$"}${ex.rateTotal}`
+        ex.rateTotal != null ? `Rate: ${money(ex.rateTotal)}` : null,
+        low != null && high != null
+          ? `Market quotes: ${money(low)}–${money(high)}${quotes.length ? ` (${quotes.length} bids)` : ""}`
           : null,
         ex.rawText,
       ].filter(Boolean);
       setText(lines.join("\n"));
       if (ex.miles != null) setMiles(String(ex.miles));
-      if (ex.rateTotal != null) setRateTotal(String(ex.rateTotal));
-      setExtractNotes([
-        ...(ex.notes ?? []),
-        ex.rateTotal == null
-          ? "No pay/quote found — enter the amount you’d bid, then Check load."
-          : "",
-      ].filter(Boolean));
+      if (ex.rateTotal != null) {
+        setRateTotal(String(ex.rateTotal));
+      } else {
+        setRateTotal("");
+      }
+
+      if (low != null) {
+        setMarketLow(low);
+        setMarketHigh(high);
+        setMarketCurrency(ex.currency);
+      }
+
+      const notes = [...(ex.notes ?? [])];
+      if (low != null && high != null) {
+        notes.push(
+          `Other providers bid ${money(low)}–${money(high)}. Enter your bid, or score the lowest to see if winning is even worth it.`,
+        );
+      } else if (ex.rateTotal == null) {
+        notes.push(
+          "No pay/quote found — enter the amount you’d bid, then Check load.",
+        );
+      }
+      setExtractNotes(notes);
     } catch {
       setError("Could not process that screenshot.");
     } finally {
@@ -529,6 +575,22 @@ export function LoadChecker() {
                 onChange={(e) => setRateTotal(e.target.value)}
                 className="mt-1 w-full rounded-sm border border-asphalt/15 bg-white px-3 py-2.5 text-asphalt focus:border-amber focus:outline-none"
               />
+              {marketLow != null && (
+                <button
+                  type="button"
+                  onClick={() => setRateTotal(String(marketLow))}
+                  className="mt-1.5 text-left text-sm font-medium text-amber transition hover:text-asphalt"
+                >
+                  Score at lowest bid (
+                  {marketCurrency === "GBP"
+                    ? "£"
+                    : marketCurrency === "EUR"
+                      ? "€"
+                      : "$"}
+                  {marketLow}
+                  ) →
+                </button>
+              )}
             </label>
           </div>
 
