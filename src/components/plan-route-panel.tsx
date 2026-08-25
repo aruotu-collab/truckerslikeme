@@ -281,7 +281,6 @@ export function PlanRoutePanel() {
   }, [stops, filter]);
 
   const selected = stops.find((s) => s.id === selectedId) ?? null;
-  const maxMile = Math.max(route?.miles ?? 1, ...stops.map((s) => s.mile), 1);
 
   function runPlan(e?: React.FormEvent) {
     e?.preventDefault();
@@ -462,8 +461,8 @@ export function PlanRoutePanel() {
           </div>
           {saveError && <p className="text-sm text-alert">{saveError}</p>}
 
-          {/* Corridor ribbon */}
-          <div className="overflow-hidden rounded-sm border border-asphalt/10 bg-white">
+          {/* Corridor journey — ordered stations (no geographic squeeze) */}
+          <div className="overflow-hidden border border-asphalt/10 bg-white">
             <div className="border-b border-asphalt/10 px-4 py-3 sm:px-5">
               <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
                 Corridor
@@ -472,53 +471,47 @@ export function PlanRoutePanel() {
                 {discoverBusy
                   ? "Searching the corridor…"
                   : stops.length > 0
-                    ? "Swipe the haul. Tap a stop for detail."
+                    ? "Stops in haul order — swipe along the journey. Tap for detail."
                     : "A → B is set. Mapped fuel, parking, and repair load in after discovery."}
               </p>
             </div>
-            <div className="[--h-scroll-fade:#ffffff] px-3 pt-6 pb-5 sm:px-5">
+
+            <div className="[--h-scroll-fade:#ffffff] px-3 py-5 sm:px-5">
               <HScroll aria-label="Route corridor" role="list" hint="">
-                <div className="relative h-28 w-[40rem] shrink-0 sm:w-[52rem]">
-                  <div
-                    className="absolute top-4 right-10 left-10 h-0.5 bg-asphalt/20"
-                    aria-hidden
-                  />
-                  {/* A */}
-                  <div className="absolute top-0 left-0 z-10 flex w-20 flex-col items-center text-center">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-emerald-700 text-xs font-bold text-white">
+                <div className="flex min-w-min items-start gap-0 px-1">
+                  {/* Origin */}
+                  <div className="relative z-10 flex w-[4.75rem] shrink-0 flex-col items-center text-center sm:w-24">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-emerald-700 text-xs font-bold tracking-wide text-white">
                       A
                     </span>
-                    <span className="mt-2 line-clamp-2 px-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
+                    <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
                       {route.origin}
                     </span>
+                    <span className="mt-1 text-[10px] text-muted">mi 0</span>
                   </div>
-                  {/* B */}
-                  <div className="absolute top-0 right-0 z-10 flex w-20 flex-col items-center text-center">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-alert text-xs font-bold text-white">
-                      B
-                    </span>
-                    <span className="mt-2 line-clamp-2 px-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
-                      {route.destination}
-                    </span>
-                  </div>
-                  {/* Stops along the line (inset so they stay between A/B) */}
-                  {stops.map((stop) => {
-                    const pct = Math.min(90, Math.max(10, (stop.mile / maxMile) * 100));
-                    return (
+
+                  {stops.map((stop, index) => (
+                    <div
+                      key={stop.id}
+                      className="relative flex shrink-0 items-start"
+                    >
+                      {/* Connector from previous station */}
+                      <div
+                        className="mt-5 h-0.5 w-6 shrink-0 bg-asphalt/20 sm:w-10"
+                        aria-hidden
+                      />
                       <button
-                        key={stop.id}
                         type="button"
                         onClick={() =>
                           setSelectedId(
                             selectedId === stop.id ? null : stop.id,
                           )
                         }
-                        className="absolute top-0 z-20 flex w-12 -translate-x-1/2 flex-col items-center text-center"
-                        style={{ left: `${pct}%` }}
+                        className="relative z-10 flex w-[4.75rem] flex-col items-center text-center transition sm:w-24"
                         title={`${stop.name} · mi ${stop.mile}`}
                       >
                         <span
-                          className={`flex h-9 w-9 items-center justify-center rounded-sm text-xs font-bold transition ${
+                          className={`flex h-10 w-10 items-center justify-center rounded-sm text-xs font-bold transition ${
                             kindTone[stop.kind]
                           } ${
                             selectedId === stop.id
@@ -528,14 +521,47 @@ export function PlanRoutePanel() {
                         >
                           {kindMark[stop.kind]}
                         </span>
-                        <span className="mt-2 text-[10px] text-muted">
+                        <span className="mt-2 line-clamp-2 px-0.5 text-[10px] font-medium leading-tight text-asphalt sm:text-[11px]">
+                          {stop.name}
+                        </span>
+                        <span className="mt-1 font-display text-[10px] tracking-wide text-muted uppercase">
                           mi {stop.mile}
+                          <span className="mx-1 text-asphalt/30">·</span>
+                          {stop.kind}
+                        </span>
+                        <span className="sr-only">
+                          Stop {index + 1} of {stops.length}
                         </span>
                       </button>
-                    );
-                  })}
+                    </div>
+                  ))}
+
+                  {/* Connector into delivery */}
+                  <div
+                    className="mt-5 h-0.5 w-6 shrink-0 bg-asphalt/20 sm:w-10"
+                    aria-hidden
+                  />
+                  <div className="relative z-10 flex w-[4.75rem] shrink-0 flex-col items-center text-center sm:w-24">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-alert text-xs font-bold tracking-wide text-white">
+                      B
+                    </span>
+                    <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
+                      {route.destination}
+                    </span>
+                    {route.miles > 0 && (
+                      <span className="mt-1 text-[10px] text-muted">
+                        mi {Math.round(route.miles)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </HScroll>
+              {stops.length > 0 && (
+                <p className="mt-3 text-xs text-muted">
+                  Spacing is journey order, not map distance — so clustered
+                  services stay readable.
+                </p>
+              )}
             </div>
 
             {selected && (
