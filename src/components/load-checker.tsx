@@ -507,6 +507,12 @@ export function LoadChecker() {
       } else {
         setRateTotal("");
       }
+      if (ex.origin || ex.destination) {
+        setCorridor({
+          origin: ex.origin,
+          destination: ex.destination,
+        });
+      }
 
       if (low != null) {
         setMarketLow(low);
@@ -602,6 +608,8 @@ export function LoadChecker() {
           fuelUnit: ops.fuelUnit,
           economyUnit: ops.economyUnit,
           distanceUnit: ops.distanceUnit,
+          origin: corridor?.origin || undefined,
+          destination: corridor?.destination || undefined,
           preview: wantPreview,
           currentLocation: location.trim(),
         }),

@@ -89,6 +89,7 @@ function collectStops(route: PlannedRoute): RibbonStop[] {
 
 export function PlanRoutePanel() {
   const params = useSearchParams();
+  const queryKey = params.toString();
   const { isSignedIn, user, openGate } = useAuthGate();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -114,7 +115,7 @@ export function PlanRoutePanel() {
       setRoute(planned);
       writeLastCorridor(nextFrom, nextTo);
     }
-  }, [params]);
+  }, [params, queryKey]);
 
   const stops = useMemo(
     () => (route ? collectStops(route) : []),

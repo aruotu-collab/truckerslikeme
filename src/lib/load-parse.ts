@@ -56,16 +56,31 @@ export function parseLoadText(raw: string): ParsedLoad {
     ratePerMile = money(rpmMatch[1]);
   }
 
+  // Match place → place on a single line (UK postcodes / counties OK).
+  // Do not use \s in place tokens — it would swallow newlines.
   const arrow =
     text.match(
-      /([A-Za-z][A-Za-z\s.'-]{1,28}),?\s*([A-Z]{2})\s*(?:→|->|to|–|—)\s*([A-Za-z][A-Za-z\s.'-]{1,28}),?\s*([A-Z]{2})/i,
+      /([A-Za-z0-9][A-Za-z0-9 .',-]{1,70})\s*(?:→|->|–|—)\s*([A-Za-z0-9][A-Za-z0-9 .',-]{1,70})/,
     ) ||
     text.match(
-      /(?:from|origin|pu|pickup)[\s:]+([A-Za-z][A-Za-z\s.'-]{1,28}),?\s*([A-Z]{2}).{0,40}?(?:to|dest|delivery|del)[\s:]+([A-Za-z][A-Za-z\s.'-]{1,28}),?\s*([A-Z]{2})/i,
+      /(?:from|origin|pu|pickup)[\s:]+([^\n]{2,70}?).{0,12}?(?:to|dest|delivery|del)[\s:]+([^\n]{2,70})/im,
     );
+
+  // US City, ST → City, ST (exact uppercase regions only — not "DE" from Devon)
+  const usStyle = text.match(
+    /\b([A-Za-z][A-Za-z .'-]{1,28}),?\s*([A-Z]{2})\s*(?:→|->|to|–|—)\s*([A-Za-z][A-Za-z .'-]{1,28}),?\s*([A-Z]{2})\b/,
+  );
+
   if (arrow) {
-    origin = `${arrow[1].trim()}, ${arrow[2].toUpperCase()}`;
-    destination = `${arrow[3].trim()}, ${arrow[4].toUpperCase()}`;
+    origin = arrow[1].trim().replace(/^(?:item|miles|rate)\s*:\s*/i, "");
+    destination = arrow[2].trim();
+  } else if (
+    usStyle &&
+    /^[A-Z]{2}$/.test(usStyle[2]) &&
+    /^[A-Z]{2}$/.test(usStyle[4])
+  ) {
+    origin = `${usStyle[1].trim()}, ${usStyle[2]}`;
+    destination = `${usStyle[3].trim()}, ${usStyle[4]}`;
   }
 
   if (rateTotal == null && ratePerMile != null && miles != null) {

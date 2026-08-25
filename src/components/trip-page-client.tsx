@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { LiveActivity } from "@/components/live-activity";
+import { PlanRoutePanel } from "@/components/plan-route-panel";
 
 type Tab = "assist" | "live" | "plan";
 
@@ -19,6 +20,16 @@ export function TripPageClient() {
 
   const chip =
     "inline-flex min-h-11 items-center justify-center rounded-sm px-4 py-2 text-sm font-semibold tracking-wide uppercase transition";
+
+  const planQuery = (() => {
+    const q = new URLSearchParams();
+    const from = params.get("from") || params.get("origin");
+    const to = params.get("to") || params.get("destination");
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    const s = q.toString();
+    return s ? `/plan?${s}` : "/plan";
+  })();
 
   return (
     <main className="flex-1">
@@ -56,7 +67,7 @@ export function TripPageClient() {
             Live
           </Link>
           <Link
-            href="/trip?tab=plan"
+            href={planQuery}
             className={`${chip} ${
               active === "plan"
                 ? "bg-amber text-asphalt"
@@ -80,7 +91,7 @@ export function TripPageClient() {
                 line.
               </p>
               <Link
-                href="/plan"
+                href={planQuery}
                 className="mt-5 inline-flex rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
               >
                 Plan route
@@ -111,22 +122,8 @@ export function TripPageClient() {
       )}
 
       {active === "plan" && (
-        <section className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
-          <div className="border border-asphalt/10 bg-white px-5 py-8">
-            <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">
-              Plan route moved
-            </h2>
-            <p className="mt-2 max-w-xl text-muted">
-              Corridor planning now lives under Plan Route in the main menu —
-              with a visual haul line for fuel, parking, and repair.
-            </p>
-            <Link
-              href="/plan"
-              className="mt-5 inline-flex rounded-sm bg-amber px-4 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
-            >
-              Open plan route
-            </Link>
-          </div>
+        <section className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8">
+          <PlanRoutePanel />
         </section>
       )}
     </main>
