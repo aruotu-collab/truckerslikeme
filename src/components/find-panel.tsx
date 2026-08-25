@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
+import { useMarket } from "@/lib/market-context";
 import {
   confidenceMeta,
   type PlaceConfidence,
@@ -64,6 +65,7 @@ function Chip({
 export function FindPanel() {
   const params = useSearchParams();
   const { isSignedIn, openGate } = useAuthGate();
+  const { setFromCountryCode } = useMarket();
   const [near, setNear] = useState("");
   const [kind, setKind] = useState<PlaceKind>("parking");
   const [truck, setTruck] = useState("artic");
@@ -158,12 +160,13 @@ export function FindPanel() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const { reverseGeocodeLabel } = await import("@/lib/reverse-geocode");
-          const place = await reverseGeocodeLabel(
+          const { reverseGeocodePlace } = await import("@/lib/reverse-geocode");
+          const place = await reverseGeocodePlace(
             pos.coords.latitude,
             pos.coords.longitude,
           );
-          setNear(place);
+          setNear(place.label);
+          if (place.countryCode) setFromCountryCode(place.countryCode);
           setError(null);
         } catch {
           setNear(

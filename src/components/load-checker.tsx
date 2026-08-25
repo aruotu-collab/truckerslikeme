@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAuthGate } from "@/lib/auth-gate";
+import { useMarket } from "@/lib/market-context";
+import { currencySymbol, formatMoney } from "@/lib/market";
 import type { ProfitResult } from "@/lib/profit";
 
 const LOCATION_KEY = "tlm_last_location";
@@ -56,16 +58,9 @@ Miles: 820
 Linehaul: $2,460
 $3.00 / mi`;
 
-function money(n: number) {
-  return n.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  });
-}
-
 export function LoadChecker() {
   const { isSignedIn, isPro, openGate } = useAuthGate();
+  const { money, market, setFromCountryCode, setFromCurrency } = useMarket();
   const [location, setLocation] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoNote, setGeoNote] = useState<string | null>(null);
@@ -188,9 +183,10 @@ export function LoadChecker() {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const { reverseGeocodeLabel } = await import("@/lib/reverse-geocode");
-          const place = await reverseGeocodeLabel(latitude, longitude);
-          rememberLocation(place);
+          const { reverseGeocodePlace } = await import("@/lib/reverse-geocode");
+          const place = await reverseGeocodePlace(latitude, longitude);
+          rememberLocation(place.label);
+          if (place.countryCode) setFromCountryCode(place.countryCode);
           setGeoNote("Using your current location for this check.");
         } catch {
           rememberLocation(
@@ -263,11 +259,8 @@ export function LoadChecker() {
         return;
       }
 
-      const money = (n: number) => {
-        const c = ex.currency;
-        const sym = c === "GBP" ? "£" : c === "EUR" ? "€" : "$";
-        return `${sym}${n}`;
-      };
+      const moneyForShot = (n: number) =>
+        formatMoney(n, ex.currency || market.currency);
 
       const quotes = (ex.quotes ?? []).filter((q) => Number.isFinite(q) && q > 0);
       const low =
@@ -283,15 +276,17 @@ export function LoadChecker() {
             ? Math.max(...quotes)
             : null;
 
+      if (ex.currency) setFromCurrency(ex.currency);
+
       const lines = [
         ex.item ? `Item: ${ex.item}` : null,
         ex.origin && ex.destination
           ? `${ex.origin} → ${ex.destination}`
           : ex.origin || ex.destination,
         ex.miles != null ? `Miles: ${ex.miles}` : null,
-        ex.rateTotal != null ? `Rate: ${money(ex.rateTotal)}` : null,
+        ex.rateTotal != null ? `Rate: ${moneyForShot(ex.rateTotal)}` : null,
         low != null && high != null
-          ? `Market quotes: ${money(low)}–${money(high)}${quotes.length ? ` (${quotes.length} bids)` : ""}`
+          ? `Market quotes: ${moneyForShot(low)}–${moneyForShot(high)}${quotes.length ? ` (${quotes.length} bids)` : ""}`
           : null,
         ex.rawText,
       ].filter(Boolean);
@@ -306,13 +301,13 @@ export function LoadChecker() {
       if (low != null) {
         setMarketLow(low);
         setMarketHigh(high);
-        setMarketCurrency(ex.currency);
+        setMarketCurrency(ex.currency || market.currency);
       }
 
       const notes = [...(ex.notes ?? [])];
       if (low != null && high != null) {
         notes.push(
-          `Other providers bid ${money(low)}–${money(high)}. Enter your bid, or score the lowest to see if winning is even worth it.`,
+          `Other providers bid ${moneyForShot(low)}–${moneyForShot(high)}. Enter your bid, or score the lowest to see if winning is even worth it.`,
         );
       } else if (ex.rateTotal == null) {
         notes.push(
@@ -582,11 +577,7 @@ export function LoadChecker() {
                   className="mt-1.5 text-left text-sm font-medium text-amber transition hover:text-asphalt"
                 >
                   Score at lowest bid (
-                  {marketCurrency === "GBP"
-                    ? "£"
-                    : marketCurrency === "EUR"
-                      ? "€"
-                      : "$"}
+                  {currencySymbol(marketCurrency || market.currency)}
                   {marketLow}
                   ) →
                 </button>
@@ -713,15 +704,15 @@ export function LoadChecker() {
                     Gross RPM
                   </dt>
                   <dd className="mt-1 text-2xl font-medium">
-                    ${result.ratePerMile.toFixed(2)}
+                    {money(result.ratePerMile)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide opacity-70">
-                    True $/mi
+                    True /mi
                   </dt>
                   <dd className="mt-1 text-2xl font-medium">
-                    ${result.netPerMile.toFixed(2)}
+                    {money(result.netPerMile)}
                   </dd>
                 </div>
                 <div>
@@ -788,8 +779,8 @@ export function LoadChecker() {
                       .join(" → ") || `${item.miles} mi load`}
                   </p>
                   <p className="text-sm text-muted">
-                    Net {money(Number(item.net_profit))} · $
-                    {Number(item.net_per_mile).toFixed(2)}/mi
+                    Net {money(Number(item.net_profit))} ·{" "}
+                    {money(Number(item.net_per_mile))}/mi
                   </p>
                 </div>
                 <time className="text-sm text-muted">

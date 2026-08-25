@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow, Oswald } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { AuthGateProvider } from "@/lib/auth-gate";
+import { MarketProvider } from "@/lib/market-context";
 import { AuthGateModal } from "@/components/auth-gate-modal";
 import { LockHorizontalPan } from "@/components/lock-horizontal-pan";
 import { VisitBeacon } from "@/components/visit-beacon";
@@ -78,10 +79,12 @@ export default function RootLayout({
     >
       <body className="min-h-full overflow-x-clip font-sans text-foreground">
         <AuthGateProvider>
-          <LockHorizontalPan />
-          <VisitBeacon />
-          <div className="site-shell">{children}</div>
-          <AuthGateModal />
+          <MarketProvider>
+            <LockHorizontalPan />
+            <VisitBeacon />
+            <div className="site-shell">{children}</div>
+            <AuthGateModal />
+          </MarketProvider>
         </AuthGateProvider>
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
       </body>

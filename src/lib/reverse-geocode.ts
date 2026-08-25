@@ -121,10 +121,15 @@ export function formatPlaceFromNominatim(input: {
   return `${input.lat.toFixed(4)}, ${input.lon.toFixed(4)}`;
 }
 
-export async function reverseGeocodeLabel(
+export type GeocodedPlace = {
+  label: string;
+  countryCode: string | null;
+};
+
+export async function reverseGeocodePlace(
   latitude: number,
   longitude: number,
-): Promise<string> {
+): Promise<GeocodedPlace> {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "json");
   url.searchParams.set("lat", String(latitude));
@@ -149,10 +154,23 @@ export async function reverseGeocodeLabel(
     display_name?: string;
   };
 
-  return formatPlaceFromNominatim({
-    address: data.address,
-    display_name: data.display_name,
-    lat: latitude,
-    lon: longitude,
-  });
+  const countryCode = data.address?.country_code?.toUpperCase() || null;
+
+  return {
+    label: formatPlaceFromNominatim({
+      address: data.address,
+      display_name: data.display_name,
+      lat: latitude,
+      lon: longitude,
+    }),
+    countryCode,
+  };
+}
+
+export async function reverseGeocodeLabel(
+  latitude: number,
+  longitude: number,
+): Promise<string> {
+  const place = await reverseGeocodePlace(latitude, longitude);
+  return place.label;
 }

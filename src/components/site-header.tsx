@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
+import { useMarket } from "@/lib/market-context";
 
 type SiteHeaderProps = {
   variant?: "overlay" | "solid";
@@ -36,6 +37,7 @@ const primaryNav = [
 export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const pathname = usePathname();
   const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
+  const { badge } = useMarket();
   const solid = variant !== "overlay";
   const shortName =
     (typeof user?.user_metadata?.display_name === "string" &&
@@ -64,8 +66,8 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           >
             Truckers<span className="text-amber-hot">Like</span>Me
           </Link>
-          <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
-            Load decisions · Places drivers trust
+          <p className="mt-0.5 truncate text-xs text-white/45">
+            {badge || "Load decisions · Places drivers trust"}
           </p>
         </div>
 
