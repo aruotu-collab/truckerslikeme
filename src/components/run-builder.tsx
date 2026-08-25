@@ -16,8 +16,10 @@ import {
   type RunPrefs,
   type WorkWindow,
 } from "@/lib/run-builder";
+import { ShiplyConnect } from "@/components/shiply-connect";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build";
+type HuntPath = "screenshots" | "shiply";
 
 const vehicles = [
   "Luton van",
@@ -89,6 +91,7 @@ export function RunBuilder() {
   const [combos, setCombos] = useState<RunCombo[]>([]);
   const [best, setBest] = useState<RunCombo | null>(null);
   const [pendingResults, setPendingResults] = useState<PendingShot[]>([]);
+  const [huntPath, setHuntPath] = useState<HuntPath>("screenshots");
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -521,6 +524,47 @@ export function RunBuilder() {
           >
             ← Edit setup
           </button>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setHuntPath("screenshots")}
+              className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
+                huntPath === "screenshots"
+                  ? "bg-amber text-asphalt"
+                  : "border border-asphalt/15 bg-white text-asphalt"
+              }`}
+            >
+              Phase 1 · Screenshots
+            </button>
+            <button
+              type="button"
+              onClick={() => setHuntPath("shiply")}
+              className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
+                huntPath === "shiply"
+                  ? "bg-amber text-asphalt"
+                  : "border border-asphalt/15 bg-white text-asphalt"
+              }`}
+            >
+              Phase 2 · Connect Shiply
+            </button>
+          </div>
+
+          {huntPath === "shiply" ? (
+            <ShiplyConnect
+              prefs={prefs}
+              busy={busy}
+              setBusy={setBusy}
+              onImported={(imported, tip) => {
+                setJobs(imported);
+                setCoach(
+                  tip ||
+                    "Jobs imported from your Shiply session. Upload more detail or build the run.",
+                );
+                setStep("shortlist");
+              }}
+            />
+          ) : (
           <div
             className="border border-asphalt/10 bg-white px-5 py-6 outline-none focus-within:border-amber/50"
             tabIndex={0}
@@ -532,7 +576,7 @@ export function RunBuilder() {
             }}
           >
             <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-              Search Shiply like this
+              Phase 1 · Search Shiply like this
             </p>
             <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
               {brief.headline}
@@ -607,6 +651,7 @@ export function RunBuilder() {
             )}
             {error && <p className="mt-3 text-sm text-alert">{error}</p>}
           </div>
+          )}
         </section>
       )}
 
