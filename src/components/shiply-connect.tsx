@@ -190,13 +190,26 @@ export function ShiplyConnect({ prefs, busy, setBusy, onImported }: Props) {
       ) : (
         <div className="space-y-3">
           {liveViewUrl && (
-            <div className="overflow-hidden border border-asphalt/15 bg-concrete/20">
-              <iframe
-                title="Shiply browser session"
-                src={liveViewUrl}
-                className="h-[420px] w-full bg-white"
-                allow="clipboard-read; clipboard-write"
-              />
+            <div className="space-y-2">
+              <div className="overflow-hidden border border-asphalt/15 bg-concrete/20">
+                <iframe
+                  title="Shiply browser session"
+                  src={liveViewUrl}
+                  className="h-[min(78vh,820px)] min-h-[560px] w-full bg-white"
+                  allow="clipboard-read; clipboard-write"
+                />
+              </div>
+              <p className="text-xs text-muted">
+                Still hard to read?{" "}
+                <a
+                  href={liveViewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-amber hover:text-asphalt"
+                >
+                  Open browser full size →
+                </a>
+              </p>
             </div>
           )}
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">

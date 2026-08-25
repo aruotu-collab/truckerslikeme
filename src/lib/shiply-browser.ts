@@ -126,7 +126,7 @@ export async function createShiplySession(opts?: {
     api_timeout: 1800,
     browserSettings: {
       context: { id: contextId, persist: true },
-      viewport: { width: 1280, height: 900 },
+      viewport: { width: 980, height: 720 },
       solveCaptchas: true,
     },
   });
