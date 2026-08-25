@@ -1,11 +1,6 @@
-import {
-  boundsAround,
-  projectLatLon,
-  resolveUkPlace,
-  type LatLon,
-} from "@/lib/uk-places";
+import { resolveUkPlace } from "@/lib/uk-places";
 
-export type MapJobStatus = "hunting" | "won" | "skipped";
+export type MapJobStatus = "hunting" | "bidding" | "won" | "skipped";
 
 export type MapJob = {
   id: string;
@@ -40,10 +35,16 @@ export const mapStatusMeta: Record<
   { label: string; line: string; fill: string; soft: string }
 > = {
   hunting: {
-    label: "Hunting",
-    line: "#3d6b8a",
-    fill: "#3d6b8a",
-    soft: "border-sky-300 bg-sky-50 text-sky-950",
+    label: "Considering",
+    line: "#6b7280",
+    fill: "#6b7280",
+    soft: "border-asphalt/20 bg-concrete/50 text-asphalt",
+  },
+  bidding: {
+    label: "Bidding",
+    line: "#c4a035",
+    fill: "#c4a035",
+    soft: "border-amber/40 bg-amber/10 text-asphalt",
   },
   won: {
     label: "Won",
@@ -68,19 +69,26 @@ export function shortPlace(place: string | null | undefined) {
   return place.split(",")[0]?.trim() || place.trim();
 }
 
+function migrateStatus(raw: string | undefined): MapJobStatus {
+  if (raw === "won" || raw === "bidding" || raw === "skipped") return raw;
+  return "hunting";
+}
+
 export function readJobsMapState(): JobsMapState {
   if (typeof window === "undefined") return { jobs: [], driver: null };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { jobs: [], driver: null };
     const parsed = JSON.parse(raw) as {
-      jobs?: MapJob[];
+      jobs?: Array<MapJob & { status?: string }>;
       driver?: JobsMapDriver | null;
       start?: string;
     };
-    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : [];
+    const jobs = (Array.isArray(parsed.jobs) ? parsed.jobs : []).map((j) => ({
+      ...j,
+      status: migrateStatus(j.status),
+    }));
     let driver = parsed.driver ?? null;
-    // Migrate older start-only saves
     if (!driver && typeof parsed.start === "string" && parsed.start.trim()) {
       driver = { label: parsed.start.trim(), lat: null, lon: null };
     }
@@ -114,7 +122,9 @@ export function writeJobsMap(jobs: MapJob[]) {
 }
 
 export function filterMapJobs(jobs: MapJob[], filter: JobsMapFilter) {
-  if (filter === "hunting") return jobs.filter((j) => j.status === "hunting");
+  if (filter === "hunting") {
+    return jobs.filter((j) => j.status === "hunting" || j.status === "bidding");
+  }
   if (filter === "won") return jobs.filter((j) => j.status === "won");
   return jobs.filter((j) => j.status !== "skipped");
 }
@@ -125,9 +135,7 @@ export type TubeStation = {
   x: number;
   y: number;
   kind: "place" | "driver";
-  lat: number | null;
-  lon: number | null;
-  placed: boolean;
+  role: "collect" | "hub" | "deliver" | "you";
 };
 
 export type TubeLine = {
@@ -144,13 +152,6 @@ export type TubeDeadhead = {
   jobId: string;
 };
 
-function resolvePoint(
-  place: string | null | undefined,
-  overrides?: Record<string, LatLon>,
-): LatLon | null {
-  return resolveUkPlace(place, overrides);
-}
-
 function curvedPath(
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -161,31 +162,11 @@ function curvedPath(
   return `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
 }
 
-function spreadCollisions(stations: TubeStation[]) {
-  for (let i = 0; i < stations.length; i++) {
-    for (let j = i + 1; j < stations.length; j++) {
-      const a = stations[i]!;
-      const b = stations[j]!;
-      if (!a.placed || !b.placed) continue;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 22 && dist > 0.01) {
-        const push = (22 - dist) / 2;
-        const nx = dx / dist;
-        const ny = dy / dist;
-        a.x -= nx * push;
-        a.y -= ny * push;
-        b.x += nx * push;
-        b.y += ny * push;
-      }
-    }
-  }
-}
+type Col = "left" | "mid" | "right";
 
 /**
- * Geographic tube layout: stations placed by UK lat/lon, zoomed to the job cluster.
- * Driver start is a distinct station when provided.
+ * Underground-style schematic: collect (left) → hub → deliver (right).
+ * Stations within each column are stacked north→south using UK lat when known.
  */
 export function layoutTubeMap(
   jobs: MapJob[],
@@ -193,157 +174,122 @@ export function layoutTubeMap(
     width?: number;
     height?: number;
     driver?: JobsMapDriver | null;
-    coordOverrides?: Record<string, LatLon>;
     selectedJobId?: string | null;
   },
 ): {
   stations: TubeStation[];
   lines: TubeLine[];
   deadheads: TubeDeadhead[];
-  unresolved: string[];
   width: number;
   height: number;
 } {
-  const width = options?.width ?? 640;
-  const height = options?.height ?? 780;
-  const pad = 48;
-  const overrides = options?.coordOverrides;
+  const width = options?.width ?? 920;
+  const height = options?.height ?? 480;
+  const padX = 72;
+  const padY = 56;
+
   const usable = jobs.filter(
     (j) => placeKey(j.origin) && placeKey(j.destination),
   );
 
+  if (!usable.length && !options?.driver?.label?.trim()) {
+    return { stations: [], lines: [], deadheads: [], width, height };
+  }
+
   const labels = new Map<string, string>();
-  const points = new Map<string, LatLon | null>();
-  const unresolved: string[] = [];
+  const asOrigin = new Map<string, number>();
+  const asDest = new Map<string, number>();
 
   for (const j of usable) {
     const o = placeKey(j.origin);
     const d = placeKey(j.destination);
     labels.set(o, shortPlace(j.origin));
     labels.set(d, shortPlace(j.destination));
-    if (!points.has(o)) {
-      const p = resolvePoint(j.origin, overrides);
-      points.set(o, p);
-      if (!p) unresolved.push(shortPlace(j.origin));
-    }
-    if (!points.has(d)) {
-      const p = resolvePoint(j.destination, overrides);
-      points.set(d, p);
-      if (!p) unresolved.push(shortPlace(j.destination));
-    }
+    asOrigin.set(o, (asOrigin.get(o) || 0) + 1);
+    asDest.set(d, (asDest.get(d) || 0) + 1);
   }
 
-  let driverPoint: LatLon | null = null;
-  const driver = options?.driver;
-  if (driver?.label.trim()) {
-    if (
-      typeof driver.lat === "number" &&
-      typeof driver.lon === "number" &&
-      Number.isFinite(driver.lat) &&
-      Number.isFinite(driver.lon)
-    ) {
-      driverPoint = { lat: driver.lat, lon: driver.lon };
-    } else {
-      driverPoint = resolvePoint(driver.label, overrides);
-      if (!driverPoint) unresolved.push(driver.label);
-    }
-  }
+  const colOf = (k: string): Col => {
+    const o = asOrigin.get(k) || 0;
+    const d = asDest.get(k) || 0;
+    if (o && !d) return "left";
+    if (d && !o) return "right";
+    return "mid";
+  };
 
-  const known: LatLon[] = [...points.values()].filter(
-    (p): p is LatLon => Boolean(p),
-  );
-  if (driverPoint) known.push(driverPoint);
+  const xFor: Record<Col, number> = {
+    left: padX,
+    mid: width / 2,
+    right: width - padX,
+  };
 
-  if (!usable.length && !driverPoint) {
-    return {
-      stations: [],
-      lines: [],
-      deadheads: [],
-      unresolved: [],
-      width,
-      height,
-    };
-  }
+  const buckets: Record<Col, string[]> = { left: [], mid: [], right: [] };
+  for (const k of labels.keys()) buckets[colOf(k)].push(k);
 
-  const bounds = boundsAround(known.length ? known : [{ lat: 52.5, lon: -1.5 }]);
-
-  // Unplaced stations: park in a legend strip at bottom-left
-  let unplacedSlot = 0;
+  // Sort within column: higher latitude (north) toward top
+  const sortKeys = (keys: string[]) =>
+    [...keys].sort((a, b) => {
+      const la = resolveUkPlace(labels.get(a) || a)?.lat ?? 52.5;
+      const lb = resolveUkPlace(labels.get(b) || b)?.lat ?? 52.5;
+      if (la !== lb) return lb - la;
+      return (labels.get(a) || "").localeCompare(labels.get(b) || "");
+    });
 
   const stations: TubeStation[] = [];
   const stationByKey = new Map<string, TubeStation>();
 
-  for (const [key, label] of labels) {
-    const ll = points.get(key);
-    let x: number;
-    let y: number;
-    let placed = false;
-    if (ll) {
-      const proj = projectLatLon(ll.lat, ll.lon, bounds, width, height, pad);
-      x = proj.x;
-      y = proj.y;
-      placed = true;
-    } else {
-      x = pad + 10 + (unplacedSlot % 3) * 90;
-      y = height - pad + 8 + Math.floor(unplacedSlot / 3) * 18;
-      // Keep inside viewBox — actually put above bottom pad inside map
-      y = height - 36 - Math.floor(unplacedSlot / 4) * 20;
-      x = pad + (unplacedSlot % 4) * 100;
-      unplacedSlot += 1;
-    }
-    const st: TubeStation = {
-      key,
-      label,
-      x,
-      y,
-      kind: "place",
-      lat: ll?.lat ?? null,
-      lon: ll?.lon ?? null,
-      placed,
-    };
-    stations.push(st);
-    stationByKey.set(key, st);
-  }
+  (["left", "mid", "right"] as Col[]).forEach((col) => {
+    const list = sortKeys(buckets[col]);
+    list.forEach((k, i) => {
+      const n = Math.max(list.length, 1);
+      const y =
+        n === 1 ? height / 2 : padY + ((height - padY * 2) * i) / (n - 1);
+      const role: TubeStation["role"] =
+        col === "left" ? "collect" : col === "right" ? "deliver" : "hub";
+      const st: TubeStation = {
+        key: k,
+        label: labels.get(k) || k,
+        x: xFor[col],
+        y,
+        kind: "place",
+        role,
+      };
+      stations.push(st);
+      stationByKey.set(k, st);
+    });
+  });
 
   let driverStation: TubeStation | null = null;
+  const driver = options?.driver;
   if (driver?.label.trim()) {
-    let x = width / 2;
-    let y = height / 2;
-    let placed = false;
-    if (driverPoint) {
-      const proj = projectLatLon(
-        driverPoint.lat,
-        driverPoint.lon,
-        bounds,
-        width,
-        height,
-        pad,
-      );
-      x = proj.x;
-      y = proj.y;
-      placed = true;
+    const dk = placeKey(driver.label);
+    const existing = stationByKey.get(dk);
+    if (existing) {
+      driverStation = { ...existing, kind: "driver", role: "you" };
+    } else {
+      const leftList = sortKeys([...buckets.left, dk]);
+      const slot = Math.max(0, leftList.indexOf(dk));
+      const n = Math.max(leftList.length, 1);
+      const y =
+        n === 1 ? height / 2 : padY + ((height - padY * 2) * slot) / (n - 1);
+      driverStation = {
+        key: DRIVER_STATION_KEY,
+        label: shortPlace(driver.label) || "You",
+        x: padX - 40,
+        y,
+        kind: "driver",
+        role: "you",
+      };
+      stations.push(driverStation);
     }
-    driverStation = {
-      key: DRIVER_STATION_KEY,
-      label: shortPlace(driver.label) || "You",
-      x,
-      y,
-      kind: "driver",
-      lat: driverPoint?.lat ?? null,
-      lon: driverPoint?.lon ?? null,
-      placed,
-    };
-    stations.push(driverStation);
   }
-
-  spreadCollisions(stations.filter((s) => s.placed));
 
   const lines: TubeLine[] = [];
   usable.forEach((job, idx) => {
     const from = stationByKey.get(placeKey(job.origin));
     const to = stationByKey.get(placeKey(job.destination));
     if (!from || !to) return;
-    const bend = ((idx % 7) - 3) * 12;
+    const bend = ((idx % 7) - 3) * 22;
     lines.push({
       job,
       from,
@@ -353,32 +299,22 @@ export function layoutTubeMap(
   });
 
   const deadheads: TubeDeadhead[] = [];
-  if (driverStation?.placed && options?.selectedJobId) {
+  if (driverStation && options?.selectedJobId) {
     const focus = usable.find((j) => j.id === options.selectedJobId);
     if (focus) {
       const to = stationByKey.get(placeKey(focus.origin));
-      if (
-        to?.placed &&
-        placeKey(focus.origin) !== placeKey(driver?.label)
-      ) {
+      if (to && placeKey(focus.origin) !== placeKey(driver?.label)) {
         deadheads.push({
           from: driverStation,
           to,
-          path: curvedPath(driverStation, to, -18),
+          path: curvedPath(driverStation, to, -16),
           jobId: focus.id,
         });
       }
     }
   }
 
-  return {
-    stations,
-    lines,
-    deadheads,
-    unresolved: [...new Set(unresolved)],
-    width,
-    height,
-  };
+  return { stations, lines, deadheads, width, height };
 }
 
 export function mergeScannedJobs(

@@ -209,26 +209,32 @@ export function JobsMapPanel() {
     }
   }
 
-  function addScannedToMap() {
+  function addScannedToMap(all = false) {
     if (!startReady) {
       setError("Set your starting location before adding jobs to the map.");
       return;
     }
-    const picked = scanned.filter((j) => selectedScan[j.id]);
+    const picked = all
+      ? scanned
+      : scanned.filter((j) => selectedScan[j.id]);
     if (!picked.length) {
-      setError("Tick at least one job to add to the map.");
+      setError(all ? "No jobs scanned yet." : "Tick at least one job to add to the map.");
       return;
     }
     setJobs((prev) => mergeScannedJobs(prev, picked));
     setCoach(
-      `Added ${picked.length} job${picked.length === 1 ? "" : "s"} to your hunt map. Won jobs stay marked.`,
+      `Added ${picked.length} job${picked.length === 1 ? "" : "s"} to your tube map. Tap a line → Open on Shiply.`,
     );
+    setScanned([]);
+    setSelectedScan({});
     setError(null);
   }
 
   const counts = {
     all: jobs.filter((j) => j.status !== "skipped").length,
-    hunting: jobs.filter((j) => j.status === "hunting").length,
+    hunting: jobs.filter(
+      (j) => j.status === "hunting" || j.status === "bidding",
+    ).length,
     won: jobs.filter((j) => j.status === "won").length,
   };
 
@@ -242,8 +248,9 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          UK map of Shiply jobs you’re hunting — plotted by real place, with
-          your start marked. Open listings, mark wins green, skip the rest.
+          Your Shiply search results as an underground-style tube map — each
+          coloured line is a job (collect → deliver). Tap a line, open on
+          Shiply, mark wins green, skip the rest.
         </p>
       </header>
 
@@ -254,8 +261,8 @@ export function JobsMapPanel() {
             Where are you starting?
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Required — your pin sits on the map so every job is relative to
-            where you are now.
+            Required — shows as the amber <strong>YOU</strong> stop on the
+            collect side of the tube map.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -422,13 +429,22 @@ export function JobsMapPanel() {
                 </li>
               ))}
             </ul>
-            <button
-              type="button"
-              onClick={addScannedToMap}
-              className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase"
-            >
-              Add selected to hunt map →
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => addScannedToMap(true)}
+                className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase"
+              >
+                Add all {scanned.length} to tube map →
+              </button>
+              <button
+                type="button"
+                onClick={() => addScannedToMap(false)}
+                className="rounded-sm border border-asphalt/20 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+              >
+                Add selected only
+              </button>
+            </div>
           </div>
         )}
 
@@ -440,11 +456,11 @@ export function JobsMapPanel() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-              UK hunt map
+              Tube map
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Places sit where they are on the UK. Tap a job line — dashed amber
-              is empty miles from you to collect.
+              Collect left · hub middle · deliver right. Tap a coloured line —
+              dashed line is empty miles from you to collect.
             </p>
           </div>
           <div
@@ -576,6 +592,15 @@ export function JobsMapPanel() {
                         No Shiply link from scan
                       </span>
                     )}
+                    {job.status !== "won" && job.status !== "bidding" && (
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "bidding")}
+                        className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                      >
+                        Bidding
+                      </button>
+                    )}
                     {job.status !== "won" && (
                       <button
                         type="button"
@@ -591,7 +616,16 @@ export function JobsMapPanel() {
                         onClick={() => setStatus(job.id, "hunting")}
                         className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                       >
-                        Back to hunting
+                        Back to hunt
+                      </button>
+                    )}
+                    {job.status === "bidding" && (
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "hunting")}
+                        className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                      >
+                        Considering
                       </button>
                     )}
                     {job.status !== "skipped" && (

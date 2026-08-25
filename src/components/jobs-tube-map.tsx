@@ -4,6 +4,7 @@ import {
   DRIVER_STATION_KEY,
   layoutTubeMap,
   mapStatusMeta,
+  placeKey,
   type JobsMapDriver,
   type MapJob,
 } from "@/lib/jobs-map";
@@ -16,33 +17,34 @@ type Props = {
 };
 
 export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
-  const { stations, lines, deadheads, unresolved, width, height } =
-    layoutTubeMap(jobs, {
-      driver,
-      selectedJobId: selectedId,
-    });
+  const { stations, lines, deadheads, width, height } = layoutTubeMap(jobs, {
+    driver,
+    selectedJobId: selectedId,
+  });
 
   if (!stations.length) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center border border-dashed border-asphalt/20 bg-concrete/20 px-6 text-center text-sm text-muted">
-        Set your start location, then scan Shiply results — places plot on a UK
-        map so you can see distance from where you are.
+      <div className="flex min-h-[320px] items-center justify-center border border-dashed border-asphalt/20 bg-[#f7f5f0] px-6 text-center text-sm text-muted">
+        Set where you&apos;re starting, scan Shiply results, then add jobs —
+        each line is a job from collect → deliver, like a tube map.
       </div>
     );
   }
 
+  const selected = jobs.find((j) => j.id === selectedId);
+
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto border border-asphalt/10 bg-[#edf1f4]">
+    <div className="space-y-3">
+      <div className="overflow-x-auto border border-asphalt/10 bg-[#f7f5f0]">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-auto w-full min-w-[320px] max-w-full"
+          className="h-auto w-full min-w-[640px]"
           role="img"
-          aria-label="UK jobs map"
+          aria-label="Shiply jobs tube map"
         >
           <defs>
             <filter
-              id="station-glow"
+              id="tube-glow"
               x="-40%"
               y="-40%"
               width="180%"
@@ -52,42 +54,45 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
                 dx="0"
                 dy="1"
                 stdDeviation="1.5"
-                floodOpacity="0.15"
+                floodOpacity="0.12"
               />
             </filter>
           </defs>
 
-          {/* Soft UK frame hint */}
-          <rect
-            x="12"
-            y="12"
-            width={width - 24}
-            height={height - 24}
-            fill="none"
-            stroke="#c5ced6"
-            strokeWidth="1"
-            strokeDasharray="6 8"
-            rx="4"
-          />
-          <text
-            x={24}
-            y={36}
-            fill="#6b7280"
-            style={{ fontSize: 11, fontWeight: 600 }}
-          >
-            UK · geographic layout
-          </text>
+          {/* Vertical guide rails — collect / hub / deliver */}
+          {[72, width / 2, width - 72].map((x, i) => (
+            <g key={x}>
+              <line
+                x1={x}
+                y1={40}
+                x2={x}
+                y2={height - 28}
+                stroke="#ddd8ce"
+                strokeWidth="1"
+                strokeDasharray="4 6"
+              />
+              <text
+                x={x}
+                y={28}
+                textAnchor="middle"
+                fill="#8a8478"
+                style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em" }}
+              >
+                {i === 0 ? "COLLECT" : i === 1 ? "HUB" : "DELIVER"}
+              </text>
+            </g>
+          ))}
 
           {deadheads.map((d) => (
             <path
               key={`dh-${d.jobId}`}
               d={d.path}
               fill="none"
-              stroke="#c4a035"
-              strokeWidth={selectedId === d.jobId ? 3 : 1.75}
-              strokeDasharray="6 5"
+              stroke="#1a1d23"
+              strokeWidth={selectedId === d.jobId ? 2.5 : 1.5}
+              strokeDasharray="5 4"
               strokeLinecap="round"
-              strokeOpacity={selectedId && selectedId !== d.jobId ? 0.25 : 0.7}
+              strokeOpacity={0.45}
             />
           ))}
 
@@ -95,32 +100,44 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
             const meta = mapStatusMeta[job.status];
             const active = job.id === selectedId;
             return (
-              <path
-                key={job.id}
-                d={path}
-                fill="none"
-                stroke={meta.line}
-                strokeWidth={active ? 6 : job.status === "won" ? 4.5 : 3.25}
-                strokeLinecap="round"
-                strokeOpacity={
-                  active ? 1 : job.status === "skipped" ? 0.3 : 0.88
-                }
-                className="cursor-pointer"
-                onClick={() => onSelect(job.id)}
-              />
+              <g key={job.id}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={meta.line}
+                  strokeWidth={active ? 8 : job.status === "won" ? 6 : 4.5}
+                  strokeLinecap="round"
+                  strokeOpacity={
+                    active ? 1 : job.status === "skipped" ? 0.25 : 0.9
+                  }
+                  className="cursor-pointer"
+                  onClick={() => onSelect(job.id)}
+                />
+                {active && (
+                  <title>
+                    {job.origin} → {job.destination}
+                    {job.rateTotal != null ? ` · £${job.rateTotal}` : ""}
+                  </title>
+                )}
+              </g>
             );
           })}
 
           {stations.map((st) => {
-            const isDriver = st.key === DRIVER_STATION_KEY;
+            const isDriver =
+              st.kind === "driver" ||
+              (driver &&
+                placeKey(driver.label) === st.key &&
+                st.key !== DRIVER_STATION_KEY);
+            const showYou = isDriver || st.key === DRIVER_STATION_KEY;
             return (
-              <g key={st.key} filter="url(#station-glow)">
-                {isDriver ? (
+              <g key={`${st.key}-${st.x}`} filter="url(#tube-glow)">
+                {showYou ? (
                   <>
                     <circle
                       cx={st.x}
                       cy={st.y}
-                      r={14}
+                      r={15}
                       fill="#f5c518"
                       stroke="#1a1d23"
                       strokeWidth={2.5}
@@ -130,7 +147,7 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
                       y={st.y + 4}
                       textAnchor="middle"
                       fill="#1a1d23"
-                      style={{ fontSize: 9, fontWeight: 700 }}
+                      style={{ fontSize: 8, fontWeight: 800 }}
                     >
                       YOU
                     </text>
@@ -140,24 +157,17 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
                     <circle
                       cx={st.x}
                       cy={st.y}
-                      r={st.placed ? 10 : 7}
-                      fill={st.placed ? "#f7f5f0" : "#e8e4dc"}
+                      r={11}
+                      fill="#f7f5f0"
                       stroke="#1a1d23"
-                      strokeWidth={st.placed ? 2.5 : 1.5}
-                      strokeDasharray={st.placed ? undefined : "3 2"}
+                      strokeWidth={2.5}
                     />
-                    <circle
-                      cx={st.x}
-                      cy={st.y}
-                      r={3.5}
-                      fill="#1a1d23"
-                      opacity={st.placed ? 1 : 0.4}
-                    />
+                    <circle cx={st.x} cy={st.y} r={4} fill="#1a1d23" />
                   </>
                 )}
                 <text
                   x={st.x}
-                  y={st.y + (isDriver ? 28 : 24)}
+                  y={st.y + (showYou ? 30 : 26)}
                   textAnchor="middle"
                   fill="#1a1d23"
                   style={{ fontSize: 11, fontWeight: 600 }}
@@ -171,12 +181,38 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
           })}
         </svg>
       </div>
-      {unresolved.length > 0 && (
-        <p className="text-xs text-muted">
-          Couldn’t place on the UK map (shown dashed):{" "}
-          {unresolved.slice(0, 8).join(", ")}
-          {unresolved.length > 8 ? "…" : ""}
-        </p>
+
+      {selected && (
+        <div className="flex flex-wrap items-center gap-3 border border-asphalt/10 bg-white px-4 py-3 text-sm">
+          <span className="font-medium text-asphalt">
+            {selected.origin} → {selected.destination}
+          </span>
+          {selected.rateTotal != null && (
+            <span className="text-muted">£{selected.rateTotal}</span>
+          )}
+          {selected.miles != null && (
+            <span className="text-muted">{selected.miles} mi</span>
+          )}
+          <span
+            className={`rounded-sm border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${mapStatusMeta[selected.status].soft}`}
+          >
+            {mapStatusMeta[selected.status].label}
+          </span>
+          {selected.href ? (
+            <a
+              href={selected.href}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+            >
+              Open on Shiply →
+            </a>
+          ) : (
+            <span className="ml-auto text-xs text-muted">
+              No Shiply link from scan
+            </span>
+          )}
+        </div>
       )}
     </div>
   );
