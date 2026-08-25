@@ -15,6 +15,7 @@ import {
   marketBadge,
   marketFromCountryCode,
   marketFromCurrency,
+  readIpCountryCookie,
   readStoredMarket,
   writeStoredMarket,
   type DriverMarket,
@@ -41,6 +42,15 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     if (stored) {
       setMarket(stored);
       setResolved(true);
+      return;
+    }
+    // First visit: use IP country from CDN (no GPS prompt)
+    const ipCountry = readIpCountryCookie();
+    if (ipCountry) {
+      const next = marketFromCountryCode(ipCountry);
+      setMarket(next);
+      setResolved(true);
+      writeStoredMarket(next);
     }
   }, []);
 

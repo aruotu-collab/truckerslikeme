@@ -1,8 +1,31 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+const IP_COUNTRY_COOKIE = "tlm_ip_country";
+
 export async function middleware(request: NextRequest) {
-  return updateSession(request);
+  const response = await updateSession(request);
+
+  // Vercel provides request.geo / x-vercel-ip-country — no GPS permission needed.
+  const country =
+    request.geo?.country ||
+    request.headers.get("x-vercel-ip-country") ||
+    request.headers.get("cf-ipcountry");
+
+  if (
+    country &&
+    country !== "XX" &&
+    country.length === 2 &&
+    !request.cookies.get(IP_COUNTRY_COOKIE)
+  ) {
+    response.cookies.set(IP_COUNTRY_COOKIE, country.toUpperCase(), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }
 
 export const config = {

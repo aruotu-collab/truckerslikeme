@@ -1,4 +1,5 @@
 export const MARKET_KEY = "tlm_market";
+export const IP_COUNTRY_COOKIE = "tlm_ip_country";
 
 export type DriverMarket = {
   countryCode: string;
@@ -108,4 +109,15 @@ export function writeStoredMarket(market: DriverMarket) {
   } catch {
     /* ignore */
   }
+}
+
+export function readIpCountryCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${IP_COUNTRY_COOKIE}=`));
+  if (!match) return null;
+  const value = decodeURIComponent(match.split("=").slice(1).join("="));
+  return value && value.length === 2 ? value.toUpperCase() : null;
 }
