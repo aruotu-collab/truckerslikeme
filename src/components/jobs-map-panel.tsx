@@ -7,13 +7,15 @@ import {
   filterMapJobs,
   mapStatusMeta,
   mergeScannedJobs,
-  readJobsMap,
+  readJobsMapState,
   shortPlace,
-  writeJobsMap,
+  writeJobsMapState,
+  type JobsMapDriver,
   type JobsMapFilter,
   type MapJob,
   type MapJobStatus,
 } from "@/lib/jobs-map";
+import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
@@ -27,6 +29,9 @@ const FILTERS: { id: JobsMapFilter; label: string }[] = [
 export function JobsMapPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
+  const [driver, setDriver] = useState<JobsMapDriver | null>(null);
+  const [startDraft, setStartDraft] = useState("");
+  const [geoBusy, setGeoBusy] = useState(false);
   const [filter, setFilter] = useState<JobsMapFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -41,8 +46,10 @@ export function JobsMapPanel() {
   const [selectedScan, setSelectedScan] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const loaded = readJobsMap();
-    setJobs(loaded);
+    const loaded = readJobsMapState();
+    setJobs(loaded.jobs);
+    setDriver(loaded.driver);
+    setStartDraft(loaded.driver?.label ?? "");
     setHydrated(true);
     void fetch("/api/run/shiply/session")
       .then((r) => r.json())
@@ -52,10 +59,58 @@ export function JobsMapPanel() {
 
   useEffect(() => {
     if (!hydrated) return;
-    writeJobsMap(jobs);
-  }, [jobs, hydrated]);
+    writeJobsMapState({ jobs, driver });
+  }, [jobs, driver, hydrated]);
 
   const visible = filterMapJobs(jobs, filter);
+  const startReady = Boolean(driver?.label.trim());
+
+  function applyStart(label: string, lat: number | null, lon: number | null) {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      setDriver(null);
+      setStartDraft("");
+      return;
+    }
+    const resolved =
+      lat != null && lon != null
+        ? { lat, lon }
+        : resolveUkPlace(trimmed);
+    setDriver({
+      label: trimmed,
+      lat: resolved?.lat ?? lat,
+      lon: resolved?.lon ?? lon,
+    });
+    setStartDraft(trimmed);
+  }
+
+  async function useMyLocation() {
+    setError(null);
+    if (!navigator.geolocation) {
+      setError("Location isn’t available in this browser.");
+      return;
+    }
+    setGeoBusy(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15_000,
+        });
+      });
+      const { reverseGeocodePlace } = await import("@/lib/reverse-geocode");
+      const place = await reverseGeocodePlace(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
+      applyStart(place.label, pos.coords.latitude, pos.coords.longitude);
+      setCoach(`Start set to ${place.label}.`);
+    } catch {
+      setError("Couldn’t read your location. Type a town instead.");
+    } finally {
+      setGeoBusy(false);
+    }
+  }
 
   function setStatus(id: string, status: MapJobStatus) {
     setJobs((prev) =>
@@ -73,6 +128,10 @@ export function JobsMapPanel() {
   }
 
   async function startSession() {
+    if (!startReady) {
+      setError("Set your starting location first — the map needs where you are.");
+      return;
+    }
     setError(null);
     setBusy(true);
     setScanned([]);
@@ -122,7 +181,7 @@ export function JobsMapPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          start: "",
+          start: driver?.label || "",
           mode: "profit",
           vehicle: "van",
           completeList: true,
@@ -151,6 +210,10 @@ export function JobsMapPanel() {
   }
 
   function addScannedToMap() {
+    if (!startReady) {
+      setError("Set your starting location before adding jobs to the map.");
+      return;
+    }
     const picked = scanned.filter((j) => selectedScan[j.id]);
     if (!picked.length) {
       setError("Tick at least one job to add to the map.");
@@ -179,10 +242,67 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          Tube-style map of Shiply jobs you’re hunting. Open each listing, mark
-          wins green, skip the rest — won jobs stay on the board.
+          UK map of Shiply jobs you’re hunting — plotted by real place, with
+          your start marked. Open listings, mark wins green, skip the rest.
         </p>
       </header>
+
+      {/* Start location */}
+      <section className="space-y-3 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
+        <div>
+          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
+            Where are you starting?
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Required — your pin sits on the map so every job is relative to
+            where you are now.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            value={startDraft}
+            onChange={(e) => setStartDraft(e.target.value)}
+            onBlur={() => applyStart(startDraft, null, null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyStart(startDraft, null, null);
+              }
+            }}
+            placeholder="e.g. Manchester, Catford, Bristol…"
+            className="w-full flex-1 border border-asphalt/15 bg-concrete/20 px-3 py-2.5 text-sm text-asphalt outline-none focus:border-amber"
+          />
+          <button
+            type="button"
+            disabled={geoBusy}
+            onClick={() => void useMyLocation()}
+            className="shrink-0 rounded-sm border border-asphalt/20 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
+          >
+            {geoBusy ? "Locating…" : "Use my location"}
+          </button>
+          <button
+            type="button"
+            onClick={() => applyStart(startDraft, null, null)}
+            className="shrink-0 rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
+          >
+            Set start
+          </button>
+        </div>
+        {startReady ? (
+          <p className="text-sm text-asphalt">
+            On the map as{" "}
+            <span className="font-semibold">{driver!.label}</span>
+            {driver?.lat != null && driver?.lon != null
+              ? " (placed)"
+              : " (name set — place approx if we know the town)"}
+          </p>
+        ) : (
+          <p className="text-sm text-alert">
+            Set a start location before connecting Shiply or adding jobs.
+          </p>
+        )}
+      </section>
 
       {/* Connect */}
       <section className="space-y-4 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
@@ -320,10 +440,11 @@ export function JobsMapPanel() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-              Tube map
+              UK hunt map
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Tap a coloured line to focus that job.
+              Places sit where they are on the UK. Tap a job line — dashed amber
+              is empty miles from you to collect.
             </p>
           </div>
           <div
@@ -354,6 +475,10 @@ export function JobsMapPanel() {
         </div>
 
         <div className="flex flex-wrap gap-4 text-xs text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-amber" />
+            You
+          </span>
           {(Object.keys(mapStatusMeta) as MapJobStatus[])
             .filter((s) => s !== "skipped")
             .map((s) => (
@@ -365,10 +490,18 @@ export function JobsMapPanel() {
                 {mapStatusMeta[s].label}
               </span>
             ))}
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-0.5 w-6 border-t-2 border-dashed"
+              style={{ borderColor: "#c4a035" }}
+            />
+            Deadhead
+          </span>
         </div>
 
         <JobsTubeMap
           jobs={visible}
+          driver={driver}
           selectedId={selectedId}
           onSelect={setSelectedId}
         />

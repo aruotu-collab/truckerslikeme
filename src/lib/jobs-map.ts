@@ -1,3 +1,10 @@
+import {
+  boundsAround,
+  projectLatLon,
+  resolveUkPlace,
+  type LatLon,
+} from "@/lib/uk-places";
+
 export type MapJobStatus = "hunting" | "won" | "skipped";
 
 export type MapJob = {
@@ -14,7 +21,19 @@ export type MapJob = {
 
 export type JobsMapFilter = "all" | "hunting" | "won";
 
+export type JobsMapDriver = {
+  label: string;
+  lat: number | null;
+  lon: number | null;
+};
+
+export type JobsMapState = {
+  jobs: MapJob[];
+  driver: JobsMapDriver | null;
+};
+
 const STORAGE_KEY = "tlm_jobs_map_v1";
+export const DRIVER_STATION_KEY = "__driver__";
 
 export const mapStatusMeta: Record<
   MapJobStatus,
@@ -49,21 +68,49 @@ export function shortPlace(place: string | null | undefined) {
   return place.split(",")[0]?.trim() || place.trim();
 }
 
-export function readJobsMap(): MapJob[] {
-  if (typeof window === "undefined") return [];
+export function readJobsMapState(): JobsMapState {
+  if (typeof window === "undefined") return { jobs: [], driver: null };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { jobs?: MapJob[] };
-    return Array.isArray(parsed.jobs) ? parsed.jobs : [];
+    if (!raw) return { jobs: [], driver: null };
+    const parsed = JSON.parse(raw) as {
+      jobs?: MapJob[];
+      driver?: JobsMapDriver | null;
+      start?: string;
+    };
+    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : [];
+    let driver = parsed.driver ?? null;
+    // Migrate older start-only saves
+    if (!driver && typeof parsed.start === "string" && parsed.start.trim()) {
+      driver = { label: parsed.start.trim(), lat: null, lon: null };
+    }
+    return { jobs, driver };
   } catch {
-    return [];
+    return { jobs: [], driver: null };
   }
+}
+
+/** @deprecated use readJobsMapState */
+export function readJobsMap(): MapJob[] {
+  return readJobsMapState().jobs;
+}
+
+export function writeJobsMapState(state: JobsMapState) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      jobs: state.jobs,
+      driver: state.driver,
+      savedAt: new Date().toISOString(),
+    }),
+  );
 }
 
 export function writeJobsMap(jobs: MapJob[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ jobs, savedAt: new Date().toISOString() }));
+  const prev = readJobsMapState();
+  writeJobsMapState({ ...prev, jobs });
 }
 
 export function filterMapJobs(jobs: MapJob[], filter: JobsMapFilter) {
@@ -77,6 +124,10 @@ export type TubeStation = {
   label: string;
   x: number;
   y: number;
+  kind: "place" | "driver";
+  lat: number | null;
+  lon: number | null;
+  placed: boolean;
 };
 
 export type TubeLine = {
@@ -86,96 +137,248 @@ export type TubeLine = {
   path: string;
 };
 
-/** Schematic tube layout: origins left, destinations right, shared places as interchanges. */
+export type TubeDeadhead = {
+  from: TubeStation;
+  to: TubeStation;
+  path: string;
+  jobId: string;
+};
+
+function resolvePoint(
+  place: string | null | undefined,
+  overrides?: Record<string, LatLon>,
+): LatLon | null {
+  return resolveUkPlace(place, overrides);
+}
+
+function curvedPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  bend: number,
+) {
+  const mx = (from.x + to.x) / 2;
+  const my = (from.y + to.y) / 2 + bend;
+  return `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
+}
+
+function spreadCollisions(stations: TubeStation[]) {
+  for (let i = 0; i < stations.length; i++) {
+    for (let j = i + 1; j < stations.length; j++) {
+      const a = stations[i]!;
+      const b = stations[j]!;
+      if (!a.placed || !b.placed) continue;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 22 && dist > 0.01) {
+        const push = (22 - dist) / 2;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        a.x -= nx * push;
+        a.y -= ny * push;
+        b.x += nx * push;
+        b.y += ny * push;
+      }
+    }
+  }
+}
+
+/**
+ * Geographic tube layout: stations placed by UK lat/lon, zoomed to the job cluster.
+ * Driver start is a distinct station when provided.
+ */
 export function layoutTubeMap(
   jobs: MapJob[],
-  width = 920,
-  height = 420,
-): { stations: TubeStation[]; lines: TubeLine[] } {
-  const padX = 70;
-  const padY = 48;
+  options?: {
+    width?: number;
+    height?: number;
+    driver?: JobsMapDriver | null;
+    coordOverrides?: Record<string, LatLon>;
+    selectedJobId?: string | null;
+  },
+): {
+  stations: TubeStation[];
+  lines: TubeLine[];
+  deadheads: TubeDeadhead[];
+  unresolved: string[];
+  width: number;
+  height: number;
+} {
+  const width = options?.width ?? 640;
+  const height = options?.height ?? 780;
+  const pad = 48;
+  const overrides = options?.coordOverrides;
   const usable = jobs.filter(
     (j) => placeKey(j.origin) && placeKey(j.destination),
   );
-  if (!usable.length) return { stations: [], lines: [] };
 
-  const asOrigin = new Map<string, number>();
-  const asDest = new Map<string, number>();
   const labels = new Map<string, string>();
+  const points = new Map<string, LatLon | null>();
+  const unresolved: string[] = [];
 
   for (const j of usable) {
     const o = placeKey(j.origin);
     const d = placeKey(j.destination);
     labels.set(o, shortPlace(j.origin));
     labels.set(d, shortPlace(j.destination));
-    asOrigin.set(o, (asOrigin.get(o) || 0) + 1);
-    asDest.set(d, (asDest.get(d) || 0) + 1);
+    if (!points.has(o)) {
+      const p = resolvePoint(j.origin, overrides);
+      points.set(o, p);
+      if (!p) unresolved.push(shortPlace(j.origin));
+    }
+    if (!points.has(d)) {
+      const p = resolvePoint(j.destination, overrides);
+      points.set(d, p);
+      if (!p) unresolved.push(shortPlace(j.destination));
+    }
   }
 
-  const keys = [...labels.keys()];
-  keys.sort((a, b) => {
-    const score = (k: string) =>
-      (asOrigin.get(k) || 0) - (asDest.get(k) || 0);
-    const sa = score(a);
-    const sb = score(b);
-    if (sa !== sb) return sb - sa;
-    return (labels.get(a) || "").localeCompare(labels.get(b) || "");
-  });
+  let driverPoint: LatLon | null = null;
+  const driver = options?.driver;
+  if (driver?.label.trim()) {
+    if (
+      typeof driver.lat === "number" &&
+      typeof driver.lon === "number" &&
+      Number.isFinite(driver.lat) &&
+      Number.isFinite(driver.lon)
+    ) {
+      driverPoint = { lat: driver.lat, lon: driver.lon };
+    } else {
+      driverPoint = resolvePoint(driver.label, overrides);
+      if (!driverPoint) unresolved.push(driver.label);
+    }
+  }
 
-  // Column by role, row stacked within column
-  type Col = "left" | "mid" | "right";
-  const colOf = (k: string): Col => {
-    const o = asOrigin.get(k) || 0;
-    const d = asDest.get(k) || 0;
-    if (o && !d) return "left";
-    if (d && !o) return "right";
-    return "mid";
-  };
+  const known: LatLon[] = [...points.values()].filter(
+    (p): p is LatLon => Boolean(p),
+  );
+  if (driverPoint) known.push(driverPoint);
 
-  const buckets: Record<Col, string[]> = { left: [], mid: [], right: [] };
-  for (const k of keys) buckets[colOf(k)].push(k);
+  if (!usable.length && !driverPoint) {
+    return {
+      stations: [],
+      lines: [],
+      deadheads: [],
+      unresolved: [],
+      width,
+      height,
+    };
+  }
 
-  const xFor: Record<Col, number> = {
-    left: padX,
-    mid: width / 2,
-    right: width - padX,
-  };
+  const bounds = boundsAround(known.length ? known : [{ lat: 52.5, lon: -1.5 }]);
+
+  // Unplaced stations: park in a legend strip at bottom-left
+  let unplacedSlot = 0;
 
   const stations: TubeStation[] = [];
   const stationByKey = new Map<string, TubeStation>();
 
-  (["left", "mid", "right"] as Col[]).forEach((col) => {
-    const list = buckets[col];
-    list.forEach((k, i) => {
-      const n = Math.max(list.length, 1);
-      const y =
-        n === 1
-          ? height / 2
-          : padY + ((height - padY * 2) * i) / (n - 1);
-      const st: TubeStation = {
-        key: k,
-        label: labels.get(k) || k,
-        x: xFor[col],
-        y,
-      };
-      stations.push(st);
-      stationByKey.set(k, st);
-    });
-  });
+  for (const [key, label] of labels) {
+    const ll = points.get(key);
+    let x: number;
+    let y: number;
+    let placed = false;
+    if (ll) {
+      const proj = projectLatLon(ll.lat, ll.lon, bounds, width, height, pad);
+      x = proj.x;
+      y = proj.y;
+      placed = true;
+    } else {
+      x = pad + 10 + (unplacedSlot % 3) * 90;
+      y = height - pad + 8 + Math.floor(unplacedSlot / 3) * 18;
+      // Keep inside viewBox — actually put above bottom pad inside map
+      y = height - 36 - Math.floor(unplacedSlot / 4) * 20;
+      x = pad + (unplacedSlot % 4) * 100;
+      unplacedSlot += 1;
+    }
+    const st: TubeStation = {
+      key,
+      label,
+      x,
+      y,
+      kind: "place",
+      lat: ll?.lat ?? null,
+      lon: ll?.lon ?? null,
+      placed,
+    };
+    stations.push(st);
+    stationByKey.set(key, st);
+  }
+
+  let driverStation: TubeStation | null = null;
+  if (driver?.label.trim()) {
+    let x = width / 2;
+    let y = height / 2;
+    let placed = false;
+    if (driverPoint) {
+      const proj = projectLatLon(
+        driverPoint.lat,
+        driverPoint.lon,
+        bounds,
+        width,
+        height,
+        pad,
+      );
+      x = proj.x;
+      y = proj.y;
+      placed = true;
+    }
+    driverStation = {
+      key: DRIVER_STATION_KEY,
+      label: shortPlace(driver.label) || "You",
+      x,
+      y,
+      kind: "driver",
+      lat: driverPoint?.lat ?? null,
+      lon: driverPoint?.lon ?? null,
+      placed,
+    };
+    stations.push(driverStation);
+  }
+
+  spreadCollisions(stations.filter((s) => s.placed));
 
   const lines: TubeLine[] = [];
   usable.forEach((job, idx) => {
     const from = stationByKey.get(placeKey(job.origin));
     const to = stationByKey.get(placeKey(job.destination));
     if (!from || !to) return;
-    const bend = ((idx % 5) - 2) * 28;
-    const mx = (from.x + to.x) / 2;
-    const my = (from.y + to.y) / 2 + bend;
-    const path = `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
-    lines.push({ job, from, to, path });
+    const bend = ((idx % 7) - 3) * 12;
+    lines.push({
+      job,
+      from,
+      to,
+      path: curvedPath(from, to, bend),
+    });
   });
 
-  return { stations, lines };
+  const deadheads: TubeDeadhead[] = [];
+  if (driverStation?.placed && options?.selectedJobId) {
+    const focus = usable.find((j) => j.id === options.selectedJobId);
+    if (focus) {
+      const to = stationByKey.get(placeKey(focus.origin));
+      if (
+        to?.placed &&
+        placeKey(focus.origin) !== placeKey(driver?.label)
+      ) {
+        deadheads.push({
+          from: driverStation,
+          to,
+          path: curvedPath(driverStation, to, -18),
+          jobId: focus.id,
+        });
+      }
+    }
+  }
+
+  return {
+    stations,
+    lines,
+    deadheads,
+    unresolved: [...new Set(unresolved)],
+    width,
+    height,
+  };
 }
 
 export function mergeScannedJobs(
@@ -207,7 +410,6 @@ export function mergeScannedJobs(
 
     if (matchIdx >= 0) {
       const prev = next[matchIdx]!;
-      // Keep won/skipped status; refresh details
       next[matchIdx] = {
         ...prev,
         miles: s.miles ?? prev.miles,
