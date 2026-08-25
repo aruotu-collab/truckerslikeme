@@ -471,101 +471,121 @@ export function PlanRoutePanel() {
                 {discoverBusy
                   ? "Searching the corridor…"
                   : stops.length > 0
-                    ? "Stops in haul order — swipe along the journey. Tap for detail."
+                    ? "Pickup and delivery stay fixed — slide the stops in between."
                     : "A → B is set. Mapped fuel, parking, and repair load in after discovery."}
               </p>
             </div>
 
             <div className="[--h-scroll-fade:#ffffff] px-3 py-5 sm:px-5">
-              <HScroll
-                aria-label="Route corridor"
-                role="list"
-                hint="Scroll or drag the slider to see delivery (B)"
-                controls
-                showScrollbar
-              >
-                <div className="flex min-w-min items-start gap-0 px-1">
-                  {/* Origin */}
-                  <div className="relative z-10 flex w-[4.75rem] shrink-0 flex-col items-center text-center sm:w-24">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-emerald-700 text-xs font-bold tracking-wide text-white">
-                      A
-                    </span>
-                    <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
-                      {route.origin}
-                    </span>
-                    <span className="mt-1 text-[10px] text-muted">mi 0</span>
-                  </div>
-
-                  {stops.map((stop, index) => (
-                    <div
-                      key={stop.id}
-                      className="relative flex shrink-0 items-start"
-                    >
-                      {/* Connector from previous station */}
-                      <div
-                        className="mt-5 h-0.5 w-6 shrink-0 bg-asphalt/20 sm:w-10"
-                        aria-hidden
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedId(
-                            selectedId === stop.id ? null : stop.id,
-                          )
-                        }
-                        className="relative z-10 flex w-[4.75rem] flex-col items-center text-center transition sm:w-24"
-                        title={`${stop.name} · mi ${stop.mile}`}
-                      >
-                        <span
-                          className={`flex h-10 w-10 items-center justify-center rounded-sm text-xs font-bold transition ${
-                            kindTone[stop.kind]
-                          } ${
-                            selectedId === stop.id
-                              ? "ring-2 ring-amber ring-offset-2"
-                              : ""
-                          }`}
-                        >
-                          {kindMark[stop.kind]}
-                        </span>
-                        <span className="mt-2 line-clamp-2 px-0.5 text-[10px] font-medium leading-tight text-asphalt sm:text-[11px]">
-                          {stop.name}
-                        </span>
-                        <span className="mt-1 font-display text-[10px] tracking-wide text-muted uppercase">
-                          mi {stop.mile}
-                          <span className="mx-1 text-asphalt/30">·</span>
-                          {stop.kind}
-                        </span>
-                        <span className="sr-only">
-                          Stop {index + 1} of {stops.length}
-                        </span>
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Connector into delivery */}
-                  <div
-                    className="mt-5 h-0.5 w-6 shrink-0 bg-asphalt/20 sm:w-10"
-                    aria-hidden
-                  />
-                  <div className="relative z-10 flex w-[4.75rem] shrink-0 flex-col items-center text-center sm:w-24">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-alert text-xs font-bold tracking-wide text-white">
-                      B
-                    </span>
-                    <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
-                      {route.destination}
-                    </span>
-                    {route.miles > 0 && (
-                      <span className="mt-1 text-[10px] text-muted">
-                        mi {Math.round(route.miles)}
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-start gap-1 sm:gap-2">
+                {/* Fixed pickup */}
+                <div className="relative z-20 flex w-[4.5rem] shrink-0 flex-col items-center text-center sm:w-[5.5rem]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-emerald-700 text-xs font-bold tracking-wide text-white">
+                    A
+                  </span>
+                  <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
+                    {route.origin}
+                  </span>
+                  <span className="mt-1 text-[10px] text-muted">Pickup · mi 0</span>
                 </div>
-              </HScroll>
+
+                <div
+                  className="mt-5 h-0.5 w-2 shrink-0 bg-asphalt/20 sm:w-3"
+                  aria-hidden
+                />
+
+                {/* Sliding mid stops */}
+                <div className="min-w-0 flex-1">
+                  {stops.length > 0 ? (
+                    <HScroll
+                      aria-label="Stops between pickup and delivery"
+                      role="list"
+                      hint="Slide stops left or right"
+                      controls
+                      showScrollbar
+                      startLabel="← Earlier"
+                      endLabel="Later →"
+                    >
+                      <div className="flex min-w-min items-start gap-0">
+                        {stops.map((stop, index) => (
+                          <div
+                            key={stop.id}
+                            className="relative flex shrink-0 items-start"
+                          >
+                            {index > 0 && (
+                              <div
+                                className="mt-5 h-0.5 w-5 shrink-0 bg-asphalt/20 sm:w-8"
+                                aria-hidden
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedId(
+                                  selectedId === stop.id ? null : stop.id,
+                                )
+                              }
+                              className="relative z-10 flex w-[4.75rem] flex-col items-center text-center transition sm:w-24"
+                              title={`${stop.name} · mi ${stop.mile}`}
+                            >
+                              <span
+                                className={`flex h-10 w-10 items-center justify-center rounded-sm text-xs font-bold transition ${
+                                  kindTone[stop.kind]
+                                } ${
+                                  selectedId === stop.id
+                                    ? "ring-2 ring-amber ring-offset-2"
+                                    : ""
+                                }`}
+                              >
+                                {kindMark[stop.kind]}
+                              </span>
+                              <span className="mt-2 line-clamp-2 px-0.5 text-[10px] font-medium leading-tight text-asphalt sm:text-[11px]">
+                                {stop.name}
+                              </span>
+                              <span className="mt-1 font-display text-[10px] tracking-wide text-muted uppercase">
+                                mi {stop.mile}
+                                <span className="mx-1 text-asphalt/30">·</span>
+                                {stop.kind}
+                              </span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </HScroll>
+                  ) : (
+                    <div className="flex h-10 items-center justify-center border border-dashed border-asphalt/15 px-3 text-center text-xs text-muted">
+                      {discoverBusy
+                        ? "Finding stops…"
+                        : "Stops appear here between A and B"}
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className="mt-5 h-0.5 w-2 shrink-0 bg-asphalt/20 sm:w-3"
+                  aria-hidden
+                />
+
+                {/* Fixed delivery */}
+                <div className="relative z-20 flex w-[4.5rem] shrink-0 flex-col items-center text-center sm:w-[5.5rem]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-alert text-xs font-bold tracking-wide text-white">
+                    B
+                  </span>
+                  <span className="mt-2 line-clamp-3 px-0.5 text-[10px] font-semibold leading-tight tracking-wide text-asphalt uppercase sm:text-[11px]">
+                    {route.destination}
+                  </span>
+                  <span className="mt-1 text-[10px] text-muted">
+                    Delivery
+                    {route.miles > 0
+                      ? ` · mi ${Math.round(route.miles)}`
+                      : ""}
+                  </span>
+                </div>
+              </div>
               {stops.length > 0 && (
                 <p className="mt-3 text-xs text-muted">
-                  Spacing is journey order, not map distance — so clustered
-                  services stay readable.
+                  A and B stay put. Mid-haul fuel, parking, and repair slide
+                  between them.
                 </p>
               )}
             </div>

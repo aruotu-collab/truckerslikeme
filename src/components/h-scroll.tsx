@@ -12,6 +12,8 @@ type HScrollProps = {
   controls?: boolean;
   /** Show a native thin scrollbar under the strip */
   showScrollbar?: boolean;
+  startLabel?: string;
+  endLabel?: string;
 };
 
 /** Contained horizontal slider with swipe fades — never widens the page. */
@@ -23,6 +25,8 @@ export function HScroll({
   hint = "Swipe for more →",
   controls = false,
   showScrollbar = false,
+  startLabel = "Start",
+  endLabel = "End →",
 }: HScrollProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canLeft, setCanLeft] = useState(false);
@@ -144,7 +148,7 @@ export function HScroll({
             onClick={jumpToStart}
             className="text-xs font-semibold tracking-wide text-amber uppercase transition hover:text-asphalt"
           >
-            Pickup (A)
+            {startLabel}
           </button>
           <label className="flex min-w-0 flex-1 items-center gap-2">
             <span className="sr-only">Scroll corridor</span>
@@ -167,7 +171,7 @@ export function HScroll({
             onClick={jumpToEnd}
             className="text-xs font-semibold tracking-wide text-amber uppercase transition hover:text-asphalt"
           >
-            Delivery (B) →
+            {endLabel}
           </button>
         </div>
       )}
