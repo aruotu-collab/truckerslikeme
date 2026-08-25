@@ -6,6 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { citySuggestions, sampleRoute } from "@/lib/mock-data";
 import { getCorridorSupport } from "@/lib/corridor-support";
 import { writeLastCorridor, readLastCorridor } from "@/lib/corridor-store";
+import {
+  readPlanDraft,
+  writePlanDraft,
+  sameCorridor,
+} from "@/lib/plan-draft";
 import { useAuthGate } from "@/lib/auth-gate";
 import { saveRoute } from "@/lib/supabase/data";
 import { HScroll } from "@/components/h-scroll";
@@ -130,7 +135,11 @@ export function PlanRoutePanel() {
   const [discoverBusy, setDiscoverBusy] = useState(false);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
 
-  async function loadLiveStops(origin: string, destination: string) {
+  async function loadLiveStops(
+    origin: string,
+    destination: string,
+    opts?: { force?: boolean },
+  ) {
     setDiscoverBusy(true);
     setDiscoverNote("Finding fuel, parking, and repair along this haul…");
     try {
@@ -155,53 +164,65 @@ export function PlanRoutePanel() {
         (s) =>
           s.type === "fuel" || s.type === "parking" || s.type === "repair",
       );
-      setRoute((prev) => {
-        const base =
-          prev &&
-          prev.origin === origin &&
-          prev.destination === destination
-            ? prev
-            : buildRoute(origin, destination);
-        const seedStops = isMappedUsCorridor(origin, destination)
-          ? base.stops
-          : [];
-        const merged = [...liveStops];
-        for (const s of seedStops) {
-          if (
-            merged.some(
-              (m) =>
-                m.label.toLowerCase() === s.label.toLowerCase() &&
-                Math.abs(m.mile - s.mile) < 15,
-            )
-          ) {
-            continue;
-          }
-          merged.push(s);
+      const seedStops = isMappedUsCorridor(origin, destination)
+        ? buildRoute(origin, destination).stops
+        : [];
+      const merged = [...liveStops];
+      for (const s of seedStops) {
+        if (
+          merged.some(
+            (m) =>
+              m.label.toLowerCase() === s.label.toLowerCase() &&
+              Math.abs(m.mile - s.mile) < 15,
+          )
+        ) {
+          continue;
         }
-        merged.sort((a, b) => a.mile - b.mile);
-        return {
-          ...base,
-          miles: data.miles && data.miles > 0 ? data.miles : base.miles,
-          hours: data.hours && data.hours > 0 ? data.hours : base.hours,
-          stops: merged,
-          insights:
-            data.notes && data.notes.length > 0 ? data.notes : base.insights,
-        };
-      });
-      if (liveStops.length === 0) {
-        setDiscoverNote(
-          data.notes?.[0] ||
-            "No live stops found — use Find near pickup or delivery.",
-        );
-      } else {
-        setDiscoverNote(
-          `Found ${liveStops.length} stops along the haul${
-            data.provider && data.provider !== "fallback"
-              ? " (live discovery)"
-              : ""
-          }.`,
-        );
+        merged.push(s);
       }
+      merged.sort((a, b) => a.mile - b.mile);
+
+      const nextRoute: PlannedRoute = {
+        origin,
+        destination,
+        miles:
+          data.miles && data.miles > 0
+            ? data.miles
+            : isMappedUsCorridor(origin, destination)
+              ? sampleRoute.miles
+              : 0,
+        hours:
+          data.hours && data.hours > 0
+            ? data.hours
+            : isMappedUsCorridor(origin, destination)
+              ? sampleRoute.hours
+              : 0,
+        stops: merged,
+        insights:
+          data.notes && data.notes.length > 0
+            ? data.notes
+            : isMappedUsCorridor(origin, destination)
+              ? sampleRoute.insights
+              : [],
+      };
+      setRoute(nextRoute);
+
+      let note: string;
+      if (liveStops.length === 0) {
+        note =
+          data.notes?.[0] ||
+          "No live stops found — use Find near pickup or delivery.";
+      } else {
+        note = `Found ${liveStops.length} stops along the haul${
+          data.provider && data.provider !== "fallback"
+            ? " (live discovery)"
+            : ""
+        }.`;
+      }
+      if (opts?.force) note = `Refreshed · ${note}`;
+      setDiscoverNote(note);
+      writePlanDraft({ route: nextRoute, discoverNote: note });
+      writeLastCorridor(origin, destination);
     } catch {
       setDiscoverNote("Network error discovering stops. Try again.");
     } finally {
@@ -213,17 +234,39 @@ export function PlanRoutePanel() {
     const qFrom = params.get("from") || params.get("origin");
     const qTo = params.get("to") || params.get("destination");
     const last = readLastCorridor();
-    const nextFrom = (qFrom || last?.origin || "").trim();
-    const nextTo = (qTo || last?.destination || "").trim();
+    const draft = readPlanDraft();
+    const nextFrom = (qFrom || last?.origin || draft?.route.origin || "").trim();
+    const nextTo = (
+      qTo ||
+      last?.destination ||
+      draft?.route.destination ||
+      ""
+    ).trim();
     setFrom(nextFrom);
     setTo(nextTo);
     setHydrated(true);
-    if (nextFrom && nextTo) {
-      const planned = buildRoute(nextFrom, nextTo);
-      setRoute(planned);
-      writeLastCorridor(nextFrom, nextTo);
-      void loadLiveStops(nextFrom, nextTo);
+
+    if (!nextFrom || !nextTo) return;
+
+    writeLastCorridor(nextFrom, nextTo);
+
+    // Resume cached haul if from/to match — do not re-hit OpenAI
+    if (
+      draft &&
+      sameCorridor(draft.route, { origin: nextFrom, destination: nextTo }) &&
+      draft.route.stops.length > 0
+    ) {
+      setRoute(draft.route);
+      setDiscoverNote(
+        draft.discoverNote ||
+          `Restored ${draft.route.stops.length} saved stops for this haul.`,
+      );
+      return;
     }
+
+    const planned = buildRoute(nextFrom, nextTo);
+    setRoute(planned);
+    void loadLiveStops(nextFrom, nextTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when URL query changes
   }, [params, queryKey]);
 
@@ -245,13 +288,33 @@ export function PlanRoutePanel() {
     const nextFrom = from.trim();
     const nextTo = to.trim();
     if (!nextFrom || !nextTo) return;
-    const planned = buildRoute(nextFrom, nextTo);
-    setRoute(planned);
     setFilter("all");
     setSelectedId(null);
     setSaved(false);
     setSaveError(null);
     writeLastCorridor(nextFrom, nextTo);
+
+    // Same corridor already loaded with stops → keep cache unless empty
+    if (
+      route &&
+      sameCorridor(route, { origin: nextFrom, destination: nextTo }) &&
+      route.stops.length > 0
+    ) {
+      setDiscoverNote(
+        discoverNote ||
+          `Showing ${route.stops.length} saved stops — tap Refresh to search again.`,
+      );
+      writePlanDraft({
+        route,
+        discoverNote:
+          discoverNote ||
+          `Showing ${route.stops.length} saved stops for this haul.`,
+      });
+      return;
+    }
+
+    const planned = buildRoute(nextFrom, nextTo);
+    setRoute(planned);
     void loadLiveStops(nextFrom, nextTo);
   }
 
@@ -375,6 +438,19 @@ export function PlanRoutePanel() {
                 className="rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase transition hover:border-amber disabled:opacity-60"
               >
                 {saveBusy ? "Saving…" : saved ? "Saved" : "Save trip"}
+              </button>
+              <button
+                type="button"
+                disabled={discoverBusy || !route}
+                onClick={() => {
+                  if (!route) return;
+                  void loadLiveStops(route.origin, route.destination, {
+                    force: true,
+                  });
+                }}
+                className="rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase transition hover:border-amber disabled:opacity-60"
+              >
+                {discoverBusy ? "Refreshing…" : "Refresh stops"}
               </button>
               <Link
                 href={`/find?need=parking&near=${encodeURIComponent(route.destination)}`}
