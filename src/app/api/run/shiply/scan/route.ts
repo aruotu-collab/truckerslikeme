@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     home?: string;
     destination?: string;
     vehicle?: string;
+    /** Map Jobs: return every row, not a Build My Run shortlist. */
+    completeList?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
       destination: body.destination,
       vehicle: body.vehicle,
       forSelection: true,
+      completeList: Boolean(body.completeList),
     });
 
     const jobs = extracted.jobs.map((j) => ({

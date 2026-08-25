@@ -34,6 +34,11 @@ export async function extractJobsFromShiplyCapture(input: {
   vehicle?: string;
   /** When true, still return OPEN/MAYBE/SKIP coaching but list is for driver pick. */
   forSelection?: boolean;
+  /**
+   * When true (Map Jobs), extract every row from the results list — do not shortlist.
+   * Build My Run keeps the default shortlist behaviour.
+   */
+  completeList?: boolean;
 }): Promise<{ jobs: VisibleShiplyJob[]; coach: string }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
@@ -47,15 +52,25 @@ export async function extractJobsFromShiplyCapture(input: {
         ? `Driver is heading toward: ${input.destination || "a known destination"}.`
         : "Driver wants maximum profit from here — finish location flexible.";
 
+  const textBudget = input.completeList ? 22_000 : 12_000;
+  const listRules = input.completeList
+    ? `- CRITICAL: Extract EVERY distinct job/shipment row in the page text and screenshot — aim for completeness (dozens if present). Do NOT shortlist to a handful.
+- Include weak/low-pay rows too; score them with verdict skip/maybe as needed.
+- Prefer page text over the screenshot when the list is long (screenshot is only the viewport).
+- coach: brief note of how many rows you found vs any that looked truncated`
+    : `- Prefer 3–8 open/high unless the list is excellent
+- coach: one short paragraph on which jobs are worth selecting
+${input.forSelection ? "- Driver will tick jobs to auto-open — still score each row." : ""}`;
+
   const prompt = `You are helping a UK/EU van or truck driver read Shiply (or similar) SEARCH RESULTS.
 
 Driver start: ${input.start || "unknown"}
 Vehicle: ${input.vehicle || "Luton van"}
 Goal: ${goal}
 ${input.pageUrl ? `Page URL: ${input.pageUrl}` : ""}
-${input.pageText ? `Visible page text (may be truncated):\n${input.pageText.slice(0, 12000)}` : ""}
+${input.pageText ? `Visible page text (may be truncated):\n${input.pageText.slice(0, textBudget)}` : ""}
 
-From the screenshot(s) / text of a job RESULTS LIST, extract every visible job row.
+From the screenshot(s) / text of a job RESULTS LIST, extract ${input.completeList ? "every" : "the relevant"} job row${input.completeList ? "" : "s for shortlisting"}.
 
 Return ONLY JSON:
 {
@@ -76,11 +91,9 @@ Return ONLY JSON:
 
 Rules:
 - href: absolute or site-relative job detail link if visible; else null
-- Prefer 3–8 open/high unless the list is excellent
 - rateTotal: customer budget or visible pay/offer only. NEVER use "TP's Quoting" / quote counts as money.
 - miles: trip distance if shown
-- coach: one short paragraph on which jobs are worth selecting
-${input.forSelection ? "- Driver will tick jobs to auto-open — still score each row." : ""}`;
+${listRules}`;
 
   const content: {
     type: string;
@@ -108,6 +121,7 @@ ${input.forSelection ? "- Driver will tick jobs to auto-open — still score eac
     body: JSON.stringify({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4o-mini",
       temperature: 0.2,
+      max_tokens: input.completeList ? 8_000 : 2_500,
       messages: [{ role: "user", content }],
     }),
   });

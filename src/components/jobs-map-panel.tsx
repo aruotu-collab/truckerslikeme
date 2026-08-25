@@ -125,6 +125,7 @@ export function JobsMapPanel() {
           start: "",
           mode: "profit",
           vehicle: "van",
+          completeList: true,
         }),
       });
       const data = (await res.json()) as {
