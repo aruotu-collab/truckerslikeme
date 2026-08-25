@@ -37,7 +37,7 @@ const primaryNav = [
 export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const pathname = usePathname();
   const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
-  const { badge } = useMarket();
+  const { market, resolved } = useMarket();
   const solid = variant !== "overlay";
   const shortName =
     (typeof user?.user_metadata?.display_name === "string" &&
@@ -65,9 +65,12 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             className="block truncate font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
           >
             Truckers<span className="text-amber-hot">Like</span>Me
+            {resolved ? (
+              <span className="text-white/70"> - {market.countryLabel}</span>
+            ) : null}
           </Link>
-          <p className="mt-0.5 truncate text-xs text-white/45">
-            {badge || "Load decisions · Places drivers trust"}
+          <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
+            Load decisions · Places drivers trust
           </p>
         </div>
 
