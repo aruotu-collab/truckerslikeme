@@ -57,6 +57,23 @@ async function fileToDataUrl(file: File) {
   });
 }
 
+function filesFromList(list: FileList | null): File[] {
+  return list ? Array.from(list) : [];
+}
+
+function imagesFromPaste(e: React.ClipboardEvent): File[] {
+  const items = e.clipboardData?.items;
+  if (!items) return [];
+  const files: File[] = [];
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  return files;
+}
+
 export function RunBuilder() {
   const { market, money } = useMarket();
   const [step, setStep] = useState<Step>("mode");
@@ -96,13 +113,14 @@ export function RunBuilder() {
     setStep("hunt");
   }
 
-  async function shortlistFromResults(files: FileList | null) {
-    if (!files?.length) return;
+  async function shortlistFromResults(files: File[] | FileList | null) {
+    const list = Array.isArray(files) ? files : filesFromList(files);
+    if (!list.length) return;
     setBusy(true);
     setError(null);
     try {
       const images: string[] = [];
-      for (const file of Array.from(files).slice(0, 3)) {
+      for (const file of list.slice(0, 3)) {
         images.push(await fileToDataUrl(file));
       }
       const res = await fetch("/api/run/shortlist", {
@@ -136,13 +154,14 @@ export function RunBuilder() {
     }
   }
 
-  async function addFullJobScreenshots(files: FileList | null) {
-    if (!files?.length) return;
+  async function addFullJobScreenshots(files: File[] | FileList | null) {
+    const list = Array.isArray(files) ? files : filesFromList(files);
+    if (!list.length) return;
     setBusy(true);
     setError(null);
     try {
       const images: string[] = [];
-      for (const file of Array.from(files).slice(0, 6)) {
+      for (const file of list.slice(0, 6)) {
         images.push(await fileToDataUrl(file));
       }
       // Reuse load extract — one job merged; for multiple files call per image
@@ -451,7 +470,16 @@ export function RunBuilder() {
           >
             ← Edit setup
           </button>
-          <div className="border border-asphalt/10 bg-white px-5 py-6">
+          <div
+            className="border border-asphalt/10 bg-white px-5 py-6 outline-none focus-within:border-amber/50"
+            tabIndex={0}
+            onPaste={(e) => {
+              const imgs = imagesFromPaste(e);
+              if (!imgs.length) return;
+              e.preventDefault();
+              void shortlistFromResults(imgs);
+            }}
+          >
             <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
               Search Shiply like this
             </p>
@@ -466,20 +494,25 @@ export function RunBuilder() {
             <p className="mt-4 text-sm font-medium text-asphalt">
               {brief.screenshotTip}
             </p>
-            <label className="mt-5 inline-flex cursor-pointer rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase">
-              {busy ? "Reading list…" : "Upload Shiply results screenshot →"}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                disabled={busy}
-                onChange={(e) => {
-                  void shortlistFromResults(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase">
+                {busy ? "Reading list…" : "Upload Shiply results screenshot →"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={busy}
+                  onChange={(e) => {
+                    void shortlistFromResults(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <p className="text-sm text-muted">
+                Or paste here (Ctrl+V / ⌘V)
+              </p>
+            </div>
             {error && <p className="mt-3 text-sm text-alert">{error}</p>}
           </div>
         </section>
@@ -530,37 +563,51 @@ export function RunBuilder() {
               </li>
             ))}
           </ul>
-          <div className="border border-asphalt/10 bg-white px-5 py-5">
+          <div
+            className="border border-asphalt/10 bg-white px-5 py-5 outline-none focus-within:border-amber/50"
+            tabIndex={0}
+            onPaste={(e) => {
+              const imgs = imagesFromPaste(e);
+              if (!imgs.length) return;
+              e.preventDefault();
+              void addFullJobScreenshots(imgs);
+            }}
+          >
             <p className="font-display text-sm tracking-wide text-asphalt uppercase">
               Round 2 — open only the strong ones
             </p>
             <p className="mt-2 text-sm text-muted">
               Open {openJobs.length || "the OPEN/HIGH"} job
               {openJobs.length === 1 ? "" : "s"} on Shiply, take full
-              screenshots (scroll if needed), and upload them here.
+              screenshots (scroll if needed), then upload or paste them here.
             </p>
-            <label className="mt-4 inline-flex cursor-pointer rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
-              {busy ? "Reading jobs…" : "Upload full job screenshots →"}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                disabled={busy}
-                onChange={(e) => {
-                  void addFullJobScreenshots(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <button
-              type="button"
-              disabled={busy || jobs.filter((j) => j.verdict !== "skip").length === 0}
-              onClick={() => void buildRun()}
-              className="ml-3 mt-4 inline-flex rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-40 sm:mt-0"
-            >
-              Build with shortlist only
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
+                {busy ? "Reading jobs…" : "Upload full job screenshots →"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={busy}
+                  onChange={(e) => {
+                    void addFullJobScreenshots(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <p className="text-sm text-muted">Or paste (Ctrl+V / ⌘V)</p>
+              <button
+                type="button"
+                disabled={
+                  busy || jobs.filter((j) => j.verdict !== "skip").length === 0
+                }
+                onClick={() => void buildRun()}
+                className="rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-40"
+              >
+                Build with shortlist only
+              </button>
+            </div>
             {error && <p className="mt-3 text-sm text-alert">{error}</p>}
           </div>
         </section>
@@ -630,7 +677,16 @@ export function RunBuilder() {
                   </ul>
                 </div>
               )}
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div
+                className="mt-5 flex flex-wrap items-center gap-3 outline-none"
+                tabIndex={0}
+                onPaste={(e) => {
+                  const imgs = imagesFromPaste(e);
+                  if (!imgs.length) return;
+                  e.preventDefault();
+                  void addFullJobScreenshots(imgs);
+                }}
+              >
                 <Link
                   href={`/plan?from=${encodeURIComponent(
                     best.jobs[0]?.origin || prefs.start,
@@ -653,6 +709,7 @@ export function RunBuilder() {
                     }}
                   />
                 </label>
+                <span className="text-xs text-muted">or paste (Ctrl+V / ⌘V)</span>
               </div>
             </div>
           ) : (
