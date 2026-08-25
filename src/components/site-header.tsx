@@ -9,10 +9,28 @@ type SiteHeaderProps = {
 };
 
 const primaryNav = [
-  { href: "/", label: "Check", match: (p: string) => p === "/" || p.startsWith("/check") || p.startsWith("/money") },
-  { href: "/find", label: "Find", match: (p: string) => p.startsWith("/find") },
-  { href: "/trip", label: "Trip", match: (p: string) => p.startsWith("/trip") || p.startsWith("/live") || p.startsWith("/plan") },
-  { href: "/me", label: "Me", match: (p: string) => p.startsWith("/me") || p.startsWith("/members") },
+  {
+    href: "/",
+    label: "Check",
+    match: (p: string) =>
+      p === "/" || p.startsWith("/check") || p.startsWith("/money"),
+  },
+  {
+    href: "/find",
+    label: "Find",
+    match: (p: string) => p.startsWith("/find"),
+  },
+  {
+    href: "/trip",
+    label: "Trip",
+    match: (p: string) =>
+      p.startsWith("/trip") || p.startsWith("/live") || p.startsWith("/plan"),
+  },
+  {
+    href: "/me",
+    label: "Me",
+    match: (p: string) => p.startsWith("/me") || p.startsWith("/members"),
+  },
 ] as const;
 
 export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
@@ -25,8 +43,9 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
     user?.email?.split("@")[0] ||
     null;
 
-  const btn =
-    "inline-flex min-h-11 w-full items-center justify-center rounded-sm px-3 py-2.5 text-center text-sm font-semibold tracking-wide uppercase transition";
+  const linkBase =
+    "shrink-0 text-sm font-semibold tracking-wide text-white/75 uppercase transition hover:text-white";
+  const linkActive = "text-amber-hot";
 
   return (
     <header
@@ -36,68 +55,22 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           : "absolute inset-x-0 top-0 z-30 w-full max-w-full overflow-x-clip"
       }
     >
-      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-8 sm:py-4">
-        <div className="flex min-w-0 items-center gap-2">
+      {/* Primary bar — brand left, nav + account right (ZeroSpenders-style) */}
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-8 sm:py-3.5">
+        <div className="min-w-0 shrink">
           <Link
             href="/"
-            className="min-w-0 flex-1 truncate font-display text-lg tracking-[0.06em] text-white uppercase sm:text-2xl"
+            className="block truncate font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
           >
             Truckers<span className="text-amber-hot">Like</span>Me
           </Link>
-
-          <div className="shrink-0">
-            {isSignedIn ? (
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className="rounded-sm border border-white/25 px-3 py-2 text-xs font-semibold tracking-wide text-white uppercase sm:px-4 sm:text-sm"
-              >
-                Sign out
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => openGate("join-community")}
-                className="rounded-sm border border-white/30 px-3 py-2 text-xs font-semibold tracking-wide text-white uppercase sm:px-4 sm:text-sm"
-              >
-                Sign in
-              </button>
-            )}
-          </div>
+          <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
+            Load decisions · Places drivers trust
+          </p>
         </div>
 
-        {isSignedIn && shortName && (
-          <Link
-            href="/me"
-            className="mt-1 block truncate text-sm text-white/80 transition hover:text-amber-hot"
-            title={user?.email ?? undefined}
-          >
-            Welcome, {shortName}
-            {isAdmin ? " · Admin" : ""}
-          </Link>
-        )}
-
-        <nav className="mt-3 grid grid-cols-4 gap-2 md:hidden" aria-label="Main">
-          {primaryNav.map((item) => {
-            const active = item.match(pathname);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${btn} ${
-                  active
-                    ? "bg-amber text-asphalt"
-                    : "border border-white/30 bg-white/10 text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
         <nav
-          className="mt-4 hidden flex-wrap items-center gap-2 md:flex"
+          className="ml-auto hidden min-w-0 items-center gap-5 md:flex"
           aria-label="Main"
         >
           {primaryNav.map((item) => {
@@ -106,10 +79,72 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`${btn} w-auto px-5 ${
+                className={`${linkBase} ${active ? linkActive : ""}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`${linkBase} ${
+                pathname.startsWith("/admin") ? linkActive : ""
+              }`}
+            >
+              Admin
+            </Link>
+          )}
+        </nav>
+
+        <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+          {isSignedIn && shortName ? (
+            <Link
+              href="/me"
+              className="hidden max-w-[9rem] truncate rounded-sm border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 transition hover:border-amber/50 hover:text-amber-hot sm:inline-block"
+              title={user?.email ?? undefined}
+            >
+              {shortName}
+              {isAdmin ? " · Admin" : ""}
+            </Link>
+          ) : null}
+
+          {isSignedIn ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-sm px-2.5 py-1.5 text-xs font-semibold tracking-wide text-white/70 uppercase transition hover:text-white sm:text-sm"
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openGate("join-community")}
+              className="rounded-sm border border-white/25 px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:text-sm"
+            >
+              Sign in
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Secondary bar — compact horizontal links on small screens only */}
+      <div className="border-t border-white/10 md:hidden">
+        <nav
+          className="h-scroll mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-3 py-2 sm:px-8"
+          aria-label="Sections"
+        >
+          {primaryNav.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
                   active
                     ? "bg-amber text-asphalt"
-                    : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {item.label}
@@ -119,31 +154,16 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           {isAdmin && (
             <Link
               href="/admin"
-              className={`${btn} w-auto px-5 ${
+              className={`shrink-0 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition ${
                 pathname.startsWith("/admin")
-                  ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                  ? "bg-amber text-asphalt"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
               }`}
             >
               Admin
             </Link>
           )}
         </nav>
-
-        {isAdmin && (
-          <div className="mt-2 md:hidden">
-            <Link
-              href="/admin"
-              className={`${btn} ${
-                pathname.startsWith("/admin")
-                  ? "border border-amber bg-amber/15 text-amber-hot"
-                  : "border border-white/30 bg-white/10 text-white"
-              }`}
-            >
-              Admin
-            </Link>
-          </div>
-        )}
       </div>
     </header>
   );
