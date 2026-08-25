@@ -74,6 +74,10 @@ function imagesFromPaste(e: React.ClipboardEvent): File[] {
   return files;
 }
 
+const MAX_RESULTS_SHOTS = 4;
+
+type PendingShot = { id: string; file: File; preview: string };
+
 export function RunBuilder() {
   const { market, money } = useMarket();
   const [step, setStep] = useState<Step>("mode");
@@ -84,6 +88,7 @@ export function RunBuilder() {
   const [jobs, setJobs] = useState<RunJob[]>([]);
   const [combos, setCombos] = useState<RunCombo[]>([]);
   const [best, setBest] = useState<RunCombo | null>(null);
+  const [pendingResults, setPendingResults] = useState<PendingShot[]>([]);
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -94,6 +99,46 @@ export function RunBuilder() {
 
   function update<K extends keyof RunPrefs>(key: K, value: RunPrefs[K]) {
     setPrefs((p) => ({ ...p, [key]: value }));
+  }
+
+  function clearPendingResults() {
+    setPendingResults((prev) => {
+      for (const shot of prev) URL.revokeObjectURL(shot.preview);
+      return [];
+    });
+  }
+
+  function queueResultsScreenshots(files: File[] | FileList | null) {
+    const list = (Array.isArray(files) ? files : filesFromList(files)).filter(
+      (f) => f.type.startsWith("image/"),
+    );
+    if (!list.length) return;
+
+    const room = MAX_RESULTS_SHOTS - pendingResults.length;
+    if (room <= 0) {
+      setError(`You can add up to ${MAX_RESULTS_SHOTS} results screenshots.`);
+      return;
+    }
+    if (list.length > room) {
+      setError(`Only ${MAX_RESULTS_SHOTS} screenshots kept — extras dropped.`);
+    } else {
+      setError(null);
+    }
+
+    const next = list.slice(0, room).map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPendingResults((prev) => [...prev, ...next].slice(0, MAX_RESULTS_SHOTS));
+  }
+
+  function removePendingResult(id: string) {
+    setPendingResults((prev) => {
+      const shot = prev.find((s) => s.id === id);
+      if (shot) URL.revokeObjectURL(shot.preview);
+      return prev.filter((s) => s.id !== id);
+    });
   }
 
   function goHunt() {
@@ -113,15 +158,17 @@ export function RunBuilder() {
     setStep("hunt");
   }
 
-  async function shortlistFromResults(files: File[] | FileList | null) {
-    const list = Array.isArray(files) ? files : filesFromList(files);
-    if (!list.length) return;
+  async function shortlistFromResults() {
+    if (!pendingResults.length) {
+      setError("Add at least one Shiply results screenshot first.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const images: string[] = [];
-      for (const file of list.slice(0, 3)) {
-        images.push(await fileToDataUrl(file));
+      for (const shot of pendingResults.slice(0, MAX_RESULTS_SHOTS)) {
+        images.push(await fileToDataUrl(shot.file));
       }
       const res = await fetch("/api/run/shortlist", {
         method: "POST",
@@ -144,6 +191,7 @@ export function RunBuilder() {
         setError(data.error || "Could not read that results list.");
         return;
       }
+      clearPendingResults();
       setJobs(data.jobs ?? []);
       setCoach(data.coach ?? null);
       setStep("shortlist");
@@ -465,7 +513,10 @@ export function RunBuilder() {
         <section className="space-y-6">
           <button
             type="button"
-            onClick={() => setStep("setup")}
+            onClick={() => {
+              clearPendingResults();
+              setStep("setup");
+            }}
             className="text-sm font-medium text-amber transition hover:text-asphalt"
           >
             ← Edit setup
@@ -477,7 +528,7 @@ export function RunBuilder() {
               const imgs = imagesFromPaste(e);
               if (!imgs.length) return;
               e.preventDefault();
-              void shortlistFromResults(imgs);
+              queueResultsScreenshots(imgs);
             }}
           >
             <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
@@ -492,27 +543,67 @@ export function RunBuilder() {
               ))}
             </ol>
             <p className="mt-4 text-sm font-medium text-asphalt">
-              {brief.screenshotTip}
+              {brief.screenshotTip} Paste or upload several overlapping list
+              shots (up to {MAX_RESULTS_SHOTS}), then shortlist when ready.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <label className="inline-flex cursor-pointer rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase">
-                {busy ? "Reading list…" : "Upload Shiply results screenshot →"}
+              <label className="inline-flex cursor-pointer rounded-sm border border-asphalt/20 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
+                Add results screenshot
                 <input
                   type="file"
                   accept="image/*"
                   multiple
                   className="hidden"
-                  disabled={busy}
+                  disabled={busy || pendingResults.length >= MAX_RESULTS_SHOTS}
                   onChange={(e) => {
-                    void shortlistFromResults(e.target.files);
+                    queueResultsScreenshots(e.target.files);
                     e.target.value = "";
                   }}
                 />
               </label>
               <p className="text-sm text-muted">
-                Or paste here (Ctrl+V / ⌘V)
+                Or paste here (Ctrl+V / ⌘V) — as many as you need
               </p>
             </div>
+            {pendingResults.length > 0 && (
+              <div className="mt-4 space-y-3">
+                <p className="text-xs font-semibold tracking-wide text-asphalt uppercase">
+                  Queued ({pendingResults.length}/{MAX_RESULTS_SHOTS}) — not
+                  analysed yet
+                </p>
+                <ul className="flex flex-wrap gap-3">
+                  {pendingResults.map((shot, i) => (
+                    <li
+                      key={shot.id}
+                      className="relative w-28 overflow-hidden border border-asphalt/10 bg-concrete/30"
+                    >
+                      <img
+                        src={shot.preview}
+                        alt={`Results screenshot ${i + 1}`}
+                        className="h-20 w-full object-cover object-top"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePendingResult(shot.id)}
+                        className="absolute top-1 right-1 bg-asphalt/80 px-1.5 text-[10px] font-semibold text-white uppercase"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void shortlistFromResults()}
+                  className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase disabled:opacity-60"
+                >
+                  {busy
+                    ? "Reading lists…"
+                    : `Shortlist from ${pendingResults.length} screenshot${pendingResults.length === 1 ? "" : "s"} →`}
+                </button>
+              </div>
+            )}
             {error && <p className="mt-3 text-sm text-alert">{error}</p>}
           </div>
         </section>

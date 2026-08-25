@@ -136,7 +136,7 @@ export function shiplyHuntBrief(prefs: RunPrefs): {
     headline: `Most money from ${start} — don’t pick a finish yet`,
     steps: [
       `Shiply local search: ${start}, radius 25–50 miles, pickup today/tomorrow.`,
-      "Screenshot the job list first.",
+      "Screenshot the job list — paste/upload several overlapping shots if needed.",
       "We’ll flag OPEN / MAYBE / SKIP so you only open the strong ones.",
       "After that, upload full job screenshots for the shortlist and we’ll build combinations.",
     ],
