@@ -12,6 +12,7 @@ import {
 import {
   DEFAULT_MARKET,
   formatMoney,
+  inferCountryFromLocation,
   marketBadge,
   marketFromCountryCode,
   marketFromCurrency,
@@ -20,6 +21,8 @@ import {
   writeStoredMarket,
   type DriverMarket,
 } from "@/lib/market";
+
+const LOCATION_KEY = "tlm_last_location";
 
 type MarketContextValue = {
   market: DriverMarket;
@@ -37,6 +40,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [market, setMarket] = useState<DriverMarket>(DEFAULT_MARKET);
   const [resolved, setResolved] = useState(false);
 
+  const apply = useCallback((next: DriverMarket) => {
+    setMarket(next);
+    setResolved(true);
+    writeStoredMarket(next);
+  }, []);
+
   useEffect(() => {
     const stored = readStoredMarket();
     if (stored) {
@@ -44,21 +53,43 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       setResolved(true);
       return;
     }
-    // First visit: use IP country from CDN (no GPS prompt)
-    const ipCountry = readIpCountryCookie();
-    if (ipCountry) {
-      const next = marketFromCountryCode(ipCountry);
-      setMarket(next);
-      setResolved(true);
-      writeStoredMarket(next);
-    }
-  }, []);
 
-  const apply = useCallback((next: DriverMarket) => {
-    setMarket(next);
-    setResolved(true);
-    writeStoredMarket(next);
-  }, []);
+    const fromIpCookie = readIpCountryCookie();
+    if (fromIpCookie) {
+      apply(marketFromCountryCode(fromIpCookie));
+      return;
+    }
+
+    try {
+      const savedPlace = localStorage.getItem(LOCATION_KEY);
+      const inferred = inferCountryFromLocation(savedPlace);
+      if (inferred) {
+        apply(marketFromCountryCode(inferred));
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // Fallback: ask the server (reads Vercel IP country header)
+    let cancelled = false;
+    fetch("/api/geo")
+      .then((r) => r.json())
+      .then((d: { country?: string | null }) => {
+        if (cancelled || !d.country) return;
+        // Don't overwrite if something else resolved meanwhile
+        const again = readStoredMarket();
+        if (again) return;
+        apply(marketFromCountryCode(d.country));
+      })
+      .catch(() => {
+        /* ignore */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apply]);
 
   const setFromCountryCode = useCallback(
     (code: string | null | undefined) => {

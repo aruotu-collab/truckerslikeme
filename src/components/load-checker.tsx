@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
-import { currencySymbol, formatMoney } from "@/lib/market";
+import {
+  currencySymbol,
+  formatMoney,
+  inferCountryFromLocation,
+} from "@/lib/market";
 import type { ProfitResult } from "@/lib/profit";
 
 const LOCATION_KEY = "tlm_last_location";
@@ -92,7 +96,11 @@ export function LoadChecker() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(LOCATION_KEY);
-      if (saved) setLocation(saved);
+      if (saved) {
+        setLocation(saved);
+        const inferred = inferCountryFromLocation(saved);
+        if (inferred) setFromCountryCode(inferred);
+      }
       const n = Number(localStorage.getItem(CHECKS_KEY) || "0");
       if (n >= 3 && !localStorage.getItem(GEO_NUDGE_KEY)) {
         setShowGeoNudge(true);
@@ -100,7 +108,7 @@ export function LoadChecker() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [setFromCountryCode]);
 
   const loadPlanAndHistory = useCallback(() => {
     if (!isSignedIn) {
@@ -149,6 +157,8 @@ export function LoadChecker() {
     } catch {
       /* ignore */
     }
+    const inferred = inferCountryFromLocation(value);
+    if (inferred) setFromCountryCode(inferred);
   }
 
   function bumpSuccessfulChecks() {

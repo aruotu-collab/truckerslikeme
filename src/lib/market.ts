@@ -121,3 +121,38 @@ export function readIpCountryCookie(): string | null {
   const value = decodeURIComponent(match.split("=").slice(1).join("="));
   return value && value.length === 2 ? value.toUpperCase() : null;
 }
+
+const LOCATION_COUNTRY_HINTS: { re: RegExp; code: string }[] = [
+  { re: /\b(uk|u\.k\.|united kingdom|great britain|england|scotland|wales)\b/i, code: "GB" },
+  { re: /\b(united states|usa|u\.s\.a\.|\bu\.s\.\b)\b/i, code: "US" },
+  { re: /\b(ireland|éire)\b/i, code: "IE" },
+  { re: /\bcanada\b/i, code: "CA" },
+  { re: /\baustralia\b/i, code: "AU" },
+  { re: /\bnew zealand\b/i, code: "NZ" },
+  { re: /\bgermany|deutschland\b/i, code: "DE" },
+  { re: /\bfrance\b/i, code: "FR" },
+  { re: /\bnetherlands|holland\b/i, code: "NL" },
+  { re: /\bspain|españa\b/i, code: "ES" },
+  { re: /\bitaly|italia\b/i, code: "IT" },
+  { re: /\bpoland|polska\b/i, code: "PL" },
+  { re: /\bmexico|méxico\b/i, code: "MX" },
+];
+
+/** Infer ISO country from a place label like "Ladywell, UK". */
+export function inferCountryFromLocation(
+  place: string | null | undefined,
+): string | null {
+  if (!place?.trim()) return null;
+  const text = place.trim();
+  // Trailing ", XX" country / region token
+  const tail = text.match(/,\s*([A-Za-z]{2}|[^,]+)\s*$/);
+  if (tail) {
+    const token = tail[1].trim().toUpperCase();
+    if (token === "UK" || token === "GB") return "GB";
+    if (token.length === 2 && BY_COUNTRY[token]) return token;
+  }
+  for (const hint of LOCATION_COUNTRY_HINTS) {
+    if (hint.re.test(text)) return hint.code;
+  }
+  return null;
+}

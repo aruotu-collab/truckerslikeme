@@ -15,8 +15,7 @@ export async function middleware(request: NextRequest) {
   if (
     country &&
     country !== "XX" &&
-    country.length === 2 &&
-    !request.cookies.get(IP_COUNTRY_COOKIE)
+    country.length === 2
   ) {
     response.cookies.set(IP_COUNTRY_COOKIE, country.toUpperCase(), {
       path: "/",
