@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsTubeMap } from "@/components/jobs-tube-map";
 import { useMarket } from "@/lib/market-context";
+import {
+  buildRouteConnections,
+  findPossibleRuns,
+  sortConnections,
+  unmappedJobs,
+  type DirectionId,
+  type MapViewMode,
+  type SortMode,
+} from "@/lib/jobs-map-explore";
 import {
   filterMapJobs,
   mapStatusMeta,
   mergeScannedJobs,
+  placeKey,
   readJobsMapState,
   shortPlace,
   writeJobsMapState,
@@ -26,6 +37,27 @@ const FILTERS: { id: JobsMapFilter; label: string }[] = [
   { id: "won", label: "Won" },
 ];
 
+const VIEW_MODES: { id: MapViewMode; label: string; hint: string }[] = [
+  {
+    id: "explore",
+    label: "Explore",
+    hint: "Direction clusters — no spaghetti lines until you tap",
+  },
+  {
+    id: "connections",
+    label: "Connections",
+    hint: "Tube map for one hub city",
+  },
+  { id: "runs", label: "Build a run", hint: "Auto-found job chains" },
+];
+
+const SORTS: { id: SortMode; label: string }[] = [
+  { id: "money", label: "Most money" },
+  { id: "jobs", label: "Most jobs" },
+  { id: "rpm", label: "Best £/mi" },
+  { id: "distance", label: "Shortest" },
+];
+
 export function JobsMapPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
@@ -33,6 +65,13 @@ export function JobsMapPanel() {
   const [startDraft, setStartDraft] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [filter, setFilter] = useState<JobsMapFilter>("all");
+  const [viewMode, setViewMode] = useState<MapViewMode>("explore");
+  const [sortMode, setSortMode] = useState<SortMode>("money");
+  const [selectedDirection, setSelectedDirection] =
+    useState<DirectionId | null>(null);
+  const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [hubKey, setHubKey] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -64,6 +103,43 @@ export function JobsMapPanel() {
 
   const visible = filterMapJobs(jobs, filter);
   const startReady = Boolean(driver?.label.trim());
+
+  const routes = useMemo(
+    () => sortConnections(buildRouteConnections(visible), sortMode),
+    [visible, sortMode],
+  );
+
+  const possibleRuns = useMemo(
+    () => findPossibleRuns(visible, driver),
+    [visible, driver],
+  );
+
+  const unmapped = useMemo(() => unmappedJobs(visible), [visible]);
+
+  const hubOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; n: number }>();
+    for (const j of visible) {
+      for (const place of [j.origin, j.destination]) {
+        const k = placeKey(place);
+        if (!k) continue;
+        const prev = counts.get(k);
+        if (prev) prev.n += 1;
+        else counts.set(k, { label: shortPlace(place), n: 1 });
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1].n - a[1].n)
+      .slice(0, 12)
+      .map(([key, v]) => ({ key, ...v }));
+  }, [visible]);
+
+  const hubJobs = useMemo(() => {
+    if (!hubKey) return [];
+    return visible.filter(
+      (j) =>
+        placeKey(j.origin) === hubKey || placeKey(j.destination) === hubKey,
+    );
+  }, [visible, hubKey]);
 
   function applyStart(label: string, lat: number | null, lon: number | null) {
     const trimmed = label.trim();
@@ -248,9 +324,8 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          Your Shiply search results as an underground-style tube map — each
-          coloured line is a job (collect → deliver). Tap a line, open on
-          Shiply, mark wins green, skip the rest.
+          {visible.length} jobs near your routes — explore by direction, drill
+          into cities, then open Shiply links. No more 59 lines at once.
         </p>
       </header>
 
@@ -435,7 +510,7 @@ export function JobsMapPanel() {
                 onClick={() => addScannedToMap(true)}
                 className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase"
               >
-                Add all {scanned.length} to tube map →
+                Add all {scanned.length} to map →
               </button>
               <button
                 type="button"
@@ -451,82 +526,250 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
-      {/* Map + filters */}
+      {/* Visual explorer */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-              Tube map
+              {visible.length} jobs on board
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Collect left · hub middle · deliver right. Tap a coloured line —
-              dashed line is empty miles from you to collect.
+              {VIEW_MODES.find((m) => m.id === viewMode)?.hint}
             </p>
           </div>
-          <div
-            className="inline-flex border border-asphalt/15 bg-white"
-            role="tablist"
-            aria-label="Job filter"
-          >
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === f.id}
-                onClick={() => setFilter(f.id)}
-                className={`px-3.5 py-2 text-xs font-semibold tracking-wide uppercase transition sm:px-4 ${
-                  filter === f.id
-                    ? "bg-asphalt text-white"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                {f.label}
-                <span className="ml-1.5 opacity-70">
-                  {counts[f.id]}
-                </span>
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <div
+              className="inline-flex border border-asphalt/15 bg-white"
+              role="tablist"
+            >
+              {VIEW_MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === m.id}
+                  onClick={() => setViewMode(m.id)}
+                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                    viewMode === m.id
+                      ? "bg-asphalt text-white"
+                      : "text-asphalt/70 hover:bg-concrete/50"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div
+              className="inline-flex border border-asphalt/15 bg-white"
+              role="tablist"
+              aria-label="Job filter"
+            >
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-3 ${
+                    filter === f.id
+                      ? "bg-amber text-asphalt"
+                      : "text-asphalt/70 hover:bg-concrete/50"
+                  }`}
+                >
+                  {f.label}
+                  <span className="ml-1 opacity-70">{counts[f.id]}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 text-xs text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full bg-amber" />
-            You
-          </span>
-          {(Object.keys(mapStatusMeta) as MapJobStatus[])
-            .filter((s) => s !== "skipped")
-            .map((s) => (
-              <span key={s} className="inline-flex items-center gap-1.5">
-                <span
-                  className="inline-block h-2.5 w-6 rounded-sm"
-                  style={{ background: mapStatusMeta[s].line }}
-                />
-                {mapStatusMeta[s].label}
-              </span>
-            ))}
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="inline-block h-0.5 w-6 border-t-2 border-dashed"
-              style={{ borderColor: "#c4a035" }}
+        {viewMode === "explore" && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {SORTS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSortMode(s.id)}
+                  className={`rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase ${
+                    sortMode === s.id
+                      ? "bg-asphalt text-white"
+                      : "border border-asphalt/15 text-muted"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <JobsExploreMap
+              jobs={visible}
+              driver={driver}
+              selectedDirection={selectedDirection}
+              selectedCityKey={selectedCityKey}
+              selectedRouteId={selectedRouteId}
+              onSelectDirection={setSelectedDirection}
+              onSelectCity={setSelectedCityKey}
+              onSelectRoute={setSelectedRouteId}
+              formatMoney={money}
             />
-            Deadhead
-          </span>
-        </div>
+            {unmapped.length > 0 && (
+              <p className="text-xs text-muted">
+                {unmapped.length} job{unmapped.length === 1 ? "" : "s"} hidden
+                from the map (place not recognised — listed below only).
+              </p>
+            )}
+          </>
+        )}
 
-        <JobsTubeMap
-          jobs={visible}
-          driver={driver}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
+        {viewMode === "connections" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Pick a hub — tube map shows only jobs touching that city.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {hubOptions.map((h) => (
+                <button
+                  key={h.key}
+                  type="button"
+                  onClick={() => setHubKey(h.key)}
+                  className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase ${
+                    hubKey === h.key
+                      ? "bg-asphalt text-white"
+                      : "border border-asphalt/15 text-asphalt"
+                  }`}
+                >
+                  {h.label} ({h.n})
+                </button>
+              ))}
+            </div>
+            {hubKey ? (
+              <JobsTubeMap
+                jobs={hubJobs}
+                driver={driver}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            ) : (
+              <p className="text-sm text-muted">
+                Choose Manchester, Birmingham, London… to open the network view.
+              </p>
+            )}
+          </div>
+        )}
+
+        {viewMode === "runs" && (
+          <div className="space-y-3">
+            {!possibleRuns.length ? (
+              <p className="text-sm text-muted">
+                Need at least 2 mapped jobs that chain (drop ≈ next collect) for
+                run suggestions.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {possibleRuns.map((run) => (
+                  <li
+                    key={run.id}
+                    className="border border-asphalt/10 bg-white px-4 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-display text-sm tracking-wide text-amber uppercase">
+                          Possible run · {run.label}
+                        </p>
+                        <p className="mt-1 font-medium text-asphalt">
+                          {run.stops.join(" → ")}
+                        </p>
+                        <p className="mt-1 text-sm text-muted">
+                          {run.jobs.length} jobs · {money(run.totalPay)} · ~
+                          {run.extraMiles} mi loaded
+                        </p>
+                      </div>
+                      <a
+                        href="/run"
+                        className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                      >
+                        Build in Run →
+                      </a>
+                    </div>
+                    <ul className="mt-3 space-y-1 border-t border-asphalt/10 pt-3 text-sm">
+                      {run.jobs.map((j) => (
+                        <li key={j.id} className="flex flex-wrap gap-2">
+                          <span>
+                            {shortPlace(j.origin)} → {shortPlace(j.destination)}
+                            {j.rateTotal != null
+                              ? ` · ${money(j.rateTotal)}`
+                              : ""}
+                          </span>
+                          {j.href && (
+                            <a
+                              href={j.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-amber"
+                            >
+                              Shiply →
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* Job list */}
+      {/* Synced opportunity cards (Explore) */}
+      {viewMode === "explore" && routes.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
+            Best opportunities
+          </h2>
+          <p className="text-sm text-muted">
+            Same routes as the map — tap to highlight.{" "}
+            {routes.length} connections from {visible.length} jobs.
+          </p>
+          <ul className="space-y-2">
+            {routes.slice(0, 12).map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRouteId(
+                      selectedRouteId === r.id ? null : r.id,
+                    );
+                    setSelectedCityKey(r.destKey);
+                    setSelectedDirection(null);
+                  }}
+                  className={`w-full border px-4 py-3 text-left transition ${
+                    selectedRouteId === r.id
+                      ? "border-amber bg-amber/5"
+                      : "border-asphalt/10 bg-white hover:border-asphalt/25"
+                  }`}
+                >
+                  <p className="font-medium text-asphalt">
+                    {r.originLabel} → {r.destLabel}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {r.jobCount} job{r.jobCount === 1 ? "" : "s"} ·{" "}
+                    {money(r.totalPay)}
+                    {r.avgMiles != null ? ` · ~${r.avgMiles} mi` : ""}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Job list — was "Jobs on board" */}
       <section className="space-y-3">
         <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-          Jobs on board
+          All jobs
         </h2>
         {!visible.length ? (
           <p className="text-sm text-muted">
