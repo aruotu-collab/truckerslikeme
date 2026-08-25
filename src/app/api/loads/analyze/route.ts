@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { analyzeProfit } from "@/lib/profit";
 import { parseLoadText } from "@/lib/load-parse";
 import { defaultOperatingAssumptions } from "@/lib/plan";
+import { operatingDefaultsForMarket } from "@/lib/market-defaults";
+import { marketFromCountryCode } from "@/lib/market";
 import {
   dbWriter,
   ensureAnalysesQuota,
@@ -22,12 +24,18 @@ type Body = {
   rateTotal?: number;
   dieselPrice?: number;
   mpg?: number;
+  economy?: number;
   costPerMile?: number;
   tolls?: number;
   origin?: string;
   destination?: string;
+  countryCode?: string;
+  fuelUnit?: "gallon" | "litre";
+  economyUnit?: "mpg" | "l_per_100km";
+  distanceUnit?: "mi" | "km";
   /** Preview only — guests can score without saving */
   preview?: boolean;
+  currentLocation?: string;
 };
 
 export async function POST(request: Request) {
@@ -38,7 +46,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const defaults = defaultOperatingAssumptions();
+  const legacy = defaultOperatingAssumptions();
+  const marketDefaults = operatingDefaultsForMarket(
+    marketFromCountryCode(body.countryCode),
+  );
   const parsed = body.text?.trim() ? parseLoadText(body.text) : null;
 
   const miles = Number(body.miles ?? parsed?.miles ?? 0);
@@ -67,30 +78,67 @@ export async function POST(request: Request) {
     );
   }
 
-  const dieselPrice = Number(body.dieselPrice ?? defaults.dieselPrice);
-  const mpg = Number(body.mpg ?? defaults.mpg);
-  const costPerMile = Number(body.costPerMile ?? defaults.costPerMile);
+  const distanceUnit = body.distanceUnit ?? marketDefaults.distanceUnit;
+  const fuelUnit = body.fuelUnit ?? marketDefaults.fuelUnit;
+  const economyUnit = body.economyUnit ?? marketDefaults.economyUnit;
+  const dieselPrice = Number(
+    body.dieselPrice ?? marketDefaults.dieselPrice ?? legacy.dieselPrice,
+  );
+  const economy = Number(
+    body.economy ?? body.mpg ?? marketDefaults.economy ?? legacy.mpg,
+  );
+  let costPerMile = Number(
+    body.costPerMile ?? marketDefaults.costPerMile ?? legacy.costPerMile,
+  );
+  // When UI labels €/km, convert to per-mile for the engine
+  if (
+    distanceUnit === "km" &&
+    body.costPerMile != null &&
+    marketDefaults.costPerKm != null
+  ) {
+    costPerMile = Number(body.costPerMile) / 1.60934;
+  } else if (
+    distanceUnit === "km" &&
+    body.costPerMile == null &&
+    marketDefaults.costPerKm != null
+  ) {
+    costPerMile = marketDefaults.costPerKm / 1.60934;
+  }
   const tolls = Number(body.tolls ?? 0);
 
   const origin = body.origin?.trim() || parsed?.origin || null;
   const destination =
     body.destination?.trim() || parsed?.destination || null;
 
+  const profitInput = {
+    miles,
+    rateTotal,
+    dieselPrice,
+    economy,
+    costPerMile,
+    tolls,
+    fuelUnit,
+    economyUnit,
+    distanceUnit,
+  } as const;
+
   // Guest / client preview — no auth, no quota, no persist
   if (body.preview) {
-    const result = analyzeProfit({
-      miles,
-      rateTotal,
-      dieselPrice,
-      mpg,
-      costPerMile,
-      tolls,
-    });
+    const result = analyzeProfit(profitInput);
     return NextResponse.json({
       result,
       parse: parsed,
       corridor: { origin, destination },
-      assumptions: { dieselPrice, mpg, costPerMile, tolls },
+      assumptions: {
+        dieselPrice,
+        mpg: economy,
+        economy,
+        costPerMile,
+        tolls,
+        fuelUnit,
+        economyUnit,
+        distanceUnit,
+      },
       preview: true,
       quota: null,
     });
@@ -115,8 +163,8 @@ export async function POST(request: Request) {
       id: user.id,
       plan: "free",
       role: "driver",
-      mpg: defaults.mpg,
-      cost_per_mile: defaults.costPerMile,
+      mpg: legacy.mpg,
+      cost_per_mile: legacy.costPerMile,
       diesel_price_override: null,
       analyses_used: 0,
       analyses_reset_at: null,
@@ -145,20 +193,28 @@ export async function POST(request: Request) {
   const finalDiesel = Number(
     body.dieselPrice ??
       profile.diesel_price_override ??
-      defaults.dieselPrice,
+      marketDefaults.dieselPrice,
   );
-  const finalMpg = Number(body.mpg ?? profile.mpg ?? defaults.mpg);
+  const finalEconomy = Number(
+    body.economy ?? body.mpg ?? profile.mpg ?? marketDefaults.economy,
+  );
   const finalCpm = Number(
-    body.costPerMile ?? profile.cost_per_mile ?? defaults.costPerMile,
+    body.costPerMile ?? profile.cost_per_mile ?? marketDefaults.costPerMile,
   );
 
   const result = analyzeProfit({
     miles,
     rateTotal,
     dieselPrice: finalDiesel,
-    mpg: finalMpg,
-    costPerMile: finalCpm,
+    economy: finalEconomy,
+    costPerMile:
+      distanceUnit === "km" && body.costPerMile != null
+        ? finalCpm / 1.60934
+        : finalCpm,
     tolls,
+    fuelUnit,
+    economyUnit,
+    distanceUnit,
   });
 
   if (writer) {
@@ -170,7 +226,7 @@ export async function POST(request: Request) {
       rate_total: result.rateTotal,
       rate_per_mile: result.ratePerMile,
       diesel_price: finalDiesel,
-      mpg: finalMpg,
+      mpg: finalEconomy,
       cost_per_mile: finalCpm,
       fuel_cost: result.fuelCost,
       operating_cost: result.operatingCost,
@@ -191,7 +247,7 @@ export async function POST(request: Request) {
     await writer
       .from("profiles")
       .update({
-        mpg: finalMpg,
+        mpg: finalEconomy,
         cost_per_mile: finalCpm,
         diesel_price_override: finalDiesel,
       })
@@ -216,9 +272,13 @@ export async function POST(request: Request) {
     corridor: { origin, destination },
     assumptions: {
       dieselPrice: finalDiesel,
-      mpg: finalMpg,
+      mpg: finalEconomy,
+      economy: finalEconomy,
       costPerMile: finalCpm,
       tolls,
+      fuelUnit,
+      economyUnit,
+      distanceUnit,
     },
     preview: false,
     quota: {

@@ -11,6 +11,9 @@ export type CheckDraft = {
   mpg: string;
   costPerMile: string;
   extractNotes: string[];
+  extractFound: string[];
+  extractMissing: string[];
+  jobReady: boolean;
   marketLow: number | null;
   marketHigh: number | null;
   marketCurrency: string | null;

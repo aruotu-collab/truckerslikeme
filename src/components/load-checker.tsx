@@ -9,6 +9,7 @@ import {
   formatMoney,
   inferCountryFromLocation,
 } from "@/lib/market";
+import { operatingDefaultsForMarket } from "@/lib/market-defaults";
 import type { ProfitResult } from "@/lib/profit";
 import {
   clearCheckDraft,
@@ -67,9 +68,79 @@ Miles: 820
 Linehaul: $2,460
 $3.00 / mi`;
 
+type ExtractedJob = {
+  origin: string | null;
+  destination: string | null;
+  miles: number | null;
+  rateTotal: number | null;
+  currency: string | null;
+  item: string | null;
+  weightKg?: number | null;
+  lengthM?: number | null;
+  widthM?: number | null;
+  heightM?: number | null;
+  dateWindow?: string | null;
+  quotes?: number[];
+  lowestQuote?: number | null;
+  highestQuote?: number | null;
+  notes: string[];
+  rawText: string | null;
+  found?: string[];
+  missing?: string[];
+};
+
+function applyExtractedToForm(
+  ex: ExtractedJob,
+  moneyForShot: (n: number) => string,
+) {
+  const quotes = (ex.quotes ?? []).filter((q) => Number.isFinite(q) && q > 0);
+  const low =
+    ex.lowestQuote != null && Number.isFinite(ex.lowestQuote)
+      ? ex.lowestQuote
+      : quotes.length
+        ? Math.min(...quotes)
+        : null;
+  const high =
+    ex.highestQuote != null && Number.isFinite(ex.highestQuote)
+      ? ex.highestQuote
+      : quotes.length
+        ? Math.max(...quotes)
+        : null;
+
+  const dim =
+    ex.lengthM != null || ex.widthM != null || ex.heightM != null
+      ? [
+          ex.lengthM != null ? `${ex.lengthM}m L` : null,
+          ex.widthM != null ? `${ex.widthM}m W` : null,
+          ex.heightM != null ? `${ex.heightM}m H` : null,
+        ]
+          .filter(Boolean)
+          .join(" × ")
+      : null;
+
+  const lines = [
+    ex.item ? `Item: ${ex.item}` : null,
+    ex.weightKg != null ? `Weight: ${ex.weightKg} kg` : null,
+    dim ? `Size: ${dim}` : null,
+    ex.dateWindow ? `Dates: ${ex.dateWindow}` : null,
+    ex.origin && ex.destination
+      ? `${ex.origin} → ${ex.destination}`
+      : ex.origin || ex.destination,
+    ex.miles != null ? `Miles: ${ex.miles}` : null,
+    ex.rateTotal != null ? `Rate: ${moneyForShot(ex.rateTotal)}` : null,
+    low != null && high != null
+      ? `Market quotes: ${moneyForShot(low)}–${moneyForShot(high)}${quotes.length ? ` (${quotes.length} bids)` : ""}`
+      : null,
+    ex.rawText,
+  ].filter(Boolean);
+
+  return { lines: lines.join("\n"), low, high, quotes };
+}
+
 export function LoadChecker() {
   const { isSignedIn, isPro, openGate } = useAuthGate();
   const { money, market, setFromCountryCode, setFromCurrency } = useMarket();
+  const ops = operatingDefaultsForMarket(market);
   const [location, setLocation] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoNote, setGeoNote] = useState<string | null>(null);
@@ -77,13 +148,20 @@ export function LoadChecker() {
   const [text, setText] = useState("");
   const [miles, setMiles] = useState("");
   const [rateTotal, setRateTotal] = useState("");
-  const [dieselPrice, setDieselPrice] = useState("3.85");
-  const [mpg, setMpg] = useState("6.5");
-  const [costPerMile, setCostPerMile] = useState("0.65");
+  const [dieselPrice, setDieselPrice] = useState(String(ops.dieselPrice));
+  const [mpg, setMpg] = useState(String(ops.economy));
+  const [costPerMile, setCostPerMile] = useState(
+    String(ops.costPerKm ?? ops.costPerMile),
+  );
+  const [opsTouched, setOpsTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [extractBusy, setExtractBusy] = useState(false);
   const [extractNotes, setExtractNotes] = useState<string[]>([]);
-  const [shotPreview, setShotPreview] = useState<string | null>(null);
+  const [extractFound, setExtractFound] = useState<string[]>([]);
+  const [extractMissing, setExtractMissing] = useState<string[]>([]);
+  const [shotPreviews, setShotPreviews] = useState<string[]>([]);
+  const [jobReady, setJobReady] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [marketLow, setMarketLow] = useState<number | null>(null);
   const [marketHigh, setMarketHigh] = useState<number | null>(null);
   const [marketCurrency, setMarketCurrency] = useState<string | null>(null);
@@ -107,10 +185,23 @@ export function LoadChecker() {
         if (draft.text) setText(draft.text);
         if (draft.miles) setMiles(draft.miles);
         if (draft.rateTotal) setRateTotal(draft.rateTotal);
-        if (draft.dieselPrice) setDieselPrice(draft.dieselPrice);
-        if (draft.mpg) setMpg(draft.mpg);
-        if (draft.costPerMile) setCostPerMile(draft.costPerMile);
+        if (draft.dieselPrice) {
+          setDieselPrice(draft.dieselPrice);
+          setOpsTouched(true);
+        }
+        if (draft.mpg) {
+          setMpg(draft.mpg);
+          setOpsTouched(true);
+        }
+        if (draft.costPerMile) {
+          setCostPerMile(draft.costPerMile);
+          setOpsTouched(true);
+        }
         if (draft.extractNotes?.length) setExtractNotes(draft.extractNotes);
+        if (draft.extractFound?.length) setExtractFound(draft.extractFound);
+        if (draft.extractMissing?.length)
+          setExtractMissing(draft.extractMissing);
+        if (draft.jobReady) setJobReady(true);
         if (draft.marketLow != null) setMarketLow(draft.marketLow);
         if (draft.marketHigh != null) setMarketHigh(draft.marketHigh);
         if (draft.marketCurrency) setMarketCurrency(draft.marketCurrency);
@@ -141,6 +232,15 @@ export function LoadChecker() {
     }
   }, [setFromCountryCode]);
 
+  // Country logo / market → diesel £/L, L/100km, etc.
+  useEffect(() => {
+    if (!draftReady || opsTouched) return;
+    const d = operatingDefaultsForMarket(market);
+    setDieselPrice(String(d.dieselPrice));
+    setMpg(String(d.economy));
+    setCostPerMile(String(d.costPerKm ?? d.costPerMile));
+  }, [draftReady, market, opsTouched]);
+
   // Keep the check filled in when you leave for Plan / Find and come back
   useEffect(() => {
     if (!draftReady) return;
@@ -153,6 +253,9 @@ export function LoadChecker() {
       mpg,
       costPerMile,
       extractNotes,
+      extractFound,
+      extractMissing,
+      jobReady,
       marketLow,
       marketHigh,
       marketCurrency,
@@ -177,6 +280,9 @@ export function LoadChecker() {
     mpg,
     costPerMile,
     extractNotes,
+    extractFound,
+    extractMissing,
+    jobReady,
     marketLow,
     marketHigh,
     marketCurrency,
@@ -206,11 +312,18 @@ export function LoadChecker() {
           if (d.isPro) setQuotaLabel("Pro — unlimited checks");
           else if (d.quota?.remaining != null)
             setQuotaLabel(`${d.quota.remaining} free checks left this month`);
-          if (d.assumptions?.mpg) setMpg(String(d.assumptions.mpg));
-          if (d.assumptions?.costPerMile)
+          if (d.assumptions?.mpg) {
+            setMpg(String(d.assumptions.mpg));
+            setOpsTouched(true);
+          }
+          if (d.assumptions?.costPerMile) {
             setCostPerMile(String(d.assumptions.costPerMile));
-          if (d.assumptions?.dieselPriceOverride != null)
+            setOpsTouched(true);
+          }
+          if (d.assumptions?.dieselPriceOverride != null) {
             setDieselPrice(String(d.assumptions.dieselPriceOverride));
+            setOpsTouched(true);
+          }
         },
       )
       .catch(() => {});
@@ -242,7 +355,11 @@ export function LoadChecker() {
     setMiles("");
     setRateTotal("");
     setExtractNotes([]);
-    setShotPreview(null);
+    setExtractFound([]);
+    setExtractMissing([]);
+    setShotPreviews([]);
+    setJobReady(false);
+    setConfirmOpen(false);
     setMarketLow(null);
     setMarketHigh(null);
     setMarketCurrency(null);
@@ -261,6 +378,9 @@ export function LoadChecker() {
       mpg,
       costPerMile,
       extractNotes: [],
+      extractFound: [],
+      extractMissing: [],
+      jobReady: false,
       marketLow: null,
       marketHigh: null,
       marketCurrency: null,
@@ -271,7 +391,7 @@ export function LoadChecker() {
   }
 
   const hasActiveCheck = Boolean(
-    text.trim() || miles || rateTotal || result || shotPreview,
+    text.trim() || miles || rateTotal || result || shotPreviews.length > 0,
   );
 
   function bumpSuccessfulChecks() {
@@ -330,46 +450,39 @@ export function LoadChecker() {
     );
   }
 
-  async function extractFromImage(fileOrDataUrl: File | string) {
+  async function fileToDataUrl(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Could not read image"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function extractFromImages(images: string[], opts?: { append?: boolean }) {
+    if (images.length === 0) return;
     setExtractBusy(true);
     setError(null);
-    setExtractNotes([]);
-    setMarketLow(null);
-    setMarketHigh(null);
-    setMarketCurrency(null);
+    setJobReady(false);
+    setConfirmOpen(false);
+    if (!opts?.append) {
+      setExtractNotes([]);
+      setExtractFound([]);
+      setExtractMissing([]);
+      setMarketLow(null);
+      setMarketHigh(null);
+      setMarketCurrency(null);
+    }
     try {
-      let dataUrl: string;
-      if (typeof fileOrDataUrl === "string") {
-        dataUrl = fileOrDataUrl;
-      } else {
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(new Error("Could not read image"));
-          reader.readAsDataURL(fileOrDataUrl);
-        });
-      }
-      setShotPreview(dataUrl);
+      setShotPreviews(images);
 
       const res = await fetch("/api/loads/extract-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: dataUrl }),
+        body: JSON.stringify({ images }),
       });
       const data = (await res.json()) as {
-        extracted?: {
-          origin: string | null;
-          destination: string | null;
-          miles: number | null;
-          rateTotal: number | null;
-          currency: string | null;
-          item: string | null;
-          quotes?: number[];
-          lowestQuote?: number | null;
-          highestQuote?: number | null;
-          notes: string[];
-          rawText: string | null;
-        };
+        extracted?: ExtractedJob;
         error?: string;
       };
       if (!res.ok) {
@@ -384,36 +497,10 @@ export function LoadChecker() {
 
       const moneyForShot = (n: number) =>
         formatMoney(n, ex.currency || market.currency);
-
-      const quotes = (ex.quotes ?? []).filter((q) => Number.isFinite(q) && q > 0);
-      const low =
-        ex.lowestQuote != null && Number.isFinite(ex.lowestQuote)
-          ? ex.lowestQuote
-          : quotes.length
-            ? Math.min(...quotes)
-            : null;
-      const high =
-        ex.highestQuote != null && Number.isFinite(ex.highestQuote)
-          ? ex.highestQuote
-          : quotes.length
-            ? Math.max(...quotes)
-            : null;
-
       if (ex.currency) setFromCurrency(ex.currency);
 
-      const lines = [
-        ex.item ? `Item: ${ex.item}` : null,
-        ex.origin && ex.destination
-          ? `${ex.origin} → ${ex.destination}`
-          : ex.origin || ex.destination,
-        ex.miles != null ? `Miles: ${ex.miles}` : null,
-        ex.rateTotal != null ? `Rate: ${moneyForShot(ex.rateTotal)}` : null,
-        low != null && high != null
-          ? `Market quotes: ${moneyForShot(low)}–${moneyForShot(high)}${quotes.length ? ` (${quotes.length} bids)` : ""}`
-          : null,
-        ex.rawText,
-      ].filter(Boolean);
-      setText(lines.join("\n"));
+      const { lines, low, high } = applyExtractedToForm(ex, moneyForShot);
+      setText(lines);
       if (ex.miles != null) setMiles(String(ex.miles));
       if (ex.rateTotal != null) {
         setRateTotal(String(ex.rateTotal));
@@ -427,7 +514,21 @@ export function LoadChecker() {
         setMarketCurrency(ex.currency || market.currency);
       }
 
+      const found = ex.found ?? [];
+      const missing = ex.missing ?? [];
+      setExtractFound(found);
+      setExtractMissing(missing);
+
       const notes = [...(ex.notes ?? [])];
+      if (missing.length > 0) {
+        notes.push(
+          `Still need: ${missing.join(", ")}. Scroll the Shiply page, overlap the previous shot a little, and add another screenshot.`,
+        );
+      } else {
+        notes.push("Looks like the full job — confirm details, then check.");
+        setJobReady(true);
+        setConfirmOpen(true);
+      }
       if (low != null && high != null) {
         notes.push(
           `Other providers bid ${moneyForShot(low)}–${moneyForShot(high)}. Enter your bid, or score the lowest to see if winning is even worth it.`,
@@ -445,6 +546,19 @@ export function LoadChecker() {
     }
   }
 
+  async function addScreenshot(fileOrDataUrl: File | string) {
+    const dataUrl =
+      typeof fileOrDataUrl === "string"
+        ? fileOrDataUrl
+        : await fileToDataUrl(fileOrDataUrl);
+    if (shotPreviews.length >= 6) {
+      setError("Max 6 screenshots per job.");
+      return;
+    }
+    const next = [...shotPreviews, dataUrl];
+    await extractFromImages(next, { append: true });
+  }
+
   function onPasteJob(e: React.ClipboardEvent) {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -452,7 +566,7 @@ export function LoadChecker() {
       if (item.type.startsWith("image/")) {
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) void extractFromImage(file);
+        if (file) void addScreenshot(file);
         return;
       }
     }
@@ -481,8 +595,13 @@ export function LoadChecker() {
           miles: miles ? Number(miles) : undefined,
           rateTotal: rateTotal ? Number(rateTotal) : undefined,
           dieselPrice: dieselPrice ? Number(dieselPrice) : undefined,
+          economy: mpg ? Number(mpg) : undefined,
           mpg: mpg ? Number(mpg) : undefined,
           costPerMile: costPerMile ? Number(costPerMile) : undefined,
+          countryCode: market.countryCode,
+          fuelUnit: ops.fuelUnit,
+          economyUnit: ops.economyUnit,
+          distanceUnit: ops.distanceUnit,
           preview: wantPreview,
           currentLocation: location.trim(),
         }),
@@ -646,7 +765,7 @@ export function LoadChecker() {
           <div onPaste={onPasteJob}>
             <label className="block">
               <span className="font-display text-xs tracking-[0.18em] text-muted uppercase">
-                2. Paste the load, or paste / upload a screenshot
+                2. Paste the load, or upload Shiply screenshots
               </span>
               <textarea
                 value={text}
@@ -658,19 +777,37 @@ export function LoadChecker() {
             </label>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <label className="cursor-pointer text-sm font-medium text-amber transition hover:text-asphalt">
-                {extractBusy ? "Reading screenshot…" : "Upload screenshot →"}
+                {extractBusy
+                  ? "Reading screenshots…"
+                  : shotPreviews.length === 0
+                    ? "Add screenshot →"
+                    : "Add next screenshot →"}
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  disabled={extractBusy}
+                  disabled={extractBusy || shotPreviews.length >= 6}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) void extractFromImage(file);
+                    if (file) void addScreenshot(file);
                     e.target.value = "";
                   }}
                 />
               </label>
+              {shotPreviews.length > 0 && (
+                <button
+                  type="button"
+                  disabled={extractBusy}
+                  onClick={() => {
+                    setJobReady(true);
+                    setConfirmOpen(true);
+                    setExtractMissing([]);
+                  }}
+                  className="text-sm font-medium text-asphalt underline-offset-2 transition hover:text-amber hover:underline disabled:opacity-60"
+                >
+                  That’s the full job →
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setText(SAMPLE)}
@@ -680,15 +817,40 @@ export function LoadChecker() {
               </button>
             </div>
             <p className="mt-1 text-xs text-muted">
-              Tip: copy a Shiply job screenshot and paste it here (Ctrl+V / ⌘V).
+              Shiply jobs often need 2–3 overlapping shots while you scroll.
+              Paste (Ctrl+V / ⌘V) or upload each section — we merge them.
             </p>
-            {shotPreview && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={shotPreview}
-                alt="Job screenshot preview"
-                className="mt-3 max-h-40 rounded-sm border border-asphalt/10 object-contain"
-              />
+            {shotPreviews.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs tracking-wide text-muted uppercase">
+                  {shotPreviews.length} of 6 screenshots
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {shotPreviews.map((src, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`${i}-${src.slice(0, 24)}`}
+                      src={src}
+                      alt={`Job screenshot ${i + 1}`}
+                      className="h-20 w-16 rounded-sm border border-asphalt/10 object-cover object-top"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {(extractFound.length > 0 || extractMissing.length > 0) && (
+              <ul className="mt-3 space-y-1 text-sm">
+                {extractFound.map((f) => (
+                  <li key={`f-${f}`} className="text-emerald-700">
+                    {f} found
+                  </li>
+                ))}
+                {extractMissing.map((m) => (
+                  <li key={`m-${m}`} className="text-amber-800">
+                    {m} still missing — scroll and add another shot
+                  </li>
+                ))}
+              </ul>
             )}
             {extractNotes.length > 0 && (
               <ul className="mt-2 list-inside list-disc text-sm text-muted">
@@ -697,12 +859,45 @@ export function LoadChecker() {
                 ))}
               </ul>
             )}
+            {confirmOpen && (
+              <div className="mt-4 border border-asphalt/15 bg-white px-4 py-4">
+                <p className="font-display text-xs tracking-[0.16em] text-asphalt uppercase">
+                  Confirm extracted job
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-asphalt">
+                  {text.trim() || "No text yet — edit miles and rate below."}
+                </p>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted uppercase">Miles</dt>
+                    <dd>{miles || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted uppercase">
+                      Rate / your bid
+                    </dt>
+                    <dd>{rateTotal || "—"}</dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-xs text-muted">
+                  Fix anything wrong in the fields below before you check —
+                  especially pay amounts.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  className="mt-3 text-sm font-medium text-amber transition hover:text-asphalt"
+                >
+                  Looks good — edit if needed below ↓
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs tracking-wide text-muted uppercase">
-                Miles
+                {ops.distanceUnit === "km" ? "Kilometres" : "Miles"}
               </span>
               <input
                 type="number"
@@ -740,36 +935,46 @@ export function LoadChecker() {
 
           <details className="border border-asphalt/10 bg-white/60 px-4 py-3">
             <summary className="cursor-pointer font-display text-xs tracking-[0.16em] text-muted uppercase">
-              Cost assumptions
+              Cost assumptions · {ops.countryCode}
             </summary>
+            <p className="mt-2 text-xs text-muted">{ops.sourceNote}</p>
             <div className="mt-3 grid grid-cols-3 gap-3">
               <label className="block">
-                <span className="text-xs text-muted">Diesel $/gal</span>
+                <span className="text-xs text-muted">{ops.dieselLabel}</span>
                 <input
                   type="number"
                   step="0.01"
                   value={dieselPrice}
-                  onChange={(e) => setDieselPrice(e.target.value)}
+                  onChange={(e) => {
+                    setOpsTouched(true);
+                    setDieselPrice(e.target.value);
+                  }}
                   className="mt-1 w-full rounded-sm border border-asphalt/15 px-2 py-2 text-sm"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-muted">MPG</span>
+                <span className="text-xs text-muted">{ops.economyLabel}</span>
                 <input
                   type="number"
                   step="0.1"
                   value={mpg}
-                  onChange={(e) => setMpg(e.target.value)}
+                  onChange={(e) => {
+                    setOpsTouched(true);
+                    setMpg(e.target.value);
+                  }}
                   className="mt-1 w-full rounded-sm border border-asphalt/15 px-2 py-2 text-sm"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-muted">Other $/mi</span>
+                <span className="text-xs text-muted">{ops.cpmLabel}</span>
                 <input
                   type="number"
                   step="0.01"
                   value={costPerMile}
-                  onChange={(e) => setCostPerMile(e.target.value)}
+                  onChange={(e) => {
+                    setOpsTouched(true);
+                    setCostPerMile(e.target.value);
+                  }}
                   className="mt-1 w-full rounded-sm border border-asphalt/15 px-2 py-2 text-sm"
                 />
               </label>
@@ -782,7 +987,11 @@ export function LoadChecker() {
             onClick={() => void checkLoad(false)}
             className="w-full rounded-sm bg-amber px-5 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:opacity-60 sm:w-auto"
           >
-            {loading ? "Checking…" : "Check load"}
+            {loading
+              ? "Checking…"
+              : jobReady || !shotPreviews.length
+                ? "Check load"
+                : "Check with what we have"}
           </button>
 
           {error && (
@@ -854,7 +1063,7 @@ export function LoadChecker() {
               <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-current/15 pt-5">
                 <div>
                   <dt className="text-xs uppercase tracking-wide opacity-70">
-                    Gross RPM
+                    Gross /mi
                   </dt>
                   <dd className="mt-1 text-2xl font-medium">
                     {money(result.ratePerMile)}
@@ -878,10 +1087,31 @@ export function LoadChecker() {
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide opacity-70">
+                    Break-even quote
+                  </dt>
+                  <dd className="mt-1 text-xl font-medium">
+                    {money(result.breakEvenRate)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide opacity-70">
                     Net / hour
                   </dt>
                   <dd className="mt-1 text-xl font-medium">
                     {money(result.netPerHour)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide opacity-70">
+                    Fuel
+                  </dt>
+                  <dd className="mt-1 text-xl font-medium">
+                    {money(result.fuelCost)}
+                    <span className="ml-1 text-sm opacity-70">
+                      {result.assumptions?.fuelUnit === "litre"
+                        ? `(${result.fuelLitres} L)`
+                        : `(${result.fuelGallons} gal)`}
+                    </span>
                   </dd>
                 </div>
               </dl>
