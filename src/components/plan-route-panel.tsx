@@ -500,11 +500,9 @@ export function PlanRoutePanel() {
                     <HScroll
                       aria-label="Stops between pickup and delivery"
                       role="list"
-                      hint="Slide stops left or right"
+                      hint="Swipe or use arrows for more stops"
                       controls
                       showScrollbar
-                      startLabel="← Earlier"
-                      endLabel="Later →"
                     >
                       <div className="flex min-w-min items-start gap-0">
                         {stops.map((stop, index) => (
