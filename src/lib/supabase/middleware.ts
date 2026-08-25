@@ -4,10 +4,17 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
-  if (!url || !key) {
+  // Skip when unset or when a pull left Sensitive placeholders like "[SENSITIVE]"
+  if (
+    !url ||
+    !key ||
+    !/^https?:\/\//i.test(url) ||
+    url === "[SENSITIVE]" ||
+    key === "[SENSITIVE]"
+  ) {
     return supabaseResponse;
   }
 
