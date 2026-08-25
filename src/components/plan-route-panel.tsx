@@ -127,6 +127,87 @@ export function PlanRoutePanel() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [discoverBusy, setDiscoverBusy] = useState(false);
+  const [discoverNote, setDiscoverNote] = useState<string | null>(null);
+
+  async function loadLiveStops(origin: string, destination: string) {
+    setDiscoverBusy(true);
+    setDiscoverNote("Finding fuel, parking, and repair along this haul…");
+    try {
+      const res = await fetch("/api/plan/corridor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination }),
+      });
+      const data = (await res.json()) as {
+        miles?: number | null;
+        hours?: number | null;
+        notes?: string[];
+        provider?: string;
+        stops?: PlannedRoute["stops"];
+        error?: string;
+      };
+      if (!res.ok) {
+        setDiscoverNote(data.error || "Could not discover corridor stops.");
+        return;
+      }
+      const liveStops = (data.stops ?? []).filter(
+        (s) =>
+          s.type === "fuel" || s.type === "parking" || s.type === "repair",
+      );
+      setRoute((prev) => {
+        const base =
+          prev &&
+          prev.origin === origin &&
+          prev.destination === destination
+            ? prev
+            : buildRoute(origin, destination);
+        const seedStops = isMappedUsCorridor(origin, destination)
+          ? base.stops
+          : [];
+        const merged = [...liveStops];
+        for (const s of seedStops) {
+          if (
+            merged.some(
+              (m) =>
+                m.label.toLowerCase() === s.label.toLowerCase() &&
+                Math.abs(m.mile - s.mile) < 15,
+            )
+          ) {
+            continue;
+          }
+          merged.push(s);
+        }
+        merged.sort((a, b) => a.mile - b.mile);
+        return {
+          ...base,
+          miles: data.miles && data.miles > 0 ? data.miles : base.miles,
+          hours: data.hours && data.hours > 0 ? data.hours : base.hours,
+          stops: merged,
+          insights:
+            data.notes && data.notes.length > 0 ? data.notes : base.insights,
+        };
+      });
+      if (liveStops.length === 0) {
+        setDiscoverNote(
+          data.notes?.[0] ||
+            "No live stops found — use Find near pickup or delivery.",
+        );
+      } else {
+        setDiscoverNote(
+          `Found ${liveStops.length} stops along the haul${
+            data.provider && data.provider !== "fallback"
+              ? " (live discovery)"
+              : ""
+          }.`,
+        );
+      }
+    } catch {
+      setDiscoverNote("Network error discovering stops. Try again.");
+    } finally {
+      setDiscoverBusy(false);
+    }
+  }
 
   useEffect(() => {
     const qFrom = params.get("from") || params.get("origin");
@@ -141,7 +222,9 @@ export function PlanRoutePanel() {
       const planned = buildRoute(nextFrom, nextTo);
       setRoute(planned);
       writeLastCorridor(nextFrom, nextTo);
+      void loadLiveStops(nextFrom, nextTo);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when URL query changes
   }, [params, queryKey]);
 
   const stops = useMemo(
@@ -169,6 +252,7 @@ export function PlanRoutePanel() {
     setSaved(false);
     setSaveError(null);
     writeLastCorridor(nextFrom, nextTo);
+    void loadLiveStops(nextFrom, nextTo);
   }
 
   async function handleSave() {
@@ -239,13 +323,13 @@ export function PlanRoutePanel() {
             autoComplete="off"
           />
         </label>
-        <div className="flex items-end sm:col-span-2 lg:col-span-1">
+            <div className="flex items-end sm:col-span-2 lg:col-span-1">
           <button
             type="submit"
-            disabled={!canPlan}
+            disabled={!canPlan || discoverBusy}
             className="w-full rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Plan route
+            {discoverBusy ? "Finding stops…" : "Plan route"}
           </button>
         </div>
         <datalist id="plan-city-suggestions">
@@ -269,14 +353,19 @@ export function PlanRoutePanel() {
                 {route.origin} → {route.destination}
               </p>
               <p className="mt-1 text-sm text-muted">
-                {stops.length > 0
-                  ? `${
-                      route.miles > 0 ? `~${route.miles} mi · ` : ""
-                    }${
-                      route.hours > 0 ? `~${route.hours} hrs · ` : ""
-                    }${stops.length} stops on the corridor`
-                  : "Corridor stops for this haul are not mapped yet — use Find for parking, fuel, or repair near pickup or delivery."}
+                {discoverBusy
+                  ? "Finding fuel, parking, and repair along this haul…"
+                  : stops.length > 0
+                    ? `${
+                        route.miles > 0 ? `~${route.miles} mi · ` : ""
+                      }${
+                        route.hours > 0 ? `~${route.hours} hrs · ` : ""
+                      }${stops.length} stops on the corridor`
+                    : "Corridor stops for this haul are not mapped yet — use Find for parking, fuel, or repair near pickup or delivery."}
               </p>
+              {discoverNote && !discoverBusy && (
+                <p className="mt-1 text-xs text-muted">{discoverNote}</p>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -304,9 +393,11 @@ export function PlanRoutePanel() {
                 Corridor
               </p>
               <p className="mt-1 text-sm text-muted">
-                {stops.length > 0
-                  ? "Swipe the haul. Tap a stop for detail."
-                  : "A → B is set. Mapped fuel, parking, and repair for this corridor come next."}
+                {discoverBusy
+                  ? "Searching the corridor…"
+                  : stops.length > 0
+                    ? "Swipe the haul. Tap a stop for detail."
+                    : "A → B is set. Mapped fuel, parking, and repair load in after discovery."}
               </p>
             </div>
             <div className="[--h-scroll-fade:#ffffff] px-3 pt-6 pb-5 sm:px-5">

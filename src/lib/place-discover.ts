@@ -183,3 +183,212 @@ No markdown.`;
     return { places: fallbackResults(input), provider: "fallback" };
   }
 }
+
+export type CorridorStopDraft = {
+  kind: "parking" | "fuel" | "repair";
+  name: string;
+  detail: string;
+  /** Approximate miles from origin along the haul */
+  mile: number;
+  area?: string | null;
+};
+
+function parseCorridorJson(text: string): {
+  miles: number | null;
+  hours: number | null;
+  stops: CorridorStopDraft[];
+  notes: string[];
+} {
+  try {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start < 0 || end < 0) {
+      return { miles: null, hours: null, stops: [], notes: [] };
+    }
+    const raw = JSON.parse(text.slice(start, end + 1)) as {
+      miles?: number;
+      hours?: number;
+      notes?: string[];
+      stops?: Array<{
+        kind?: string;
+        name?: string;
+        detail?: string;
+        mile?: number;
+        area?: string;
+      }>;
+    };
+    const stops: CorridorStopDraft[] = (raw.stops ?? [])
+      .filter((s) => s.name && s.kind)
+      .map((s) => {
+        const kind: CorridorStopDraft["kind"] =
+          s.kind === "diesel" || s.kind === "fuel"
+            ? "fuel"
+            : s.kind === "repair"
+              ? "repair"
+              : "parking";
+        return {
+          kind,
+          name: String(s.name),
+          detail: String(s.detail || s.area || "").slice(0, 180),
+          mile: Math.max(1, Math.round(Number(s.mile) || 0)),
+          area: s.area ?? null,
+        };
+      })
+      .filter((s) => s.mile > 0)
+      .slice(0, 18);
+    return {
+      miles:
+        raw.miles != null && Number.isFinite(Number(raw.miles))
+          ? Math.round(Number(raw.miles))
+          : null,
+      hours:
+        raw.hours != null && Number.isFinite(Number(raw.hours))
+          ? Math.round(Number(raw.hours) * 10) / 10
+          : null,
+      stops,
+      notes: Array.isArray(raw.notes)
+        ? raw.notes.map(String).slice(0, 4)
+        : [],
+    };
+  } catch {
+    return { miles: null, hours: null, stops: [], notes: [] };
+  }
+}
+
+/**
+ * One OpenAI call for fuel / parking / repair along an entire A→B haul.
+ * Uses the same key/model path as Find place discovery.
+ */
+export async function discoverCorridorStops(input: {
+  origin: string;
+  destination: string;
+}): Promise<{
+  miles: number | null;
+  hours: number | null;
+  stops: CorridorStopDraft[];
+  notes: string[];
+  provider: string;
+}> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    return {
+      miles: null,
+      hours: null,
+      stops: [],
+      notes: [
+        "Add OPENAI_API_KEY to discover live fuel, parking, and repair along this haul.",
+      ],
+      provider: "fallback",
+    };
+  }
+
+  const prompt = `You help truck / van drivers plan a haul.
+
+Corridor: ${input.origin} → ${input.destination}
+
+Find real, useful stops ALONG this route (not only at the endpoints):
+- diesel / truck fuel stations
+- truck / HGV / commercial parking or overnight holding
+- truck / commercial repair / tyre workshops
+
+Prefer places on or near the main road corridor between origin and delivery.
+Estimate mile from origin for each stop (integer). Estimate total corridor miles and drive hours.
+
+Respond with ONLY a JSON object:
+{
+  "miles": number,
+  "hours": number,
+  "notes": string[] (0-3 short corridor tips, local to this route — never invent US interstate tips for UK jobs),
+  "stops": [
+    { "kind": "fuel"|"parking"|"repair", "name": string, "detail": string, "mile": number, "area": string }
+  ]
+}
+Return 8–15 stops mixed across kinds. Be cautious; if unsure say "call first" in detail.
+No markdown.`;
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+        tools: [{ type: "web_search_preview" }],
+        input: prompt,
+      }),
+    });
+
+    let text = "";
+    let provider = "openai_responses";
+
+    if (!res.ok) {
+      const chat = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You help truck drivers find fuel, parking, and repair along a haul. Reply with one JSON object only.",
+            },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      if (!chat.ok) {
+        return {
+          miles: null,
+          hours: null,
+          stops: [],
+          notes: ["Could not reach place discovery right now. Try Find near pickup or delivery."],
+          provider: "fallback",
+        };
+      }
+      const chatJson = (await chat.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      text = chatJson.choices?.[0]?.message?.content ?? "";
+      provider = "openai_chat";
+    } else {
+      const json = (await res.json()) as {
+        output_text?: string;
+        output?: { content?: { text?: string }[] }[];
+      };
+      text =
+        json.output_text ||
+        json.output
+          ?.flatMap((o) => o.content ?? [])
+          .map((c) => c.text ?? "")
+          .join("\n") ||
+        "";
+    }
+
+    const parsed = parseCorridorJson(text);
+    return {
+      ...parsed,
+      provider: parsed.stops.length ? provider : "fallback",
+      notes:
+        parsed.stops.length > 0
+          ? parsed.notes
+          : [
+              "No corridor stops returned — try Find near pickup or delivery, or Plan route again.",
+            ],
+    };
+  } catch {
+    return {
+      miles: null,
+      hours: null,
+      stops: [],
+      notes: ["Place discovery failed. Use Find for parking, fuel, or repair."],
+      provider: "fallback",
+    };
+  }
+}

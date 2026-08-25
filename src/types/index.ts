@@ -23,7 +23,7 @@ export type LiveFeedItem = LiveActivity & {
 
 export type RouteStop = {
   id: string;
-  type: "parking" | "fuel" | "alert" | "weigh";
+  type: "parking" | "fuel" | "repair" | "alert" | "weigh";
   label: string;
   detail: string;
   mile: number;
