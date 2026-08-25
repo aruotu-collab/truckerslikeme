@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BidPlanCard } from "@/components/bid-plan-card";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
+import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
 import { JobsRunMap } from "@/components/jobs-run-map";
 import { JobsTubeMap } from "@/components/jobs-tube-map";
 import { useMarket } from "@/lib/market-context";
@@ -71,6 +72,8 @@ const SORTS: { id: SortMode; label: string }[] = [
   { id: "distance", label: "Shortest" },
 ];
 
+type PanelMode = "planner" | "map";
+
 export function JobsMapPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
@@ -79,6 +82,7 @@ export function JobsMapPanel() {
   const [geoBusy, setGeoBusy] = useState(false);
   const [filter, setFilter] = useState<JobsMapFilter>("all");
   const [viewMode, setViewMode] = useState<MapViewMode>("explore");
+  const [panelMode, setPanelMode] = useState<PanelMode>("planner");
   const [sortMode, setSortMode] = useState<SortMode>("money");
   const [selectedDirection, setSelectedDirection] =
     useState<DirectionId | null>(null);
@@ -370,8 +374,9 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          {visible.length} jobs near your routes — explore by direction, drill
-          into cities, then open Shiply links. No more 59 lines at once.
+          {panelMode === "planner"
+            ? `${visible.length} jobs — sort, filter, and chain bids in a logistics spreadsheet. Map view for geographic discovery.`
+            : `${visible.length} jobs near your routes — explore by direction on the map, or switch to Planner to build runs.`}
         </p>
       </header>
 
@@ -572,7 +577,7 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
-      {/* Visual explorer */}
+      {/* Visual explorer / planner */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -580,10 +585,45 @@ export function JobsMapPanel() {
               {visible.length} jobs on board
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {VIEW_MODES.find((m) => m.id === viewMode)?.hint}
+              {panelMode === "planner"
+                ? "Excel-style logistics grid — tick jobs to build your bid plan"
+                : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <div
+              className="inline-flex border border-asphalt/15 bg-white"
+              role="tablist"
+              aria-label="View mode"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={panelMode === "planner"}
+                onClick={() => setPanelMode("planner")}
+                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                  panelMode === "planner"
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                Planner
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={panelMode === "map"}
+                onClick={() => setPanelMode("map")}
+                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                  panelMode === "map"
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                Map
+              </button>
+            </div>
+            {panelMode === "map" && (
             <div
               className="inline-flex border border-asphalt/15 bg-white"
               role="tablist"
@@ -605,6 +645,7 @@ export function JobsMapPanel() {
                 </button>
               ))}
             </div>
+            )}
             <div
               className="inline-flex border border-asphalt/15 bg-white"
               role="tablist"
@@ -631,7 +672,16 @@ export function JobsMapPanel() {
           </div>
         </div>
 
-        {viewMode === "explore" && (
+        {panelMode === "planner" && (
+          <JobsPlannerGrid
+            jobs={visible}
+            driver={driver}
+            formatMoney={money}
+            runPrefs={runPrefs}
+          />
+        )}
+
+        {panelMode === "map" && viewMode === "explore" && (
           <>
             <div className="flex flex-col gap-2 border border-asphalt/10 bg-white px-4 py-3 sm:flex-row sm:items-end">
               <label className="flex-1 text-sm">
@@ -777,7 +827,7 @@ export function JobsMapPanel() {
           </>
         )}
 
-        {viewMode === "connections" && (
+        {panelMode === "map" && viewMode === "connections" && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
               Pick a hub — tube map shows only jobs touching that city.
@@ -813,7 +863,7 @@ export function JobsMapPanel() {
           </div>
         )}
 
-        {viewMode === "runs" && (
+        {panelMode === "map" && viewMode === "runs" && (
           <div className="space-y-5">
             <div className="border border-asphalt/10 bg-white px-4 py-4 sm:px-5">
               <h3 className="font-display text-lg tracking-wide text-asphalt uppercase">
@@ -983,7 +1033,7 @@ export function JobsMapPanel() {
       </section>
 
       {/* Synced opportunity cards (Explore) */}
-      {viewMode === "explore" && routes.length > 0 && (
+      {panelMode === "map" && viewMode === "explore" && routes.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
             Best opportunities

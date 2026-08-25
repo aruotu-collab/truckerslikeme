@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Map Jobs | TruckersLikeMe",
   description:
-    "Explore Shiply results by direction — cluster map, connections, and run combos without 59 crossing lines.",
+    "Explore Shiply results in a logistics spreadsheet or direction map — chain jobs into bid plans without 59 crossing lines.",
 };
 
 export default function MapJobsPage() {
