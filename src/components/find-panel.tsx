@@ -32,12 +32,6 @@ const priorityOptions = [
   { id: "overnight", label: "Overnight OK" },
 ] as const;
 
-const needOptions: { id: PlaceKind; label: string }[] = [
-  { id: "parking", label: "Parking" },
-  { id: "diesel", label: "Fuel" },
-  { id: "repair", label: "Repair" },
-];
-
 function Chip({
   active,
   onClick,
@@ -183,31 +177,18 @@ export function FindPanel() {
     <div className="space-y-8">
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          Find
+          Near you
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
           {title}
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Tap what you need. We check TruckersLikeMe first, then the open web —
-          and we never call a web result “safe” without a badge.
+          We check TruckersLikeMe first, then the open web — and we never call a
+          web result “safe” without a badge.
         </p>
       </section>
 
       <section className="space-y-5">
-        <div>
-          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
-            I need
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {needOptions.map((c) => (
-              <Chip key={c.id} active={kind === c.id} onClick={() => setKind(c.id)}>
-                {c.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
         <div>
           <label className="block">
             <span className="font-display text-xs tracking-[0.16em] text-muted uppercase">
