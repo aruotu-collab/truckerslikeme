@@ -158,36 +158,21 @@ export function FindPanel() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
-            { headers: { Accept: "application/json" } },
+          const { reverseGeocodeLabel } = await import("@/lib/reverse-geocode");
+          const place = await reverseGeocodeLabel(
+            pos.coords.latitude,
+            pos.coords.longitude,
           );
-          const data = (await res.json()) as {
-            address?: {
-              city?: string;
-              town?: string;
-              village?: string;
-              state?: string;
-              country?: string;
-            };
-            display_name?: string;
-          };
-          const a = data.address;
-          setNear(
-            [a?.city || a?.town || a?.village, a?.state || a?.country]
-              .filter(Boolean)
-              .join(", ") ||
-              data.display_name?.split(",").slice(0, 2).join(",") ||
-              `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
-          );
+          setNear(place);
+          setError(null);
         } catch {
           setNear(
-            `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
+            `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
           );
         }
       },
       () => setError("Could not read location. Type a place instead."),
-      { enableHighAccuracy: false, timeout: 12000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
     );
   }
 

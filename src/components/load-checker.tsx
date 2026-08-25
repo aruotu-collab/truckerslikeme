@@ -182,32 +182,13 @@ export function LoadChecker() {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-            { headers: { Accept: "application/json" } },
-          );
-          const data = (await res.json()) as {
-            address?: {
-              city?: string;
-              town?: string;
-              village?: string;
-              state?: string;
-              country?: string;
-            };
-            display_name?: string;
-          };
-          const a = data.address;
-          const place =
-            [a?.city || a?.town || a?.village, a?.state || a?.country]
-              .filter(Boolean)
-              .join(", ") ||
-            data.display_name?.split(",").slice(0, 2).join(",") ||
-            `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+          const { reverseGeocodeLabel } = await import("@/lib/reverse-geocode");
+          const place = await reverseGeocodeLabel(latitude, longitude);
           rememberLocation(place);
           setGeoNote("Using your current location for this check.");
         } catch {
           rememberLocation(
-            `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
+            `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
           );
           setGeoNote("Using your current coordinates.");
         } finally {
@@ -220,7 +201,7 @@ export function LoadChecker() {
           "Could not read location. Type a city or place instead — that works fine.",
         );
       },
-      { enableHighAccuracy: false, timeout: 12000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
     );
   }
 
