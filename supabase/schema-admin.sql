@@ -1,11 +1,21 @@
 -- Admin role for TruckersLikeMe (run in Supabase SQL editor)
 -- Promotes aruotu@gmail.com to admin + Pro.
+-- Self-contained: adds plan/role columns if your profiles table predates schema.sql.
+
+do $$ begin
+  create type public.plan_tier as enum ('free', 'pro');
+exception
+  when duplicate_object then null;
+end $$;
 
 do $$ begin
   create type public.user_role as enum ('driver', 'admin');
 exception
   when duplicate_object then null;
 end $$;
+
+alter table public.profiles
+  add column if not exists plan public.plan_tier not null default 'free';
 
 alter table public.profiles
   add column if not exists role public.user_role not null default 'driver';
