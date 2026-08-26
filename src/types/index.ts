@@ -40,7 +40,7 @@ export type PlannedRoute = {
 };
 
 /** Truck-side support along a planned corridor (not consumer lodging). */
-export type CorridorSupportKind = "repair" | "lodging" | "parking";
+export type CorridorSupportKind = "repair" | "lodging" | "parking" | "fuel";
 
 export type CorridorSupportPlace = {
   id: string;
@@ -58,6 +58,7 @@ export type CorridorSupport = {
     repair: number;
     lodging: number;
     parking: number;
+    fuel: number;
   };
   places: CorridorSupportPlace[];
 };

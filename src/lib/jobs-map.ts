@@ -148,6 +148,36 @@ export function filterMapJobs(jobs: MapJob[], filter: JobsMapFilter) {
   return jobs.filter((j) => j.status !== "skipped");
 }
 
+/** Jobs shown on the Map Jobs hunt board (not won / skipped). */
+export function huntBoardJobs(jobs: MapJob[]) {
+  return jobs.filter((j) => j.status !== "won" && j.status !== "skipped");
+}
+
+export type MyJobsFilter = "bidding" | "won" | "considering";
+
+export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
+  if (filter === "won") return jobs.filter((j) => j.status === "won");
+  if (filter === "bidding") {
+    return jobs.filter(
+      (j) =>
+        j.status === "bidding" ||
+        (j.myBid != null && j.myBid > 0 && j.status !== "won"),
+    );
+  }
+  return jobs.filter(
+    (j) =>
+      j.status === "hunting" && (j.myBid == null || j.myBid <= 0),
+  );
+}
+
+export function countMyJobs(jobs: MapJob[]) {
+  return {
+    bidding: filterMyJobs(jobs, "bidding").length,
+    won: filterMyJobs(jobs, "won").length,
+    considering: filterMyJobs(jobs, "considering").length,
+  };
+}
+
 export type TubeStation = {
   key: string;
   label: string;

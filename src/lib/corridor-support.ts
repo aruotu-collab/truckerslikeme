@@ -149,10 +149,77 @@ function buildSupport(
       repair: places.filter((p) => p.kind === "repair").length,
       lodging: places.filter((p) => p.kind === "lodging").length,
       parking: places.filter((p) => p.kind === "parking").length,
+      fuel: places.filter((p) => p.kind === "fuel").length,
     },
     places: [...places].sort((a, b) => a.mile - b.mile),
   };
 }
+
+const newcastleManchesterPlaces: CorridorSupportPlace[] = [
+  {
+    id: "uk-p1",
+    kind: "parking",
+    name: "Sandy Lane Truckparc",
+    detail: "A1(M) north · secure overnight",
+    mile: 5,
+  },
+  {
+    id: "uk-f1",
+    kind: "fuel",
+    name: "Durham A1(M) Services",
+    detail: "HGV diesel · card accepted",
+    mile: 10,
+  },
+  {
+    id: "uk-f2",
+    kind: "fuel",
+    name: "Wetherby Services",
+    detail: "A1(M) · busy after 4 PM",
+    mile: 45,
+  },
+  {
+    id: "uk-r1",
+    kind: "repair",
+    name: "Coneygarth Truckstop",
+    detail: "Tyres · oil · light mechanical",
+    mile: 50,
+  },
+  {
+    id: "uk-p2",
+    kind: "parking",
+    name: "Hartshead Moor Services",
+    detail: "M62 · truck parking westbound",
+    mile: 85,
+  },
+  {
+    id: "uk-f3",
+    kind: "fuel",
+    name: "Birch Services",
+    detail: "M62 · HGV lane",
+    mile: 95,
+  },
+  {
+    id: "uk-p3",
+    kind: "parking",
+    name: "Lymm Truckstop",
+    detail: "M6/M62 · confirm space if artic",
+    mile: 110,
+  },
+  {
+    id: "uk-r2",
+    kind: "repair",
+    name: "Manchester Freight Repair",
+    detail: "Commercial tyres · call ahead",
+    mile: 115,
+  },
+];
+
+const newcastleManchester = buildSupport(
+  "newcastle-manchester",
+  "Newcastle → Manchester via A1(M) / M62",
+  newcastleManchesterPlaces,
+  "Mapped stops on this corridor — refresh for live discovery on your haul.",
+);
 
 const dallasChicago = buildSupport(
   "dallas-chicago",
@@ -168,18 +235,31 @@ function approximateSupport(origin: string, destination: string): CorridorSuppor
   const repair = 4 + (seed % 4);
   const lodging = 3 + (seed % 3);
   const parking = 6 + (seed % 5);
+  const fuel = 4 + (seed % 3);
 
   return {
     corridorKey: "approx",
     label,
-    note: "Estimate for this corridor — full mapped stops available on Dallas → Chicago today.",
-    counts: { repair, lodging, parking },
+    note: "Estimate for this corridor — try Newcastle → Manchester or Dallas → Chicago for mapped examples.",
+    counts: { repair, lodging, parking, fuel },
     places: [],
   };
 }
 
 function normalizeCity(value: string) {
   return value.toLowerCase().replace(/,\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isNewcastleManchester(origin: string, destination: string) {
+  const o = normalizeCity(origin);
+  const d = normalizeCity(destination);
+  const fromNewcastle = o.includes("newcastle");
+  const toManchester = d.includes("manchester");
+  const fromManchester = o.includes("manchester");
+  const toNewcastle = d.includes("newcastle");
+  return (
+    (fromNewcastle && toManchester) || (fromManchester && toNewcastle)
+  );
 }
 
 function isDallasChicago(origin: string, destination: string) {
@@ -194,6 +274,7 @@ export function getCorridorSupport(
   origin: string,
   destination: string,
 ): CorridorSupport {
+  if (isNewcastleManchester(origin, destination)) return newcastleManchester;
   if (isDallasChicago(origin, destination)) return dallasChicago;
   return approximateSupport(origin.trim(), destination.trim());
 }
@@ -205,4 +286,5 @@ export const supportKindLabel: Record<
   repair: "Truck repair",
   lodging: "Truck lodging",
   parking: "Parking",
+  fuel: "Fuel",
 };

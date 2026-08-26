@@ -5,9 +5,9 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Find parking, diesel & repair | TruckersLikeMe",
+  title: "Nearest Services | TruckersLikeMe",
   description:
-    "Tap-first search for truck parking, diesel, and repair worldwide — with trust badges.",
+    "Parking, fuel, and repair near you — tap-first search with driver trust badges.",
 };
 
 export default function FindPage() {

@@ -1,0 +1,231 @@
+"use client";
+
+import Link from "next/link";
+import { CorridorRibbon } from "@/components/corridor-ribbon";
+import { DEMO_CORRIDOR } from "@/lib/corridor-ribbon-shared";
+import { useAuthGate } from "@/lib/auth-gate";
+
+const pillars = [
+  {
+    eyebrow: "Decide",
+    title: "Is it worth it?",
+    body: "Strip Shiply’s fee, add empty miles, see true net £ / mile / hour before you bid.",
+    href: "/run",
+    cta: "Check a job",
+  },
+  {
+    eyebrow: "Hunt",
+    title: "Map the board",
+    body: "Scan Shiply, compare lanes, and build the most profitable day from where you are.",
+    href: "/map",
+    cta: "Map Jobs",
+  },
+  {
+    eyebrow: "Execute",
+    title: "Run the haul",
+    body: "Plan fuel, parking, and repair along the corridor — not guesswork at midnight.",
+    href: "/plan",
+    cta: "Plan route",
+  },
+];
+
+export function MarketingHome() {
+  const { openGate, isSignedIn } = useAuthGate();
+
+  return (
+    <div className="space-y-16 sm:space-y-20">
+      {/* Hero */}
+      <section className="relative overflow-hidden border border-asphalt/10 bg-asphalt px-6 py-14 text-white sm:px-10 sm:py-20">
+        <div className="relative z-10 max-w-3xl">
+          <p className="font-display text-sm tracking-[0.22em] text-amber uppercase">
+            Built for Shiply drivers
+          </p>
+          <h1 className="mt-4 font-display text-4xl leading-[1.05] tracking-wide uppercase sm:text-5xl lg:text-6xl">
+            Shiply shows what&apos;s listed.
+            <span className="mt-2 block text-amber">
+              We tell you what to take.
+            </span>
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+            Stop bidding blind. See true profit after Shiply&apos;s cut, empty
+            miles, and fuel — then hunt, chain, and plan the haul that actually
+            pays.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/map"
+              className="rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
+            >
+              Map Jobs →
+            </Link>
+            <Link
+              href="/run"
+              className="rounded-sm border border-white/30 px-6 py-3.5 text-sm font-semibold tracking-wide text-white uppercase transition hover:border-amber hover:text-amber-hot"
+            >
+              Build My Run
+            </Link>
+            {!isSignedIn && (
+              <button
+                type="button"
+                onClick={() => openGate("join-community")}
+                className="rounded-sm px-6 py-3.5 text-sm font-semibold tracking-wide text-white/70 uppercase transition hover:text-white"
+              >
+                Sign in free
+              </button>
+            )}
+          </div>
+        </div>
+        <div
+          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber/10 blur-3xl"
+          aria-hidden
+        />
+      </section>
+
+      {/* Live product strip — verdict + corridor */}
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="border border-emerald-200 bg-emerald-50 px-5 py-6 sm:px-6">
+          <p className="font-display text-xs tracking-[0.16em] text-emerald-800 uppercase">
+            Before you bid
+          </p>
+          <p className="mt-3 font-display text-2xl tracking-wide text-asphalt uppercase">
+            Bolton → Manchester · £240 quote
+          </p>
+          <p className="mt-2 text-sm text-emerald-900">
+            After 13% Shiply fee, 25 mi deadhead, fuel & costs:
+          </p>
+          <dl className="mt-4 grid grid-cols-3 gap-3">
+            <div>
+              <dt className="text-[10px] font-semibold uppercase text-muted">
+                Est. net
+              </dt>
+              <dd className="text-xl font-semibold text-asphalt">£68</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-semibold uppercase text-muted">
+                £ / mile
+              </dt>
+              <dd className="text-xl font-semibold text-alert">£0.47</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-semibold uppercase text-muted">
+                Verdict
+              </dt>
+              <dd className="text-lg font-semibold text-alert">Pass alone</dd>
+            </div>
+          </dl>
+          <Link
+            href="/run"
+            className="mt-5 inline-block text-sm font-semibold text-amber transition hover:text-asphalt"
+          >
+            Check any job in Build My Run →
+          </Link>
+        </div>
+
+        <div className="overflow-hidden border border-asphalt/10 bg-white">
+          <div className="border-b border-asphalt/10 px-4 py-3 sm:px-5">
+            <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+              Plan the corridor
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              {DEMO_CORRIDOR.origin} → {DEMO_CORRIDOR.destination} · ~
+              {DEMO_CORRIDOR.miles} mi · {DEMO_CORRIDOR.stops.length} stops
+            </p>
+          </div>
+          <CorridorRibbon
+            origin={DEMO_CORRIDOR.origin}
+            destination={DEMO_CORRIDOR.destination}
+            totalMiles={DEMO_CORRIDOR.miles}
+            stops={DEMO_CORRIDOR.stops.slice(0, 5)}
+            footer=""
+          />
+          <div className="border-t border-asphalt/10 px-4 py-3 sm:px-5">
+            <Link
+              href="/plan"
+              className="text-sm font-semibold text-amber transition hover:text-asphalt"
+            >
+              Plan your own route →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Three pillars */}
+      <section>
+        <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
+          How it works
+        </p>
+        <h2 className="mt-2 font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
+          Decide · Hunt · Execute
+        </h2>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {pillars.map((p) => (
+            <Link
+              key={p.href}
+              href={p.href}
+              className="group border border-asphalt/15 bg-white px-5 py-6 transition hover:border-amber hover:bg-amber/5"
+            >
+              <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+                {p.eyebrow}
+              </p>
+              <p className="mt-3 font-display text-xl tracking-wide text-asphalt uppercase">
+                {p.title}
+              </p>
+              <p className="mt-2 text-sm leading-snug text-muted">{p.body}</p>
+              <p className="mt-4 text-xs font-semibold tracking-wide text-amber uppercase group-hover:text-asphalt">
+                {p.cta} →
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Pain / payoff */}
+      <section className="border border-asphalt/10 bg-concrete/30 px-6 py-10 sm:px-8">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase sm:text-3xl">
+            The headline quote is never the number that matters
+          </h2>
+          <p className="mt-4 text-lg text-muted">
+            Shiply takes a cut. You run empty to the pickup. Diesel moves every
+            week. TruckersLikeMe works in{" "}
+            <strong className="text-asphalt">your bid</strong>,{" "}
+            <strong className="text-asphalt">your empty miles</strong>, and{" "}
+            <strong className="text-asphalt">your day total</strong> — so you
+            stop chasing jobs that look good and lose money.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/jobs"
+              className="rounded-sm border border-asphalt/15 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
+            >
+              My Jobs
+            </Link>
+            <Link
+              href="/find"
+              className="rounded-sm border border-asphalt/15 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
+            >
+              Nearest Services
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="text-center">
+        <p className="font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
+          Let the money choose the day
+        </p>
+        <p className="mx-auto mt-3 max-w-lg text-muted">
+          Open Map Jobs, scan what&apos;s on Shiply near you, and build the run
+          that finishes profitably — wherever that is.
+        </p>
+        <Link
+          href="/map"
+          className="mt-6 inline-block rounded-sm bg-amber px-8 py-4 text-sm font-semibold tracking-wide text-asphalt uppercase"
+        >
+          Start on Map Jobs →
+        </Link>
+      </section>
+    </div>
+  );
+}

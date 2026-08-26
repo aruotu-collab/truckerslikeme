@@ -1,0 +1,326 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useMarket } from "@/lib/market-context";
+import {
+  countMyJobs,
+  filterMyJobs,
+  mapStatusMeta,
+  readJobsMapState,
+  shortPlace,
+  writeJobsMapState,
+  type MapJob,
+  type MapJobStatus,
+  type MyJobsFilter,
+} from "@/lib/jobs-map";
+
+const FILTERS: { id: MyJobsFilter; label: string }[] = [
+  { id: "bidding", label: "Bidding" },
+  { id: "won", label: "Won" },
+  { id: "considering", label: "Considering" },
+];
+
+export function MyJobsPanel() {
+  const { money } = useMarket();
+  const [jobs, setJobs] = useState<MapJob[]>([]);
+  const [filter, setFilter] = useState<MyJobsFilter>("bidding");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setJobs(readJobsMapState().jobs);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const prev = readJobsMapState();
+    writeJobsMapState({ ...prev, jobs });
+  }, [jobs, hydrated]);
+
+  const counts = countMyJobs(jobs);
+  const visible = filterMyJobs(jobs, filter);
+
+  function setStatus(id: string, status: MapJobStatus) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, status, updatedAt: new Date().toISOString() }
+          : j,
+      ),
+    );
+  }
+
+  function setMyBid(id: string, myBid: number | null) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, myBid, updatedAt: new Date().toISOString() }
+          : j,
+      ),
+    );
+  }
+
+  function removeJob(id: string) {
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    if (selectedId === id) setSelectedId(null);
+  }
+
+  return (
+    <div className="space-y-8">
+      <section>
+        <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+          My jobs
+        </p>
+        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+          Your bids & wins
+        </h1>
+        <p className="mt-3 max-w-2xl text-lg text-muted">
+          Track what you&apos;ve quoted, what you&apos;ve won, and what still
+          needs a decision. Revenue on Map Jobs and Build My Run uses your bids
+          only — not Shiply&apos;s scraped amounts.
+        </p>
+      </section>
+
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
+              filter === f.id
+                ? "bg-amber text-asphalt"
+                : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
+            }`}
+          >
+            {f.label}
+            <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
+          </button>
+        ))}
+        <Link
+          href="/map"
+          className="ml-auto rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
+        >
+          Hunt more on Map Jobs →
+        </Link>
+      </div>
+
+      {!hydrated ? (
+        <p className="text-sm text-muted">Loading your jobs…</p>
+      ) : !visible.length ? (
+        <div className="border border-asphalt/10 bg-white px-5 py-8 text-center">
+          <p className="font-display text-lg tracking-wide text-asphalt uppercase">
+            Nothing here yet
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            {filter === "won"
+              ? "When Shiply accepts a bid, mark the job as won here."
+              : filter === "bidding"
+                ? "Enter your quote on jobs from Map Jobs — they appear here when you're bidding."
+                : "Scan Shiply on Map Jobs and add jobs to your board first."}
+          </p>
+          <Link
+            href="/map"
+            className="mt-4 inline-block rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
+          >
+            Open Map Jobs
+          </Link>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {visible.map((job) => {
+            const meta = mapStatusMeta[job.status];
+            const active = job.id === selectedId;
+            return (
+              <li
+                key={job.id}
+                className={`border px-4 py-3 transition ${
+                  active
+                    ? "border-asphalt bg-white"
+                    : "border-asphalt/10 bg-white/80 hover:border-asphalt/25"
+                }`}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => setSelectedId(job.id)}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-asphalt">
+                        {shortPlace(job.origin)} →{" "}
+                        {shortPlace(job.destination)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {[
+                          job.item,
+                          job.miles != null ? `${job.miles} mi` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${meta.soft}`}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
+                </button>
+
+                {filter !== "won" && (
+                  <label className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                      Your bid £
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="decimal"
+                      placeholder="Enter quote"
+                      value={job.myBid ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        if (!raw) {
+                          setMyBid(job.id, null);
+                          return;
+                        }
+                        const n = Number(raw);
+                        setMyBid(
+                          job.id,
+                          Number.isFinite(n) && n > 0 ? n : null,
+                        );
+                        if (Number.isFinite(n) && n > 0 && job.status === "hunting") {
+                          setStatus(job.id, "bidding");
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-28 border border-asphalt/15 bg-white px-2 py-1.5 text-sm tabular-nums outline-none focus:border-amber"
+                    />
+                    {job.myBid != null && job.miles != null && job.miles > 0 && (
+                      <span className="text-xs text-muted">
+                        {money(job.myBid / job.miles)}/mi
+                      </span>
+                    )}
+                  </label>
+                )}
+
+                {filter === "won" && job.myBid != null && job.myBid > 0 && (
+                  <p className="mt-2 text-sm font-medium text-asphalt">
+                    Won at {money(job.myBid)}
+                    {job.miles != null && job.miles > 0
+                      ? ` · ${money(job.myBid / job.miles)}/mi`
+                      : ""}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {job.href ? (
+                    <a
+                      href={job.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
+                    >
+                      Open on Shiply →
+                    </a>
+                  ) : null}
+                  {job.status !== "won" && job.status !== "bidding" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(job.id, "bidding")}
+                      className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                    >
+                      Mark bidding
+                    </button>
+                  )}
+                  {job.status !== "won" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(job.id, "won")}
+                      className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+                    >
+                      I got this
+                    </button>
+                  )}
+                  {job.status === "won" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(job.id, "hunting")}
+                      className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                    >
+                      Back to hunt
+                    </button>
+                  )}
+                  {job.status === "bidding" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(job.id, "hunting")}
+                      className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                    >
+                      Still considering
+                    </button>
+                  )}
+                  {job.status !== "skipped" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(job.id, "skipped")}
+                      className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                    >
+                      Skip
+                    </button>
+                  )}
+                  <Link
+                    href="/run"
+                    className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                  >
+                    Build run
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => removeJob(job.id)}
+                    className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {jobs.some((j) => j.status === "skipped") && (
+        <details className="text-sm text-muted">
+          <summary className="cursor-pointer font-medium text-asphalt">
+            Skipped ({jobs.filter((j) => j.status === "skipped").length})
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {jobs
+              .filter((j) => j.status === "skipped")
+              .map((j) => (
+                <li
+                  key={j.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 px-3 py-2"
+                >
+                  <span>
+                    {shortPlace(j.origin)} → {shortPlace(j.destination)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStatus(j.id, "hunting")}
+                    className="text-[11px] font-semibold tracking-wide uppercase text-amber"
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}

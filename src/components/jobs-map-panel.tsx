@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
@@ -14,12 +15,11 @@ import {
   type SortMode,
 } from "@/lib/jobs-map-explore";
 import {
-  buildBidPlans,
   DEFAULT_RUN_PREFS,
   type RunBuilderPrefs,
 } from "@/lib/jobs-run-builder";
 import {
-  filterMapJobs,
+  huntBoardJobs,
   mapStatusMeta,
   mergeScannedJobs,
   placeKey,
@@ -27,20 +27,12 @@ import {
   shortPlace,
   writeJobsMapState,
   type JobsMapDriver,
-  type JobsMapFilter,
   type MapJob,
-  type MapJobStatus,
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
-
-const FILTERS: { id: JobsMapFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "hunting", label: "Hunting" },
-  { id: "won", label: "Won" },
-];
 
 const SORTS: { id: SortMode; label: string }[] = [
   { id: "money", label: "Most money" },
@@ -58,7 +50,6 @@ export function JobsMapPanel() {
   const [driver, setDriver] = useState<JobsMapDriver | null>(null);
   const [startDraft, setStartDraft] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
-  const [filter, setFilter] = useState<JobsMapFilter>("all");
   const [mainTab, setMainTab] = useState<MainTab>("jobs");
   const [jobsLook, setJobsLook] = useState<JobsLook>("list");
   const [sortMode, setSortMode] = useState<SortMode>("money");
@@ -69,7 +60,6 @@ export function JobsMapPanel() {
   const [hubKey, setHubKey] = useState<string | null>(null);
   const [headingDraft, setHeadingDraft] = useState("");
   const [headingToward, setHeadingToward] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [runPrefs, setRunPrefs] = useState<RunBuilderPrefs>(DEFAULT_RUN_PREFS);
   const [runChainIds, setRunChainIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -100,7 +90,7 @@ export function JobsMapPanel() {
     writeJobsMapState({ jobs, driver });
   }, [jobs, driver, hydrated]);
 
-  const visible = filterMapJobs(jobs, filter);
+  const visible = huntBoardJobs(jobs);
   const startReady = Boolean(driver?.label.trim());
 
   const corridorGroups = useMemo(
@@ -119,11 +109,6 @@ export function JobsMapPanel() {
   const routes = useMemo(
     () => sortConnections(buildRouteConnections(exploreJobs), sortMode),
     [exploreJobs, sortMode],
-  );
-
-  const runBuilder = useMemo(
-    () => buildBidPlans(visible, driver, runPrefs),
-    [visible, driver, runPrefs],
   );
 
   const unmapped = useMemo(() => unmappedJobs(visible), [visible]);
@@ -200,29 +185,8 @@ export function JobsMapPanel() {
     }
   }
 
-  function setStatus(id: string, status: MapJobStatus) {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id
-          ? { ...j, status, updatedAt: new Date().toISOString() }
-          : j,
-      ),
-    );
-  }
-
-  function setMyBid(id: string, myBid: number | null) {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id
-          ? { ...j, myBid, updatedAt: new Date().toISOString() }
-          : j,
-      ),
-    );
-  }
-
   function removeJob(id: string) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
-    if (selectedId === id) setSelectedId(null);
   }
 
   async function startSession() {
@@ -328,14 +292,6 @@ export function JobsMapPanel() {
     setError(null);
   }
 
-  const counts = {
-    all: jobs.filter((j) => j.status !== "skipped").length,
-    hunting: jobs.filter(
-      (j) => j.status === "hunting" || j.status === "bidding",
-    ).length,
-    won: jobs.filter((j) => j.status === "won").length,
-  };
-
   return (
     <div className="space-y-10">
       <header className="max-w-2xl">
@@ -346,8 +302,12 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          Add Shiply jobs, enter your bids, then open <strong>My run</strong> to
-          see the best pickup→drop chain and what you’d earn.
+          Scan what&apos;s on Shiply near you, compare lanes, and build a run.
+          Enter bids and track wins in{" "}
+          <Link href="/jobs" className="font-semibold text-amber hover:text-asphalt">
+            My Jobs
+          </Link>
+          .
         </p>
       </header>
 
@@ -555,8 +515,8 @@ export function JobsMapPanel() {
             </h2>
             <p className="mt-1 text-sm text-muted">
               {mainTab === "jobs"
-                ? "Enter your bid on each job you want — then open My run to see earnings."
-                : "Suggested chains from your board. Revenue uses your bids only."}
+                ? "Explore the board — then open My run for suggested chains."
+                : "Suggested chains from your board. Revenue uses your bids from My Jobs."}
             </p>
           </div>
           <div
@@ -584,23 +544,12 @@ export function JobsMapPanel() {
                 {t.label}
               </button>
             ))}
-            <span className="mx-0.5 w-px self-stretch bg-asphalt/15" aria-hidden />
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                aria-pressed={filter === f.id}
-                onClick={() => setFilter(f.id)}
-                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase ${
-                  filter === f.id
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                {f.label}
-                <span className="ml-1 opacity-70">{counts[f.id]}</span>
-              </button>
-            ))}
+            <Link
+              href="/jobs"
+              className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
+            >
+              My Jobs →
+            </Link>
           </div>
         </div>
 
@@ -611,7 +560,7 @@ export function JobsMapPanel() {
             </span>
             {(
               [
-                { id: "list" as const, label: "List + bids" },
+                { id: "list" as const, label: "List" },
                 { id: "map" as const, label: "Map" },
                 { id: "lanes" as const, label: "Lanes" },
               ] as const
@@ -654,8 +603,11 @@ export function JobsMapPanel() {
         {mainTab === "jobs" && jobsLook === "map" && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Direction clusters on your board — tap to drill in. Enter bids on
-              List + bids.
+              Direction clusters on your board — tap to drill in. Manage bids in{" "}
+              <Link href="/jobs" className="font-semibold text-amber">
+                My Jobs
+              </Link>
+              .
             </p>
             <JobsExploreMap
               jobs={exploreJobs}
@@ -676,18 +628,11 @@ export function JobsMapPanel() {
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
               <div className="border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
-                No bids yet — revenue shows £0 until you enter quotes on{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainTab("jobs");
-                    setJobsLook("list");
-                  }}
-                  className="font-semibold text-amber underline"
-                >
-                  Jobs
-                </button>
-                .
+                No bids yet — enter quotes in{" "}
+                <Link href="/jobs" className="font-semibold text-amber underline">
+                  My Jobs
+                </Link>{" "}
+                so My run can show earnings.
               </div>
             )}
             <JobsPlannerGrid
@@ -697,217 +642,90 @@ export function JobsMapPanel() {
               runPrefs={runPrefs}
               initialChainIds={runChainIds}
               runOnly
-              onMarkWon={(id) => setStatus(id, "won")}
             />
           </div>
         )}
       </section>
 
-      {/* Job list — primary bid entry */}
+      {/* Job list — hunt view only; bids managed in My Jobs */}
       {mainTab === "jobs" && jobsLook === "list" && (
-      <section className="space-y-3">
-        <div>
-          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-            {filter === "won"
-              ? `Won jobs (${counts.won})`
-              : filter === "hunting"
-                ? "Hunting — enter your bids"
-                : "Enter your bids"}
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            {filter === "won"
-              ? "Jobs you’ve marked as won. Open Shiply links anytime, or put one back to Hunting if it falls through."
-              : "Your quote on each job is what My run uses for revenue and £/mi."}
-          </p>
-          {filter === "won" && counts.won === 0 && (
-            <p className="mt-2 border border-asphalt/10 bg-white px-3 py-2 text-sm text-muted">
-              No wins yet — when Shiply accepts a bid, tap{" "}
-              <strong className="text-asphalt">I got this</strong> on that job.
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
+                On your board
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Jobs you&apos;ve added from Shiply. Enter bids and mark wins in
+                My Jobs.
+              </p>
+            </div>
+            <Link
+              href="/jobs"
+              className="rounded-sm bg-amber px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase"
+            >
+              My Jobs →
+            </Link>
+          </div>
+          {!visible.length ? (
+            <p className="text-sm text-muted">
+              No jobs on the board yet. Scan Shiply and add them above.
             </p>
-          )}
-        </div>
-        {!visible.length ? (
-          <p className="text-sm text-muted">
-            No jobs in this view yet. Scan Shiply and add them above.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {visible.map((job) => {
-              const meta = mapStatusMeta[job.status];
-              const active = job.id === selectedId;
-              return (
-                <li
-                  key={job.id}
-                  className={`border px-4 py-3 transition ${
-                    active
-                      ? "border-asphalt bg-white"
-                      : "border-asphalt/10 bg-white/80 hover:border-asphalt/25"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={() => setSelectedId(job.id)}
+          ) : (
+            <ul className="divide-y divide-asphalt/10 border-y border-asphalt/10">
+              {visible.map((job) => {
+                const meta = mapStatusMeta[job.status];
+                return (
+                  <li
+                    key={job.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-asphalt">
-                          {shortPlace(job.origin)} →{" "}
-                          {shortPlace(job.destination)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          {[
-                            job.item,
-                            job.miles != null ? `${job.miles} mi` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="font-medium text-asphalt">
+                        {shortPlace(job.origin)} → {shortPlace(job.destination)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {[
+                          job.item,
+                          job.miles != null ? `${job.miles} mi` : null,
+                          job.myBid != null && job.myBid > 0
+                            ? `Bid ${money(job.myBid)}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${meta.soft}`}
+                        className={`rounded-sm border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${meta.soft}`}
                       >
                         {meta.label}
                       </span>
+                      {job.href ? (
+                        <a
+                          href={job.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-semibold tracking-wide text-amber uppercase"
+                        >
+                          Shiply →
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => removeJob(job.id)}
+                        className="text-[11px] font-semibold tracking-wide text-alert uppercase"
+                      >
+                        Remove
+                      </button>
                     </div>
-                  </button>
-
-                  <label className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                      Your bid £
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      inputMode="decimal"
-                      placeholder="Enter quote"
-                      value={job.myBid ?? ""}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        if (!raw) {
-                          setMyBid(job.id, null);
-                          return;
-                        }
-                        const n = Number(raw);
-                        setMyBid(
-                          job.id,
-                          Number.isFinite(n) && n > 0 ? n : null,
-                        );
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-28 border border-asphalt/15 bg-white px-2 py-1.5 text-sm tabular-nums outline-none focus:border-amber"
-                    />
-                    {job.myBid != null && job.miles != null && job.miles > 0 && (
-                      <span className="text-xs text-muted">
-                        {money(job.myBid / job.miles)}/mi
-                      </span>
-                    )}
-                  </label>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {job.href ? (
-                      <a
-                        href={job.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                      >
-                        Open on Shiply →
-                      </a>
-                    ) : (
-                      <span className="px-1 py-1.5 text-[11px] text-muted">
-                        No Shiply link from scan
-                      </span>
-                    )}
-                    {job.status !== "won" && job.status !== "bidding" && (
-                      <button
-                        type="button"
-                        onClick={() => setStatus(job.id, "bidding")}
-                        className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                      >
-                        Bidding
-                      </button>
-                    )}
-                    {job.status !== "won" && (
-                      <button
-                        type="button"
-                        onClick={() => setStatus(job.id, "won")}
-                        className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
-                      >
-                        I got this
-                      </button>
-                    )}
-                    {job.status === "won" && (
-                      <button
-                        type="button"
-                        onClick={() => setStatus(job.id, "hunting")}
-                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
-                      >
-                        Back to hunt
-                      </button>
-                    )}
-                    {job.status === "bidding" && (
-                      <button
-                        type="button"
-                        onClick={() => setStatus(job.id, "hunting")}
-                        className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-                      >
-                        Considering
-                      </button>
-                    )}
-                    {job.status !== "skipped" && (
-                      <button
-                        type="button"
-                        onClick={() => setStatus(job.id, "skipped")}
-                        className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-                      >
-                        Skip
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeJob(job.id)}
-                      className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {jobs.some((j) => j.status === "skipped") && (
-          <details className="pt-2 text-sm text-muted">
-            <summary className="cursor-pointer font-medium text-asphalt">
-              Skipped ({jobs.filter((j) => j.status === "skipped").length})
-            </summary>
-            <ul className="mt-2 space-y-1">
-              {jobs
-                .filter((j) => j.status === "skipped")
-                .map((j) => (
-                  <li
-                    key={j.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 px-3 py-2"
-                  >
-                    <span>
-                      {shortPlace(j.origin)} → {shortPlace(j.destination)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setStatus(j.id, "hunting")}
-                      className="text-[11px] font-semibold tracking-wide uppercase text-amber"
-                    >
-                      Restore
-                    </button>
                   </li>
-                ))}
+                );
+              })}
             </ul>
-          </details>
-        )}
-      </section>
+          )}
+        </section>
       )}
     </div>
   );

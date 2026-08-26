@@ -8,20 +8,23 @@ export function SiteFooter() {
           Truckers<span className="text-amber">Like</span>Me
         </p>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
-          <Link href="/" className="transition hover:text-asphalt">
-            Check
-          </Link>
           <Link href="/run" className="transition hover:text-asphalt">
-            Build run
+            Build My Run
+          </Link>
+          <Link href="/map" className="transition hover:text-asphalt">
+            Map Jobs
           </Link>
           <Link href="/plan" className="transition hover:text-asphalt">
-            Plan
+            Plan Route
           </Link>
           <Link href="/find" className="transition hover:text-asphalt">
-            Find
+            Nearest Services
+          </Link>
+          <Link href="/jobs" className="transition hover:text-asphalt">
+            My Jobs
           </Link>
           <Link href="/me" className="transition hover:text-asphalt">
-            Me
+            Account
           </Link>
         </nav>
         <p className="text-sm text-muted">

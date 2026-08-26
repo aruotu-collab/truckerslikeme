@@ -13,48 +13,34 @@ type SiteHeaderProps = {
 
 const primaryNav = [
   {
-    href: "/",
-    label: "Check Load",
-    match: (pathname: string, _need: string | null) =>
-      pathname === "/" ||
-      pathname.startsWith("/check") ||
-      pathname.startsWith("/money"),
-  },
-  {
     href: "/run",
     label: "Build My Run",
-    match: (pathname: string, _need: string | null) =>
-      pathname.startsWith("/run"),
+    match: (pathname: string) => pathname.startsWith("/run"),
   },
   {
     href: "/map",
     label: "Map Jobs",
-    match: (pathname: string, _need: string | null) =>
-      pathname.startsWith("/map"),
+    match: (pathname: string) => pathname.startsWith("/map"),
   },
   {
     href: "/plan",
     label: "Plan Route",
-    match: (pathname: string, _need: string | null) =>
+    match: (pathname: string) =>
       pathname.startsWith("/plan") && !pathname.startsWith("/plan/"),
   },
   {
-    href: "/find?need=parking",
-    label: "Nearest Parking",
+    href: "/find",
+    label: "Nearest Services",
     match: (pathname: string, need: string | null) =>
-      pathname.startsWith("/find") && (need === "parking" || !need),
+      pathname.startsWith("/find") ||
+      pathname.startsWith("/trip") ||
+      (need != null &&
+        (need === "parking" || need === "diesel" || need === "repair")),
   },
   {
-    href: "/find?need=diesel",
-    label: "Nearest Fuel",
-    match: (pathname: string, need: string | null) =>
-      pathname.startsWith("/find") && need === "diesel",
-  },
-  {
-    href: "/find?need=repair",
-    label: "Nearest Repair",
-    match: (pathname: string, need: string | null) =>
-      pathname.startsWith("/find") && need === "repair",
+    href: "/jobs",
+    label: "My Jobs",
+    match: (pathname: string) => pathname.startsWith("/jobs"),
   },
 ] as const;
 
@@ -162,7 +148,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             </span>
           </Link>
           <p className="mt-0.5 hidden truncate text-xs text-white/45 sm:block">
-            Load decisions · Places drivers trust
+            Shiply shows jobs · We tell you what to take
           </p>
         </div>
 

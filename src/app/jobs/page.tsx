@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
-import { MarketingHome } from "@/components/marketing-home";
+import { MyJobsPanel } from "@/components/my-jobs-panel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "TruckersLikeMe — Shiply shows jobs. We tell you what to take.",
+  title: "My Jobs | TruckersLikeMe",
   description:
-    "True profit after Shiply fees, empty miles, and fuel. Map Jobs, Build My Run, Plan Route, and manage your bids.",
+    "Track Shiply bids, won jobs, and your pipeline — your quotes drive run revenue.",
 };
 
-export default function HomePage() {
+export default function JobsPage() {
   return (
     <div className="flex min-h-full flex-col bg-background">
       <SiteHeader variant="solid" />
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-        <MarketingHome />
+        <MyJobsPanel />
       </main>
       <SiteFooter />
     </div>
