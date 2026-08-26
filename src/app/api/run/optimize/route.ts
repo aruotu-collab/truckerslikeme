@@ -45,6 +45,10 @@ export async function POST(request: Request) {
     finishRadius: body.prefs?.finishRadius || "anywhere",
     finishBy: body.prefs?.finishBy || "flexible",
     availableFrom: body.prefs?.availableFrom || "07:00",
+    bookedOrigin: body.prefs?.bookedOrigin || "",
+    bookedDestination: body.prefs?.bookedDestination || "",
+    bookedWindow: body.prefs?.bookedWindow || "",
+    keepBusy: Boolean(body.prefs?.keepBusy),
   };
 
   const costPerMile =

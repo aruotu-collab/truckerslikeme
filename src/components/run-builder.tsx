@@ -5,12 +5,17 @@ import Link from "next/link";
 import { useMarket } from "@/lib/market-context";
 import { formatMoney } from "@/lib/market";
 import {
+  applyRunFollowUp,
   defaultRunPrefs,
+  followUpCopy,
+  isDecisionMode,
   modeCopy,
   nextHuntAfterAnchor,
+  RUN_MODE_ORDER,
   shiplyHuntBrief,
   type JobVerdict,
   type RunCombo,
+  type RunFollowUp,
   type RunJob,
   type RunMode,
   type RunPrefs,
@@ -18,9 +23,19 @@ import {
 } from "@/lib/run-builder";
 import { ShiplyConnect } from "@/components/shiply-connect";
 import { RunCorridorStrip } from "@/components/run-corridor-strip";
+import { JobDecisionPanel } from "@/components/job-decision-panel";
 
-type Step = "mode" | "setup" | "hunt" | "shortlist" | "build";
+type Step = "mode" | "setup" | "hunt" | "shortlist" | "build" | "decision";
 type HuntPath = "screenshots" | "shiply";
+
+const FOLLOW_UPS: RunFollowUp[] = [
+  "best",
+  "more_money",
+  "less_empty",
+  "shorter",
+  "closer_home",
+  "keep_busy",
+];
 
 const vehicles = [
   "Luton van",
@@ -95,11 +110,24 @@ export function RunBuilder() {
   const [huntPath, setHuntPath] = useState<HuntPath>("screenshots");
   const [shiplySessionId, setShiplySessionId] = useState<string | null>(null);
   const [detailsFromShiply, setDetailsFromShiply] = useState(false);
+  const [followUp, setFollowUp] = useState<RunFollowUp>("best");
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
+  const rankedCombos = useMemo(() => {
+    if (followUp === "best") return combos;
+    return applyRunFollowUp(combos, followUp, prefs);
+  }, [combos, followUp, prefs]);
+
+  const shownBest = rankedCombos[0] ?? best;
+
   function pickMode(mode: RunMode) {
     setPrefs((p) => ({ ...p, mode }));
+    setFollowUp("best");
+    if (isDecisionMode(mode)) {
+      setStep("decision");
+      return;
+    }
     setStep("setup");
   }
 
@@ -161,6 +189,12 @@ export function RunBuilder() {
       setError("Add the destination you’re heading to.");
       return;
     }
+    if (prefs.mode === "fill_gaps") {
+      if (!prefs.bookedOrigin.trim() || !prefs.bookedDestination.trim()) {
+        setError("Add the booked job’s pickup and drop-off.");
+        return;
+      }
+    }
     setStep("hunt");
   }
 
@@ -186,6 +220,9 @@ export function RunBuilder() {
           home: prefs.home,
           destination: prefs.destination,
           vehicle: prefs.vehicle,
+          bookedOrigin: prefs.bookedOrigin,
+          bookedDestination: prefs.bookedDestination,
+          bookedWindow: prefs.bookedWindow,
         }),
       });
       const data = (await res.json()) as {
@@ -363,6 +400,7 @@ export function RunBuilder() {
       }
       setCombos(data.combos ?? []);
       setBest(data.best ?? null);
+      setFollowUp("best");
       setStep("build");
     } catch {
       setError("Network error building the run.");
@@ -385,44 +423,43 @@ export function RunBuilder() {
           Let the money choose the day
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Don’t guess which Shiply jobs to chase. Shortlist what to open, upload
-          the winners, and we’ll build the most profitable combination from
-          where you are.
+          Shiply shows what’s on the board. Pick a goal — we’ll shortlist what
+          to open, fill gaps around booked work, or check whether a quote is
+          actually worth it.
         </p>
       </section>
 
       {step === "mode" && (
-        <section className="grid gap-4 md:grid-cols-3">
-          {(
-            [
-              "destination",
-              "profit",
-              "home",
-            ] as RunMode[]
-          ).map((mode) => {
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {RUN_MODE_ORDER.map((mode) => {
             const copy = modeCopy(mode);
             return (
               <button
                 key={mode}
                 type="button"
                 onClick={() => pickMode(mode)}
-                className="border border-asphalt/15 bg-white px-5 py-6 text-left transition hover:border-amber"
+                className="border border-asphalt/15 bg-white px-5 py-5 text-left transition hover:border-amber hover:bg-amber/5"
               >
                 <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-                  {mode === "destination"
-                    ? "Destination"
-                    : mode === "home"
-                      ? "Get me home"
-                      : "Max profit"}
+                  {copy.eyebrow}
                 </p>
-                <p className="mt-3 font-display text-xl tracking-wide text-asphalt uppercase">
+                <p className="mt-3 font-display text-lg tracking-wide text-asphalt uppercase sm:text-xl">
                   {copy.title}
                 </p>
-                <p className="mt-2 text-sm text-muted">{copy.body}</p>
+                <p className="mt-2 text-sm leading-snug text-muted">
+                  {copy.body}
+                </p>
               </button>
             );
           })}
         </section>
+      )}
+
+      {step === "decision" && isDecisionMode(prefs.mode) && (
+        <JobDecisionPanel
+          kind={prefs.mode === "price_job" ? "price" : "check"}
+          onBack={() => setStep("mode")}
+        />
       )}
 
       {step === "setup" && (
@@ -434,8 +471,14 @@ export function RunBuilder() {
           >
             ← Change goal
           </button>
+          <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+            {modeCopy(prefs.mode).eyebrow}
+          </p>
           <p className="font-display text-2xl tracking-wide text-asphalt uppercase">
             {modeCopy(prefs.mode).title}
+          </p>
+          <p className="max-w-xl text-sm text-muted">
+            {modeCopy(prefs.mode).body}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
@@ -523,6 +566,45 @@ export function RunBuilder() {
                 />
               </label>
             )}
+            {prefs.mode === "fill_gaps" && (
+              <>
+                <label className="block">
+                  <span className="text-xs tracking-wide text-muted uppercase">
+                    Booked pickup
+                  </span>
+                  <input
+                    value={prefs.bookedOrigin}
+                    onChange={(e) => update("bookedOrigin", e.target.value)}
+                    placeholder="Leeds"
+                    className="mt-1 w-full rounded-sm border border-asphalt/15 px-3 py-2.5"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs tracking-wide text-muted uppercase">
+                    Booked drop-off
+                  </span>
+                  <input
+                    value={prefs.bookedDestination}
+                    onChange={(e) =>
+                      update("bookedDestination", e.target.value)
+                    }
+                    placeholder="Bristol"
+                    className="mt-1 w-full rounded-sm border border-asphalt/15 px-3 py-2.5"
+                  />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="text-xs tracking-wide text-muted uppercase">
+                    Booked window (optional)
+                  </span>
+                  <input
+                    value={prefs.bookedWindow}
+                    onChange={(e) => update("bookedWindow", e.target.value)}
+                    placeholder="Collect 10:00–12:00 · deliver by 18:00"
+                    className="mt-1 w-full rounded-sm border border-asphalt/15 px-3 py-2.5"
+                  />
+                </label>
+              </>
+            )}
             {prefs.mode === "profit" && (
               <div className="sm:col-span-2">
                 <span className="text-xs tracking-wide text-muted uppercase">
@@ -551,7 +633,42 @@ export function RunBuilder() {
                     </button>
                   ))}
                 </div>
+                {(prefs.finishRadius === "50" ||
+                  prefs.finishRadius === "100" ||
+                  prefs.finishRadius === "home_tonight") && (
+                  <label className="mt-3 block">
+                    <span className="text-xs tracking-wide text-muted uppercase">
+                      Home / base (for finish radius)
+                    </span>
+                    <input
+                      value={prefs.home}
+                      onChange={(e) => update("home", e.target.value)}
+                      placeholder="Birmingham"
+                      className="mt-1 w-full rounded-sm border border-asphalt/15 px-3 py-2.5"
+                    />
+                  </label>
+                )}
               </div>
+            )}
+            {(prefs.mode === "profit" ||
+              prefs.mode === "fill_gaps" ||
+              prefs.mode === "destination") && (
+              <label className="flex items-start gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={prefs.keepBusy}
+                  onChange={(e) => update("keepBusy", e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-asphalt">
+                    Keep me busy
+                  </span>
+                  <span className="text-sm text-muted">
+                    Prefer longer multi-leg days over a single strong job.
+                  </span>
+                </span>
+              </label>
             )}
           </div>
           {error && <p className="text-sm text-alert">{error}</p>}
@@ -560,7 +677,9 @@ export function RunBuilder() {
             onClick={goHunt}
             className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
           >
-            Find jobs for my run →
+            {prefs.mode === "fill_gaps"
+              ? "Find fillers for my booked job →"
+              : "Find jobs for my run →"}
           </button>
         </section>
       )}
@@ -883,82 +1002,118 @@ export function RunBuilder() {
             </button>
           </div>
 
-          {best ? (
-            <div className="border border-emerald-200 bg-emerald-50 px-5 py-6 text-asphalt">
-              <p className="font-display text-xs tracking-[0.18em] text-emerald-800 uppercase">
-                Best run
+          {shownBest ? (
+            <div className="space-y-4">
+              {rankedCombos.length > 0 && (
+                <div className="border border-asphalt/10 bg-white px-4 py-4 sm:px-5">
+                  <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">
+                    Tweak this run
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    Same shortlist — re-rank without starting over.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {FOLLOW_UPS.map((id) => {
+                      const copy = followUpCopy(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setFollowUp(id)}
+                          title={copy.hint}
+                          className={`rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase ${
+                            followUp === id
+                              ? "bg-amber text-asphalt"
+                              : "border border-asphalt/15 bg-concrete/20 text-asphalt hover:border-amber"
+                          }`}
+                        >
+                          {copy.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="border border-amber/40 bg-amber/5 px-5 py-6 text-asphalt">
+              <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
+                {followUp === "best" ? "Best run" : followUpCopy(followUp).label}
               </p>
               <p className="mt-2 font-display text-3xl tracking-wide uppercase">
-                Finish {best.finishAt || "TBD"}
+                Finish {shownBest.finishAt || "TBD"}
               </p>
-              <p className="mt-1 text-sm font-medium text-emerald-900">
-                {best.jobs.length > 1
-                  ? `Combined run · ${best.jobs.length} jobs`
+              <p className="mt-1 text-sm font-medium text-asphalt/80">
+                {shownBest.jobs.length > 1
+                  ? `Combined run · ${shownBest.jobs.length} jobs`
                   : "Single job"}
               </p>
-              <p className="mt-2 text-muted">{best.summary}</p>
-              {best.payMissing && (
+              <p className="mt-2 text-muted">{shownBest.summary}</p>
+              {shownBest.payMissing && (
                 <p className="mt-3 border border-alert/30 bg-red-50 px-3 py-2 text-sm text-alert">
                   Pay wasn’t captured on one or more legs (showing £0 revenue).
                   Profit is cost-only until we read the customer budget from the
                   full Shiply job page — re-open those jobs or paste screenshots.
                 </p>
               )}
-              {best.legs && best.legs.length > 0 && (
+              {shownBest.legs && shownBest.legs.length > 0 && (
                 <ul className="mt-4 space-y-1.5 text-sm text-muted">
-                  {best.legs.map((leg, i) => (
+                  {shownBest.legs.map((leg, i) => (
                     <li key={`${leg.label}-${i}`}>
                       Leg {i + 1}: {leg.label} · {leg.miles} mi ·{" "}
                       {leg.revenue > 0 ? money(leg.revenue) : "pay missing"}
                     </li>
                   ))}
-                  {best.jobs.length > 1 && (
+                  {shownBest.jobs.length > 1 && (
                     <li className="font-medium text-asphalt">
-                      Combined revenue {money(best.revenue)} − costs{" "}
-                      {money(best.estimatedCost)} (incl. {best.emptyMiles} empty
-                      mi between legs) = {money(best.estimatedProfit)}
+                      Combined revenue {money(shownBest.revenue)} − costs{" "}
+                      {money(shownBest.estimatedCost)} (incl.{" "}
+                      {shownBest.emptyMiles} empty mi between legs) ={" "}
+                      {money(shownBest.estimatedProfit)}
                     </li>
                   )}
                 </ul>
               )}
 
-              <RunCorridorStrip combo={best} />
+              <RunCorridorStrip combo={shownBest} />
 
               <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <dt className="text-xs uppercase text-muted">
-                    {best.jobs.length > 1 ? "Combined revenue" : "Revenue"}
+                    {shownBest.jobs.length > 1 ? "Combined revenue" : "Revenue"}
                   </dt>
-                  <dd className="text-xl font-medium">{money(best.revenue)}</dd>
+                  <dd className="text-xl font-medium">
+                    {money(shownBest.revenue)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase text-muted">Est. costs</dt>
                   <dd className="text-xl font-medium">
-                    {money(best.estimatedCost)}
+                    {money(shownBest.estimatedCost)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase text-muted">Est. profit</dt>
                   <dd className="text-xl font-medium text-emerald-800">
-                    {money(best.estimatedProfit)}
+                    {money(shownBest.estimatedProfit)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase text-muted">Empty mi</dt>
-                  <dd className="text-xl font-medium">{best.emptyMiles}</dd>
+                  <dd className="text-xl font-medium">{shownBest.emptyMiles}</dd>
                 </div>
               </dl>
-              {best.jobs[0] && (
-                <div className="mt-6 border-t border-emerald-200/80 pt-4">
-                  <p className="font-display text-xs tracking-wide uppercase text-emerald-900">
+              {shownBest.jobs[0] && (
+                <div className="mt-6 border-t border-amber/30 pt-4">
+                  <p className="font-display text-xs tracking-wide text-amber uppercase">
                     Next hunt
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
-                    {nextHuntAfterAnchor(prefs, best.jobs[best.jobs.length - 1]).map(
-                      (line) => (
-                        <li key={line}>{line}</li>
-                      ),
-                    )}
+                    {nextHuntAfterAnchor(
+                      prefs,
+                      shownBest.jobs[shownBest.jobs.length - 1],
+                    ).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -974,11 +1129,17 @@ export function RunBuilder() {
               >
                 <Link
                   href={`/plan?from=${encodeURIComponent(
-                    best.jobs[0]?.origin || prefs.start,
-                  )}&to=${encodeURIComponent(best.finishAt || "")}`}
+                    shownBest.jobs[0]?.origin || prefs.start,
+                  )}&to=${encodeURIComponent(shownBest.finishAt || "")}`}
                   className="rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
                 >
                   Plan this corridor
+                </Link>
+                <Link
+                  href="/map"
+                  className="rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+                >
+                  Open Map Jobs
                 </Link>
                 <label className="cursor-pointer rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase">
                   {busy ? "Adding…" : "Add more job screenshots"}
@@ -997,6 +1158,7 @@ export function RunBuilder() {
                 <span className="text-xs text-muted">or paste (Ctrl+V / ⌘V)</span>
               </div>
             </div>
+            </div>
           ) : (
             <p className="text-muted">
               Upload full job screenshots or build from the shortlist to see
@@ -1004,13 +1166,13 @@ export function RunBuilder() {
             </p>
           )}
 
-          {combos.length > 1 && (
+          {rankedCombos.length > 1 && (
             <div>
               <p className="font-display text-sm tracking-wide text-asphalt uppercase">
                 Alternatives
               </p>
               <ul className="mt-3 divide-y divide-asphalt/10 border-y border-asphalt/10">
-                {combos.slice(1).map((c, i) => (
+                {rankedCombos.slice(1).map((c, i) => (
                   <li key={c.id} className="py-4">
                     <p className="font-medium text-asphalt">
                       Alternative {i + 2} — Finish {c.finishAt}
@@ -1023,6 +1185,8 @@ export function RunBuilder() {
                       Profit {money(c.estimatedProfit)} · Revenue{" "}
                       {money(c.revenue)}
                       {c.payMissing ? " · pay missing" : ""}
+                      {" · "}
+                      {c.emptyMiles} empty mi
                     </p>
                   </li>
                 ))}

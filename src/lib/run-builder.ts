@@ -1,6 +1,13 @@
 import type { ProfitResult } from "@/lib/profit";
 
-export type RunMode = "destination" | "profit" | "home";
+/** Route-building modes + one-off decision tools */
+export type RunMode =
+  | "destination"
+  | "profit"
+  | "home"
+  | "fill_gaps"
+  | "check_worth"
+  | "price_job";
 
 export type WorkWindow = "today" | "tonight" | "2days" | "flexible";
 
@@ -9,6 +16,15 @@ export type FinishRadius = "anywhere" | "50" | "100" | "home_tonight";
 export type FinishBy = "flexible" | "18" | "22" | "custom";
 
 export type JobVerdict = "open" | "maybe" | "skip" | "high";
+
+/** Re-rank a built run without starting over */
+export type RunFollowUp =
+  | "best"
+  | "more_money"
+  | "less_empty"
+  | "shorter"
+  | "closer_home"
+  | "keep_busy";
 
 export type RunJob = {
   id: string;
@@ -49,6 +65,12 @@ export type RunPrefs = {
   finishRadius: FinishRadius;
   finishBy: FinishBy;
   availableFrom: string;
+  /** Fill-gaps: job already booked */
+  bookedOrigin: string;
+  bookedDestination: string;
+  bookedWindow: string;
+  /** Prefer longer multi-leg days when ranking */
+  keepBusy: boolean;
 };
 
 export function defaultRunPrefs(): RunPrefs {
@@ -62,31 +84,80 @@ export function defaultRunPrefs(): RunPrefs {
     finishRadius: "anywhere",
     finishBy: "flexible",
     availableFrom: "07:00",
+    bookedOrigin: "",
+    bookedDestination: "",
+    bookedWindow: "",
+    keepBusy: false,
   };
 }
 
+export function isDecisionMode(mode: RunMode): boolean {
+  return mode === "check_worth" || mode === "price_job";
+}
+
+export function isHuntMode(mode: RunMode): boolean {
+  return (
+    mode === "destination" ||
+    mode === "profit" ||
+    mode === "home" ||
+    mode === "fill_gaps"
+  );
+}
+
 export function modeCopy(mode: RunMode): {
+  eyebrow: string;
   title: string;
   body: string;
 } {
   switch (mode) {
     case "destination":
       return {
+        eyebrow: "Destination",
         title: "I know where I’m going",
-        body: "Build the best run toward a destination you already chose.",
+        body: "Build the best-paying chain that still gets you to a place you’ve already chosen.",
+      };
+    case "profit":
+      return {
+        eyebrow: "Max profit",
+        title: "I don’t care where I finish",
+        body: "Let money pick the day — strongest combination from where you are now.",
       };
     case "home":
       return {
+        eyebrow: "Get me home",
         title: "Get me home profitably",
-        body: "Find jobs that pay you toward home instead of running empty.",
+        body: "Walk you toward base with paying legs instead of a deadhead home.",
       };
-    default:
+    case "fill_gaps":
       return {
-        title: "I don’t care where I finish",
-        body: "Find the most profitable combination from where you are now.",
+        eyebrow: "Already booked",
+        title: "I’ve already got a job",
+        body: "Lock in what you’ve won, then fill empty time before and after with profitable legs.",
+      };
+    case "check_worth":
+      return {
+        eyebrow: "Check a job",
+        title: "Is this job worth it?",
+        body: "Strip the fee, add empty miles, and see true net £ / mile / hour before you bid.",
+      };
+    case "price_job":
+      return {
+        eyebrow: "Price my job",
+        title: "What should I quote?",
+        body: "Suggest a quote that still pays after Shiply’s cut, fuel, and deadhead.",
       };
   }
 }
+
+/** Modes shown on the Build my run picker (order matters). */
+export const RUN_MODE_ORDER: RunMode[] = [
+  "destination",
+  "profit",
+  "home",
+  "fill_gaps",
+  "check_worth",
+  "price_job",
+];
 
 export function workWindowLabel(w: WorkWindow) {
   switch (w) {
@@ -111,7 +182,7 @@ export function shiplyHuntBrief(prefs: RunPrefs): {
   if (prefs.mode === "home") {
     const home = prefs.home.trim() || "home";
     return {
-      headline: `Get home to ${home} — hunt jobs that walk you south/toward base`,
+      headline: `Get home to ${home} — hunt jobs that walk you toward base`,
       steps: [
         `On Shiply, local search: pickups within ~25–50 miles of ${start}.`,
         `Prefer deliveries that move you toward ${home} — not the opposite way.`,
@@ -134,6 +205,22 @@ export function shiplyHuntBrief(prefs: RunPrefs): {
       ],
       screenshotTip:
         "One results-page screenshot is enough for Round 1.",
+    };
+  }
+  if (prefs.mode === "fill_gaps") {
+    const bookedFrom = prefs.bookedOrigin.trim() || "your booked pickup";
+    const bookedTo =
+      prefs.bookedDestination.trim() || "your booked delivery";
+    return {
+      headline: `Fill around ${bookedFrom} → ${bookedTo}`,
+      steps: [
+        `You’ve got ${bookedFrom} → ${bookedTo} locked${prefs.bookedWindow.trim() ? ` (${prefs.bookedWindow.trim()})` : ""}.`,
+        `Hunt pickups near ${start} that finish close to ${bookedFrom} before that job.`,
+        `After delivery, hunt collections within ~30 miles of ${bookedTo}.`,
+        "Screenshot both result lists if you can — we’ll shortlist fillers only.",
+      ],
+      screenshotTip:
+        "Upload results near the booked pickup and/or after the booked drop.",
     };
   }
   return {
@@ -169,12 +256,79 @@ export function nextHuntAfterAnchor(
       "Upload the next results list or full jobs that continue the haul.",
     ];
   }
+  if (prefs.mode === "fill_gaps") {
+    const bookedTo =
+      prefs.bookedDestination.trim() || "your booked delivery";
+    return [
+      `Filler landed near ${dest}.`,
+      `If this is before your booked job, next search should still land you at ${prefs.bookedOrigin.trim() || "the booked pickup"}.`,
+      `If this is after, hunt onwards from ${bookedTo} or call the day.`,
+      "Upload another results list when you’re ready.",
+    ];
+  }
   return [
     `Anchor job: ${anchor.origin || "?"} → ${dest}.`,
     `Now look for collections near ${dest} (within ~30 miles).`,
     "Any strong onward direction is fine — money decides the finish.",
     "Screenshot that results list or upload the best full jobs.",
   ];
+}
+
+export function followUpCopy(id: RunFollowUp): { label: string; hint: string } {
+  switch (id) {
+    case "more_money":
+      return { label: "More money", hint: "Highest estimated profit" };
+    case "less_empty":
+      return { label: "Less empty", hint: "Cut deadhead miles" };
+    case "shorter":
+      return { label: "Shorter day", hint: "Fewer legs / tighter day" };
+    case "closer_home":
+      return { label: "Closer to home", hint: "Finish nearer base" };
+    case "keep_busy":
+      return { label: "Keep me busy", hint: "More paying legs" };
+    default:
+      return { label: "Best overall", hint: "Balanced for your goal" };
+  }
+}
+
+/** Client-side re-order of already-built combos. */
+export function applyRunFollowUp(
+  combos: RunCombo[],
+  followUp: RunFollowUp,
+  prefs: RunPrefs,
+): RunCombo[] {
+  const list = [...combos];
+  const homeKey = cityKey(prefs.home);
+  list.sort((a, b) => {
+    switch (followUp) {
+      case "more_money":
+        return b.estimatedProfit - a.estimatedProfit;
+      case "less_empty":
+        return a.emptyMiles - b.emptyMiles || b.estimatedProfit - a.estimatedProfit;
+      case "shorter":
+        return (
+          a.jobs.length - b.jobs.length ||
+          a.emptyMiles - b.emptyMiles ||
+          b.estimatedProfit - a.estimatedProfit
+        );
+      case "closer_home": {
+        if (!homeKey) return b.estimatedProfit - a.estimatedProfit;
+        const aNear = (a.finishAt || "").toLowerCase().includes(homeKey) ? 1 : 0;
+        const bNear = (b.finishAt || "").toLowerCase().includes(homeKey) ? 1 : 0;
+        if (aNear !== bNear) return bNear - aNear;
+        return b.estimatedProfit - a.estimatedProfit;
+      }
+      case "keep_busy":
+        return (
+          b.jobs.length - a.jobs.length ||
+          b.utilisationPct - a.utilisationPct ||
+          b.estimatedProfit - a.estimatedProfit
+        );
+      default:
+        return 0;
+    }
+  });
+  return list;
 }
 
 function money(n: number | null | undefined) {
@@ -308,15 +462,26 @@ export function rankRunCombos(
         (candidate.destination || "")
           .toLowerCase()
           .includes(prefs.destination.split(",")[0].trim().toLowerCase());
-      if (linked || homeBias || destBias || chain.length === 1) {
-        if (prefs.mode === "profit" && chain.length >= 1 && !linked) {
+      const fillBias =
+        prefs.mode === "fill_gaps" &&
+        (placesLink(candidate.destination, prefs.bookedOrigin) ||
+          placesLink(candidate.origin, prefs.bookedDestination) ||
+          placesLink(first.destination, prefs.bookedOrigin));
+      if (linked || homeBias || destBias || fillBias || chain.length === 1) {
+        if (
+          (prefs.mode === "profit" || prefs.mode === "fill_gaps") &&
+          chain.length >= 1 &&
+          !linked &&
+          !fillBias
+        ) {
           if (candidate.verdict !== "open" && candidate.verdict !== "high") {
             continue;
           }
         }
         chain.push(candidate);
         tip = (candidate.destination || tip).toLowerCase();
-        if (chain.length >= 3) break;
+        const maxLegs = prefs.keepBusy || prefs.mode === "fill_gaps" ? 4 : 3;
+        if (chain.length >= maxLegs) break;
       }
     }
     if (chain.length < 2) continue;
@@ -349,9 +514,25 @@ export function rankRunCombos(
       if ((a.finishAt || "").toLowerCase().includes(d)) scoreA += 80;
       if ((b.finishAt || "").toLowerCase().includes(d)) scoreB += 80;
     }
-    // Slightly prefer longer chains when pay is known
-    if (!a.payMissing) scoreA += a.jobs.length * 5;
-    if (!b.payMissing) scoreB += b.jobs.length * 5;
+    if (prefs.mode === "fill_gaps") {
+      const bookedPu = cityKey(prefs.bookedOrigin);
+      const bookedDo = cityKey(prefs.bookedDestination);
+      const touches = (c: RunCombo) =>
+        c.jobs.some(
+          (j) =>
+            placesLink(j.destination, prefs.bookedOrigin) ||
+            placesLink(j.origin, prefs.bookedDestination) ||
+            (bookedPu &&
+              (j.destination || "").toLowerCase().includes(bookedPu)) ||
+            (bookedDo && (j.origin || "").toLowerCase().includes(bookedDo)),
+        );
+      if (touches(a)) scoreA += 90;
+      if (touches(b)) scoreB += 90;
+    }
+    // Slightly prefer longer chains when pay is known / keep busy
+    const legBonus = prefs.keepBusy ? 12 : 5;
+    if (!a.payMissing) scoreA += a.jobs.length * legBonus;
+    if (!b.payMissing) scoreB += b.jobs.length * legBonus;
     return scoreB - scoreA;
   });
 

@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Build my run | TruckersLikeMe",
   description:
-    "Shortlist Shiply jobs, combine the winners, and build your most profitable day — destination, max profit, or get home.",
+    "Shortlist Shiply jobs, fill gaps around booked work, check quotes, and build the most profitable day.",
 };
 
 export default function RunPage() {
