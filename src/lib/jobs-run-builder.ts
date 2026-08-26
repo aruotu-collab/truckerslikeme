@@ -147,8 +147,9 @@ export function scoreJobConnection(
   const deadhead = haversineMi(from, to.pickup);
   const quality = connectionQuality(deadhead);
 
-  if (quality === "reject" && jobPay(to.job) < 400) return -Infinity;
-  if (deadhead > prefs.maxEmptyMi && jobPay(to.job) < deadhead * 2) {
+  // Soft reject only for extreme reposition + low pay
+  if (deadhead > 150 && jobPay(to.job) < 150) return -Infinity;
+  if (quality === "reject" && jobPay(to.job) < 200 && deadhead > prefs.maxEmptyMi) {
     return -Infinity;
   }
 
@@ -166,12 +167,13 @@ export function scoreJobConnection(
   if (prefs.goal === "empty") score -= deadhead * 2.5;
   if (prefs.goal === "rpm") {
     const total = deadhead + loaded;
-    score = total > 0 ? (pay / total) * 100 - deadhead : -Infinity;
+    score = total > 0 ? (pay / total) * 100 - deadhead * 0.3 : -Infinity;
   }
   if (prefs.goal === "short") score -= loaded * 0.4;
 
   if (quality === "excellent") score += 15;
   else if (quality === "good") score += 8;
+  else if (quality === "acceptable") score += 2;
 
   return score;
 }
@@ -182,9 +184,12 @@ function scoreStartingJob(
   prefs: RunBuilderPrefs,
 ): number {
   const deadhead = haversineMi(driver, job.pickup);
-  if (deadhead > prefs.maxEmptyMi + 40) return -Infinity;
+  // Soft penalty beyond range — don't hard-reject or sparse boards go blank
   const pay = jobPay(job.job);
   let score = pay - deadhead * prefs.deadheadCostPerMi;
+  if (deadhead > prefs.maxEmptyMi + 40) {
+    score -= (deadhead - prefs.maxEmptyMi) * 2;
+  }
   if (prefs.goal === "rpm") {
     const total = deadhead + jobMiles(job);
     score = total > 0 ? (pay / total) * 100 : -Infinity;
@@ -440,21 +445,34 @@ export function buildBidPlans(
     return { plans: [], unpairedCount: 0, totalJobs: 0 };
   }
 
+  // Search with a wider deadhead allowance so sparse Shiply boards still produce runs
+  const searchPrefs: RunBuilderPrefs = {
+    ...prefs,
+    maxEmptyMi: Math.max(prefs.maxEmptyMi, 100),
+  };
+
   const dpt = driverPoint(driver);
   const plans: BidPlan[] = [];
 
-  const starts = dpt
+  let starts = dpt
     ? [...pool]
-        .map((j) => ({ j, score: scoreStartingJob(dpt, j, prefs) }))
+        .map((j) => ({ j, score: scoreStartingJob(dpt, j, searchPrefs) }))
         .filter((x) => x.score > -Infinity)
         .sort((a, b) => b.score - a.score)
         .slice(0, 12)
         .map((x) => x.j)
     : pool.slice(0, 12);
 
+  // If start location filters everything out (driver far from board), still use best jobs
+  if (!starts.length) {
+    starts = [...pool]
+      .sort((a, b) => jobPay(b.job) - jobPay(a.job))
+      .slice(0, 12);
+  }
+
   for (const start of starts) {
-    const greedy = greedyRunFromStart(start, pool, driver, prefs, (from, rem) =>
-      pickNextGreedy(from, rem, prefs, driver),
+    const greedy = greedyRunFromStart(start, pool, driver, searchPrefs, (from, rem) =>
+      pickNextGreedy(from, rem, searchPrefs, driver),
     );
     if (greedy.chain.length >= 2) {
       plans.push(
@@ -473,8 +491,8 @@ export function buildBidPlans(
   // Goal-specific variants from best starts
   const topStarts = starts.slice(0, 6);
   for (const start of topStarts) {
-    const minEmpty = greedyRunFromStart(start, pool, driver, prefs, (from, rem) =>
-      pickNextMinEmpty(from, rem, prefs),
+    const minEmpty = greedyRunFromStart(start, pool, driver, searchPrefs, (from, rem) =>
+      pickNextMinEmpty(from, rem, searchPrefs),
     );
     if (minEmpty.chain.length >= 2) {
       plans.push(
@@ -489,8 +507,8 @@ export function buildBidPlans(
       );
     }
 
-    const maxPay = greedyRunFromStart(start, pool, driver, prefs, (from, rem) =>
-      pickNextMaxPay(from, rem, prefs, driver),
+    const maxPay = greedyRunFromStart(start, pool, driver, searchPrefs, (from, rem) =>
+      pickNextMaxPay(from, rem, searchPrefs, driver),
     );
     if (maxPay.chain.length >= 2) {
       plans.push(
@@ -505,11 +523,11 @@ export function buildBidPlans(
       );
     }
 
-    const homePrefs = { ...prefs, goal: "home" as RunGoal };
+    const homePrefs = { ...searchPrefs, goal: "home" as RunGoal };
     const homeward = greedyRunFromStart(start, pool, driver, homePrefs, (from, rem) =>
       pickNextGreedy(from, rem, homePrefs, driver),
     );
-    if (homeward.chain.length >= 2 && homeward.chain.some(() => true)) {
+    if (homeward.chain.length >= 2) {
       const plan = toBidPlan(
         homeward.chain,
         homeward.emptyMiles,
@@ -518,14 +536,19 @@ export function buildBidPlans(
         "home",
         driver,
       );
-      if (plan.endsNearHome) plans.push(plan);
+      if (plan.endsNearHome || !dpt) plans.push(plan);
+      else plans.push(plan); // still show — badge can note it
     }
 
-    const shortPrefs = { ...prefs, goal: "short" as RunGoal, maxJobs: Math.min(3, prefs.maxJobs) };
+    const shortPrefs = {
+      ...searchPrefs,
+      goal: "short" as RunGoal,
+      maxJobs: Math.min(3, searchPrefs.maxJobs),
+    };
     const short = greedyRunFromStart(start, pool, driver, shortPrefs, (from, rem) =>
       pickNextGreedy(from, rem, shortPrefs, driver),
     );
-    if (short.chain.length >= 2 && short.emptyMiles + short.loadedMiles < 250) {
+    if (short.chain.length >= 2 && short.emptyMiles + short.loadedMiles < 400) {
       plans.push(
         toBidPlan(
           short.chain,
@@ -533,6 +556,29 @@ export function buildBidPlans(
           short.loadedMiles,
           "Short day",
           "short",
+          driver,
+        ),
+      );
+    }
+  }
+
+  // Closest-pair fallback when geography is sparse
+  if (plans.length < 2) {
+    for (const start of starts.slice(0, 8)) {
+      const nearest = pickNextMinEmpty(start.drop, pool.filter((j) => j.job.id !== start.job.id), {
+        ...searchPrefs,
+        maxEmptyMi: 200,
+      });
+      if (!nearest) continue;
+      const dh = Math.round(haversineMi(start.drop, nearest.pickup));
+      const dptEmpty = dpt ? Math.round(haversineMi(dpt, start.pickup)) : 0;
+      plans.push(
+        toBidPlan(
+          [start, nearest],
+          dptEmpty + dh,
+          jobMiles(start) + jobMiles(nearest),
+          runAreaLabel([start, nearest]),
+          "empty",
           driver,
         ),
       );
@@ -560,7 +606,6 @@ export function buildBidPlans(
 
   unique.sort((a, b) => rank(b) - rank(a));
 
-  // Pick best per goal label for display
   const picks: BidPlan[] = [];
   const goalOrder: RunGoal[] = ["rpm", "revenue", "empty", "home", "short"];
   for (const g of goalOrder) {
@@ -573,9 +618,24 @@ export function buildBidPlans(
     if (!picks.some((x) => x.id === p.id)) picks.push(p);
   }
 
-  // Fallback: best single job if nothing chains
-  if (!picks.length && unique.length) {
-    picks.push(unique[0]!);
+  // Last resort: top single jobs so the Runs screen is never blank when jobs exist
+  if (!picks.length) {
+    const top = [...pool]
+      .sort((a, b) => jobPay(b.job) - jobPay(a.job))
+      .slice(0, 3);
+    for (const sj of top) {
+      const empty = dpt ? Math.round(haversineMi(dpt, sj.pickup)) : 0;
+      picks.push(
+        toBidPlan(
+          [sj],
+          empty,
+          jobMiles(sj),
+          `${shortPlace(sj.job.origin)} → ${shortPlace(sj.job.destination)}`,
+          "revenue",
+          driver,
+        ),
+      );
+    }
   }
 
   const usedIds = new Set(picks.flatMap((p) => p.jobs.map((j) => j.id)));

@@ -204,7 +204,8 @@ export function JobsPlannerGrid({
         </p>
       </div>
 
-      {/* Filters — departure board style */}
+      {/* Filters — only on Jobs / Connections */}
+      {tab !== "runs" && (
       <div className="border border-asphalt/10 bg-[#1a1d23] px-3 py-3 text-white sm:px-4">
         <p className="text-[10px] font-semibold tracking-[0.2em] text-amber uppercase">
           Filters
@@ -219,7 +220,7 @@ export function JobsPlannerGrid({
               onChange={(e) =>
                 setFilters((f) => ({
                   ...f,
-                  maxFromMe: e.target.value ? Number(e.target.value) : null,
+                  maxFromMe: e.target.value ? Number(e.target.value) || null : null,
                 }))
               }
               className="mt-1 w-full border-0 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-amber"
@@ -234,7 +235,9 @@ export function JobsPlannerGrid({
               onChange={(e) =>
                 setFilters((f) => ({
                   ...f,
-                  maxDeadhead: e.target.value ? Number(e.target.value) : null,
+                  maxDeadhead: e.target.value
+                    ? Number(e.target.value) || null
+                    : null,
                 }))
               }
               className="mt-1 w-full border-0 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-amber"
@@ -249,7 +252,7 @@ export function JobsPlannerGrid({
               onChange={(e) =>
                 setFilters((f) => ({
                   ...f,
-                  minValue: e.target.value ? Number(e.target.value) : null,
+                  minValue: e.target.value ? Number(e.target.value) || null : null,
                 }))
               }
               className="mt-1 w-full border-0 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-amber"
@@ -301,6 +304,7 @@ export function JobsPlannerGrid({
           </button>
         )}
       </div>
+      )}
 
       {/* JOBS tab */}
       {tab === "jobs" && (
@@ -668,6 +672,8 @@ export function JobsPlannerGrid({
           plans={runBuilder.plans}
           driver={driver}
           formatMoney={formatMoney}
+          mappedJobCount={runBuilder.totalJobs}
+          totalJobCount={jobs.length}
           onOptimise={() => {
             setTab("jobs");
             window.setTimeout(() => setTab("runs"), 0);

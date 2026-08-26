@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { JobsRunSequenceChart } from "@/components/jobs-run-sequence-chart";
 import {
   buildRunSequence,
@@ -14,6 +14,9 @@ type Props = {
   driver: JobsMapDriver | null;
   formatMoney: (n: number) => string;
   onOptimise?: () => void;
+  /** How many board jobs could be geocoded for chaining. */
+  mappedJobCount?: number;
+  totalJobCount?: number;
 };
 
 export function SuggestedRunPanel({
@@ -21,10 +24,22 @@ export function SuggestedRunPanel({
   driver,
   formatMoney,
   onOptimise,
+  mappedJobCount,
+  totalJobCount,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
   );
+
+  useEffect(() => {
+    if (!plans.length) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !plans.some((p) => p.id === selectedId)) {
+      setSelectedId(plans[0]!.id);
+    }
+  }, [plans, selectedId]);
 
   const selected =
     plans.find((p) => p.id === selectedId) ?? plans[0] ?? null;
@@ -35,10 +50,39 @@ export function SuggestedRunPanel({
   );
 
   if (!plans.length || !selected || !sequence) {
+    const hasStart = Boolean(driver?.label?.trim());
+    const mapped = mappedJobCount ?? 0;
+    const total = totalJobCount ?? 0;
+
+    let title = "No suggested runs yet";
+    let detail =
+      "Add Shiply jobs and set your start location, then open Runs again.";
+
+    if (!hasStart) {
+      title = "Set your start location";
+      detail =
+        "Suggested runs need a starting town (e.g. Manchester) above — then we’ll chain jobs from there.";
+    } else if (total === 0) {
+      title = "No jobs on the board";
+      detail = "Scan Shiply and add jobs, then come back to Runs.";
+    } else if (mapped === 0) {
+      title = "Jobs aren’t mapped yet";
+      detail =
+        "We couldn’t recognise pickup/drop towns on these jobs. Check place names, or add more UK towns.";
+    } else {
+      title = "Couldn’t build a chain";
+      detail = `We see ${mapped} mapped job${mapped === 1 ? "" : "s"}, but none linked within a sensible deadhead. Try Jobs tab or widen your search on Shiply.`;
+    }
+
     return (
-      <div className="rounded-2xl bg-[#0b1220] px-5 py-8 text-center text-sm text-slate-400">
-        Need mapped jobs and a start location to suggest runs. Scan Shiply, then
-        open Runs.
+      <div className="rounded-2xl bg-[#0b1220] px-5 py-8 text-center">
+        <p className="text-base font-semibold text-white">{title}</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">{detail}</p>
+        {!hasStart && (
+          <p className="mt-4 text-xs text-sky-400">
+            Use “Where are you starting?” at the top of this page.
+          </p>
+        )}
       </div>
     );
   }
