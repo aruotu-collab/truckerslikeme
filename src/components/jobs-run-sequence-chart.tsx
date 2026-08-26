@@ -1,216 +1,214 @@
 "use client";
 
-import { useMemo } from "react";
-import type { SequenceStep, SequenceTown } from "@/lib/jobs-run-sequence";
+import { useId, useMemo } from "react";
+import type { RunSequence } from "@/lib/jobs-run-sequence";
 
 type Props = {
-  towns: SequenceTown[];
-  steps: SequenceStep[];
-  formatMoney: (n: number) => string;
+  sequence: RunSequence;
 };
 
-const COL_W = 72;
-const LABEL_W = 118;
-const ROW_H = 44;
-const PAD_TOP = 56;
-const PAD_LEFT = LABEL_W + 8;
+const COL_W = 64;
+const ROW_H = 48;
+const PAD_TOP = 44;
+const PAD_LEFT = 36;
+const PAD_BOTTOM = 40;
+const PAD_RIGHT = 16;
 
-function segmentPath(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  local: boolean,
-) {
-  if (local || Math.abs(x2 - x1) < 4) {
-    const midY = (y1 + y2) / 2;
-    const bump = 18;
-    return `M ${x1} ${y1} Q ${x1 + bump} ${midY} ${x2} ${y2}`;
-  }
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2 + (x2 > x1 ? -6 : 6);
-  return `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
-}
+export function JobsRunSequenceChart({ sequence }: Props) {
+  const uid = useId().replace(/:/g, "");
+  const { towns, stops } = sequence;
 
-export function JobsRunSequenceChart({ towns, steps, formatMoney }: Props) {
-  const width = PAD_LEFT + towns.length * COL_W + 24;
-  const height = PAD_TOP + steps.length * ROW_H + 36;
+  const width = PAD_LEFT + towns.length * COL_W + PAD_RIGHT;
+  const height = PAD_TOP + stops.length * ROW_H + PAD_BOTTOM;
 
-  const points = useMemo(
+  const nodes = useMemo(
     () =>
-      steps.map((step) => {
-        const y = PAD_TOP + (step.index - 0.5) * ROW_H;
-        const x1 = PAD_LEFT + step.fromCol * COL_W + COL_W / 2;
-        const x2 = PAD_LEFT + step.toCol * COL_W + COL_W / 2;
-        return { step, x1, x2, y };
-      }),
-    [steps],
+      stops.map((stop) => ({
+        stop,
+        x: PAD_LEFT + stop.col * COL_W + COL_W / 2,
+        y: PAD_TOP + (stop.index - 0.5) * ROW_H,
+      })),
+    [stops],
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-white/10 bg-[#0f172a]">
+    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#0b1220]">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-auto w-full min-w-[320px]"
+        className="h-auto w-full min-w-[300px]"
         role="img"
-        aria-label="Run sequence chart: blue loaded legs, red deadhead"
+        aria-label="Run sequence: blue loaded legs, red deadhead"
       >
         <defs>
           <marker
-            id="deadhead-arrow"
-            markerWidth="8"
-            markerHeight="8"
+            id={`dh-arrow-${uid}`}
+            markerWidth="7"
+            markerHeight="7"
             refX="6"
-            refY="3"
+            refY="3.5"
             orient="auto"
           >
-            <path d="M0,0 L6,3 L0,6 Z" fill="#f87171" />
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#f87171" />
           </marker>
         </defs>
 
+        {/* Column headers */}
         {towns.map((t, i) => {
           const x = PAD_LEFT + i * COL_W + COL_W / 2;
           return (
-            <g key={t.key}>
-              <line
-                x1={x}
-                y1={PAD_TOP - 8}
-                x2={x}
-                y2={height - 28}
-                stroke="rgba(255,255,255,0.06)"
-                strokeWidth={1}
-              />
-              <text
-                x={x}
-                y={28}
-                textAnchor="middle"
-                fill="#94a3b8"
-                style={{ fontSize: 10, fontWeight: 600 }}
-              >
-                {t.label.length > 10 ? `${t.label.slice(0, 9)}…` : t.label}
-              </text>
-            </g>
+            <text
+              key={t.key}
+              x={x}
+              y={22}
+              textAnchor="middle"
+              fill="#94a3b8"
+              style={{ fontSize: 11, fontWeight: 600 }}
+            >
+              {t.label.length > 9 ? `${t.label.slice(0, 8)}…` : t.label}
+            </text>
           );
         })}
 
-        {steps.map((step) => {
-          const y = PAD_TOP + (step.index - 0.5) * ROW_H;
+        {/* Grid dots */}
+        {stops.map((stop) => {
+          const y = PAD_TOP + (stop.index - 0.5) * ROW_H;
           return (
-            <g key={`row-${step.index}`}>
+            <g key={`grid-${stop.index}`}>
               <text
-                x={8}
+                x={14}
                 y={y + 4}
+                textAnchor="middle"
                 fill="#64748b"
-                style={{ fontSize: 9, fontWeight: 600 }}
+                style={{ fontSize: 11, fontWeight: 600 }}
               >
-                {step.index}
-              </text>
-              <text x={22} y={y + 4} fill="#cbd5e1" style={{ fontSize: 9 }}>
-                {step.label.length > 16
-                  ? `${step.label.slice(0, 15)}…`
-                  : step.label}
+                {stop.index}
               </text>
               {towns.map((_, i) => (
                 <circle
                   key={i}
                   cx={PAD_LEFT + i * COL_W + COL_W / 2}
                   cy={y}
-                  r={2}
-                  fill="rgba(148,163,184,0.25)"
+                  r={2.5}
+                  fill="rgba(148,163,184,0.22)"
                 />
               ))}
             </g>
           );
         })}
 
-        {points.map(({ step, x1, x2, y }) => {
-          if (step.kind === "start") {
+        {/* Edges between consecutive stops */}
+        {nodes.map((node, i) => {
+          if (i === 0) return null;
+          const prev = nodes[i - 1]!;
+          const isDeadhead = node.stop.arriveBy === "deadhead";
+          const x1 = prev.x;
+          const y1 = prev.y;
+          const x2 = node.x;
+          const y2 = node.y;
+          const mx = (x1 + x2) / 2;
+          const my = (y1 + y2) / 2;
+
+          // Slight curve so overlapping columns still read
+          const curve =
+            Math.abs(x2 - x1) < 4
+              ? `M ${x1} ${y1} C ${x1 + 22} ${y1 + 8}, ${x2 + 22} ${y2 - 8}, ${x2} ${y2}`
+              : `M ${x1} ${y1} Q ${mx} ${my + (x2 > x1 ? -10 : 10)} ${x2} ${y2}`;
+
+          return (
+            <path
+              key={`edge-${node.stop.index}`}
+              d={curve}
+              fill="none"
+              stroke={isDeadhead ? "#f87171" : "#3b82f6"}
+              strokeWidth={isDeadhead ? 2.5 : 3.5}
+              strokeDasharray={isDeadhead ? "7 5" : undefined}
+              strokeLinecap="round"
+              markerEnd={
+                isDeadhead ? `url(#dh-arrow-${uid})` : undefined
+              }
+            />
+          );
+        })}
+
+        {/* Nodes */}
+        {nodes.map(({ stop, x, y }) => {
+          const isStart = stop.role === "start";
+          const isDeadheadArrive = stop.arriveBy === "deadhead";
+
+          if (isStart) {
             return (
               <circle
-                key={`seg-${step.index}`}
-                cx={x1}
+                key={`node-${stop.index}`}
+                cx={x}
                 cy={y}
-                r={7}
+                r={8}
                 fill="#38bdf8"
-                stroke="#fff"
+                stroke="#e2e8f0"
                 strokeWidth={2}
               />
             );
           }
 
-          const isDeadhead = step.kind === "deadhead";
-          const path = segmentPath(x1, y, x2, y, step.isLocal);
+          if (isDeadheadArrive && stop.role === "pickup") {
+            return (
+              <g key={`node-${stop.index}`}>
+                <rect
+                  x={x - 7}
+                  y={y - 7}
+                  width={14}
+                  height={14}
+                  rx={2}
+                  fill="#f87171"
+                  stroke="#fecaca"
+                  strokeWidth={1.5}
+                  transform={`rotate(45 ${x} ${y})`}
+                />
+              </g>
+            );
+          }
 
           return (
-            <g key={`seg-${step.index}`}>
-              <path
-                d={path}
-                fill="none"
-                stroke={isDeadhead ? "#f87171" : "#3b82f6"}
-                strokeWidth={isDeadhead ? 2.5 : 3.5}
-                strokeDasharray={isDeadhead ? "6 4" : undefined}
-                strokeLinecap="round"
-                markerEnd={isDeadhead ? "url(#deadhead-arrow)" : undefined}
-              />
-              <circle
-                cx={x1}
-                cy={y}
-                r={5}
-                fill="#fff"
-                stroke={isDeadhead ? "#f87171" : "#3b82f6"}
-                strokeWidth={2}
-              />
-              <circle
-                cx={x2}
-                cy={y}
-                r={5}
-                fill="#fff"
-                stroke={isDeadhead ? "#f87171" : "#3b82f6"}
-                strokeWidth={2}
-              />
-              {(step.miles > 0 || step.pay != null) && (
-                <text
-                  x={(x1 + x2) / 2}
-                  y={y - 10}
-                  textAnchor="middle"
-                  fill={isDeadhead ? "#fca5a5" : "#93c5fd"}
-                  style={{ fontSize: 8, fontWeight: 600 }}
-                >
-                  {isDeadhead
-                    ? `+${step.miles} mi`
-                    : step.pay != null
-                      ? formatMoney(step.pay)
-                      : `${step.miles} mi`}
-                </text>
-              )}
-            </g>
+            <circle
+              key={`node-${stop.index}`}
+              cx={x}
+              cy={y}
+              r={7}
+              fill="#0b1220"
+              stroke={
+                stop.role === "pickup" || stop.role === "handoff"
+                  ? "#f87171"
+                  : "#3b82f6"
+              }
+              strokeWidth={2.5}
+            />
           );
         })}
 
-        <g transform={`translate(${PAD_LEFT}, ${height - 18})`}>
+        {/* Legend */}
+        <g transform={`translate(${PAD_LEFT}, ${height - 16})`}>
           <line
             x1={0}
             y1={0}
-            x2={28}
+            x2={26}
             y2={0}
             stroke="#3b82f6"
             strokeWidth={3}
             strokeLinecap="round"
           />
-          <text x={34} y={3} fill="#94a3b8" style={{ fontSize: 9 }}>
+          <text x={32} y={3} fill="#94a3b8" style={{ fontSize: 10 }}>
             Loaded (with job)
           </text>
           <line
-            x1={140}
+            x1={148}
             y1={0}
-            x2={168}
+            x2={174}
             y2={0}
             stroke="#f87171"
             strokeWidth={2.5}
-            strokeDasharray="5 3"
+            strokeDasharray="6 4"
             strokeLinecap="round"
           />
-          <text x={174} y={3} fill="#94a3b8" style={{ fontSize: 9 }}>
+          <text x={180} y={3} fill="#94a3b8" style={{ fontSize: 10 }}>
             Deadhead (reposition)
           </text>
         </g>
