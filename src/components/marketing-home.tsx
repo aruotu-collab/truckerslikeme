@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { CorridorRibbon } from "@/components/corridor-ribbon";
+import { TrackedLink } from "@/components/tracked-link";
 import { DEMO_CORRIDOR } from "@/lib/corridor-ribbon-shared";
 import { useAuthGate } from "@/lib/auth-gate";
+import { trackClick } from "@/lib/track-click";
 
 const pillars = [
   {
@@ -52,22 +53,29 @@ export function MarketingHome() {
             pays.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
+            <TrackedLink
               href="/map"
+              trackEvent="cta"
+              trackLabel="Map Jobs hero"
               className="rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
             >
               Map Jobs →
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href="/run"
+              trackEvent="cta"
+              trackLabel="Build My Run hero"
               className="rounded-sm border border-white/30 px-6 py-3.5 text-sm font-semibold tracking-wide text-white uppercase transition hover:border-amber hover:text-amber-hot"
             >
               Build My Run
-            </Link>
+            </TrackedLink>
             {!isSignedIn && (
               <button
                 type="button"
-                onClick={() => openGate("join-community")}
+                onClick={() => {
+                  trackClick("cta", "Sign in free");
+                  openGate("join-community");
+                }}
                 className="rounded-sm px-6 py-3.5 text-sm font-semibold tracking-wide text-white/70 uppercase transition hover:text-white"
               >
                 Sign in free
@@ -113,12 +121,14 @@ export function MarketingHome() {
               <dd className="text-lg font-semibold text-alert">Pass alone</dd>
             </div>
           </dl>
-          <Link
+          <TrackedLink
             href="/run"
+            trackEvent="cta"
+            trackLabel="Check any job"
             className="mt-5 inline-block text-sm font-semibold text-amber transition hover:text-asphalt"
           >
             Check any job in Build My Run →
-          </Link>
+          </TrackedLink>
         </div>
 
         <div className="overflow-hidden border border-asphalt/10 bg-white">
@@ -139,12 +149,14 @@ export function MarketingHome() {
             footer=""
           />
           <div className="border-t border-asphalt/10 px-4 py-3 sm:px-5">
-            <Link
+            <TrackedLink
               href="/plan"
+              trackEvent="cta"
+              trackLabel="Plan your own route"
               className="text-sm font-semibold text-amber transition hover:text-asphalt"
             >
               Plan your own route →
-            </Link>
+            </TrackedLink>
           </div>
         </div>
       </section>
@@ -159,9 +171,11 @@ export function MarketingHome() {
         </h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {pillars.map((p) => (
-            <Link
+            <TrackedLink
               key={p.href}
               href={p.href}
+              trackEvent="cta"
+              trackLabel={p.cta}
               className="group border border-asphalt/15 bg-white px-5 py-6 transition hover:border-amber hover:bg-amber/5"
             >
               <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
@@ -174,7 +188,7 @@ export function MarketingHome() {
               <p className="mt-4 text-xs font-semibold tracking-wide text-amber uppercase group-hover:text-asphalt">
                 {p.cta} →
               </p>
-            </Link>
+            </TrackedLink>
           ))}
         </div>
       </section>
@@ -194,18 +208,22 @@ export function MarketingHome() {
             stop chasing jobs that look good and lose money.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
+            <TrackedLink
               href="/jobs"
+              trackEvent="cta"
+              trackLabel="My Jobs"
               className="rounded-sm border border-asphalt/15 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
             >
               My Jobs
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href="/find"
+              trackEvent="cta"
+              trackLabel="Nearest Services"
               className="rounded-sm border border-asphalt/15 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
             >
               Nearest Services
-            </Link>
+            </TrackedLink>
           </div>
         </div>
       </section>
@@ -219,12 +237,14 @@ export function MarketingHome() {
           Open Map Jobs, scan what&apos;s on Shiply near you, and build the run
           that finishes profitably — wherever that is.
         </p>
-        <Link
+        <TrackedLink
           href="/map"
+          trackEvent="cta"
+          trackLabel="Start on Map Jobs"
           className="mt-6 inline-block rounded-sm bg-amber px-8 py-4 text-sm font-semibold tracking-wide text-asphalt uppercase"
         >
           Start on Map Jobs →
-        </Link>
+        </TrackedLink>
       </section>
     </div>
   );

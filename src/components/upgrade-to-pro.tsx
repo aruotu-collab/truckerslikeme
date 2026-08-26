@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { trackClick } from "@/lib/track-click";
 
 export function UpgradeToProButton({
   isPro,
@@ -22,6 +23,7 @@ export function UpgradeToProButton({
   }
 
   async function startCheckout() {
+    trackClick("billing", "Upgrade to Pro");
     setError(null);
     setLoading(true);
     try {

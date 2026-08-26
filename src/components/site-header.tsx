@@ -5,7 +5,9 @@ import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
+import { trackClick } from "@/lib/track-click";
 import { HScroll } from "@/components/h-scroll";
+import { TrackedLink } from "@/components/tracked-link";
 
 type SiteHeaderProps = {
   variant?: "overlay" | "solid";
@@ -65,9 +67,11 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
         {primaryNav.map((item) => {
           const active = item.match(pathname, need);
           return (
-            <Link
+            <TrackedLink
               key={item.href}
               href={item.href}
+              trackEvent="nav"
+              trackLabel={item.label}
               className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
                 active
                   ? "bg-amber text-asphalt"
@@ -75,12 +79,14 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
               }`}
             >
               {item.label}
-            </Link>
+            </TrackedLink>
           );
         })}
         {isAdmin && (
-          <Link
+          <TrackedLink
             href="/admin"
+            trackEvent="nav"
+            trackLabel="Admin"
             className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
               pathname.startsWith("/admin")
                 ? "bg-amber text-asphalt"
@@ -88,7 +94,7 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
             }`}
           >
             Admin
-          </Link>
+          </TrackedLink>
         )}
       </HScroll>
     </div>
@@ -170,7 +176,10 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           ) : (
             <button
               type="button"
-              onClick={() => openGate("join-community")}
+              onClick={() => {
+                trackClick("auth", "Sign in");
+                openGate("join-community");
+              }}
               className="rounded-sm border border-white/25 px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:text-sm"
             >
               Sign in

@@ -2,10 +2,17 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useAuthGate } from "@/lib/auth-gate";
 
-/** Soft visit beacon for admin traffic stats (no PII). */
+function readCountryCookie(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)tlm_ip_country=([A-Z]{2})/);
+  return match?.[1] ?? null;
+}
+
+/** Page visit beacon for admin traffic stats. */
 export function VisitBeacon() {
   const pathname = usePathname();
+  const { user } = useAuthGate();
 
   useEffect(() => {
     if (!pathname) return;
@@ -19,13 +26,24 @@ export function VisitBeacon() {
       // ignore
     }
 
+    const country = readCountryCookie();
+    const referrer =
+      typeof document !== "undefined" && document.referrer
+        ? document.referrer.slice(0, 500)
+        : null;
+
     void fetch("/api/visits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: pathname }),
+      body: JSON.stringify({
+        path: pathname,
+        country,
+        referrer,
+        userId: user?.id ?? null,
+      }),
       keepalive: true,
     });
-  }, [pathname]);
+  }, [pathname, user?.id]);
 
   return null;
 }

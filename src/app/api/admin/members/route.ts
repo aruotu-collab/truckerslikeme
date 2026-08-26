@@ -45,5 +45,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  if (body.role === "driver" || body.role === "admin") {
+    await admin.auth.admin.updateUserById(body.userId, {
+      app_metadata: { role: body.role },
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

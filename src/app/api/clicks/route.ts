@@ -6,11 +6,15 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
+      event?: string;
+      label?: string;
       path?: string;
       country?: string | null;
       referrer?: string | null;
       userId?: string | null;
     };
+    const eventName = (body.event || "click").slice(0, 80);
+    const label = (body.label || "unknown").slice(0, 120);
     const path = (body.path || "/").slice(0, 200);
     const meta = visitMetaFromRequest(request);
     const country = meta.country ?? body.country?.slice(0, 2).toUpperCase() ?? null;
@@ -28,20 +32,15 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     if (!admin) return NextResponse.json({ ok: true });
 
-    await admin.from("page_visits").insert({
+    await admin.from("click_events").insert({
+      event_name: eventName,
+      label,
       path,
       country,
       user_id: userId,
       referrer,
       ip_hash: meta.ipHash,
     });
-
-    if (userId) {
-      await admin
-        .from("profiles")
-        .update({ last_seen_at: new Date().toISOString() })
-        .eq("id", userId);
-    }
 
     return NextResponse.json({ ok: true });
   } catch {
