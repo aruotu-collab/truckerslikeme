@@ -1,7 +1,35 @@
--- TruckersLikeMe analytics (run in Supabase SQL editor after schema-admin.sql)
+-- TruckersLikeMe analytics (run in Supabase SQL editor)
+-- Self-contained: creates page_visits if missing, then analytics tables + helpers.
+-- Safe to re-run (uses IF NOT EXISTS / OR REPLACE).
 
--- Extend page visits with country, member, referrer, hashed IP
-alter table public.page_visits
+-- Base visit log (from schema-admin.sql — included here so analytics works standalone)
+create table if not exists public.page_visits (
+  id bigserial primary key,
+  path text not null,
+  visited_at timestamptz not null default now()
+);
+
+alter table public.page_visits enable row level security;
+
+drop policy if exists "Anyone can insert page visits" on public.page_visits;
+create policy "Anyone can insert page visits"
+  on public.page_visits for insert
+  with check (true);
+
+drop policy if exists "Admins read page visits" on public.page_visits;
+create policy "Admins read page visits"
+  on public.page_visits for select
+  using (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.role = 'admin'
+    )
+  );
+
+create index if not exists page_visits_visited_at_idx on public.page_visits (visited_at desc);
+create index if not exists page_visits_path_idx on public.page_visits (path);
+
+-- Extend page visits with country, member, referrer, hashed IPalter table public.page_visits
   add column if not exists country text,
   add column if not exists user_id uuid references public.profiles (id) on delete set null,
   add column if not exists referrer text,
