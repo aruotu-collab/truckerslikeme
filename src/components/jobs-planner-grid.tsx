@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { JobsRunSequenceChart } from "@/components/jobs-run-sequence-chart";
+import { SuggestedRunPanel } from "@/components/suggested-run-panel";
 import {
   bidPlansToRunRows,
   buildConnectionMatrix,
@@ -19,6 +21,7 @@ import {
   DEFAULT_RUN_PREFS,
   type RunBuilderPrefs,
 } from "@/lib/jobs-run-builder";
+import { buildRunSequence } from "@/lib/jobs-run-sequence";
 import { DIRECTION_LABELS, type DirectionId } from "@/lib/jobs-map-explore";
 import { shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 
@@ -28,6 +31,7 @@ type Props = {
   formatMoney: (n: number) => string;
   runPrefs?: RunBuilderPrefs;
   initialChainIds?: string[];
+  initialTab?: PlannerTab;
 };
 
 const TABS: { id: PlannerTab; label: string }[] = [
@@ -66,8 +70,9 @@ export function JobsPlannerGrid({
   formatMoney,
   runPrefs = DEFAULT_RUN_PREFS,
   initialChainIds,
+  initialTab = "jobs",
 }: Props) {
-  const [tab, setTab] = useState<PlannerTab>("jobs");
+  const [tab, setTab] = useState<PlannerTab>(initialTab);
   const [sort, setSort] = useState<PlannerSort>("pay");
   const [filters, setFilters] = useState<PlannerFilters>(DEFAULT_PLANNER_FILTERS);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
@@ -673,11 +678,18 @@ export function JobsPlannerGrid({
 
       {/* RUNS tab */}
       {tab === "runs" && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted">
-            Auto-generated combinations from deadhead scoring — tap to expand or
-            load into your chain.
-          </p>
+        <div className="space-y-6">
+          <SuggestedRunPanel
+            plans={runBuilder.plans}
+            driver={driver}
+            formatMoney={formatMoney}
+          />
+
+          <div className="border-t border-asphalt/10 pt-5">
+            <p className="mb-3 text-sm text-muted">
+              All candidate runs — expand for leg list, or load into your chain.
+            </p>
+          </div>
 
           <div className="overflow-x-auto border border-asphalt/10 bg-white">
             <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -696,6 +708,9 @@ export function JobsPlannerGrid({
               <tbody>
                 {runRows.map((rr) => {
                   const expanded = expandedRunId === rr.plan.id;
+                  const seq = expanded
+                    ? buildRunSequence(rr.plan, driver)
+                    : null;
                   return (
                     <Fragment key={rr.plan.id}>
                       <tr
@@ -735,58 +750,33 @@ export function JobsPlannerGrid({
                           </button>
                         </td>
                       </tr>
-                      {expanded && (
-                        <tr key={`${rr.plan.id}-legs`}>
-                          <td colSpan={8} className="bg-concrete/20 px-4 py-4">
-                            <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                              {rr.plan.label}
+                      {expanded && seq && (
+                        <tr>
+                          <td colSpan={8} className="bg-[#0f172a]/[3%] px-4 py-4">
+                            <p className="mb-2 text-[10px] font-semibold tracking-wide text-muted uppercase">
+                              Sequence · {rr.plan.label}
                             </p>
-                            <div className="mt-2 space-y-1 font-mono text-sm">
-                              <p>{driver?.label ? shortPlace(driver.label) : "Start"}</p>
-                              {rr.plan.legs
-                                .filter((l) => l.kind !== "start")
-                                .map((leg, i) => (
-                                  <p key={i} className="text-asphalt">
-                                    {leg.kind === "empty" && (
-                                      <span className="text-muted">
-                                        ↓ {leg.miles} empty
-                                      </span>
-                                    )}
-                                    {leg.kind === "pickup" && (
-                                      <span>
-                                        ☑ Pickup {leg.place}
-                                        {leg.pay ? ` · ${formatMoney(leg.pay)}` : ""}
-                                      </span>
-                                    )}
-                                    {(leg.kind === "deliver" ||
-                                      leg.kind === "loaded") && (
-                                      <span>
-                                        → Deliver {leg.place}
-                                        {leg.pay ? ` · ${formatMoney(leg.pay)}` : ""}
-                                      </span>
-                                    )}
-                                    {leg.kind === "handoff" && (
-                                      <span>
-                                        ☑ {leg.place} handoff
-                                        {leg.deliverPay
-                                          ? ` · ${formatMoney(leg.deliverPay)}`
-                                          : ""}
-                                      </span>
-                                    )}
-                                  </p>
-                                ))}
+                            <JobsRunSequenceChart
+                              towns={seq.towns}
+                              steps={seq.steps}
+                              formatMoney={formatMoney}
+                            />
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  applyChainFromPlan(rr.plan.jobs)
+                                }
+                                className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                              >
+                                Use this chain →
+                              </button>
+                              <p className="self-center text-xs text-muted">
+                                {rr.jobsCount} jobs · {formatMoney(rr.revenue)} ·{" "}
+                                {rr.emptyMiles} empty mi ·{" "}
+                                {formatMoney(rr.rpm)}/mi
+                              </p>
                             </div>
-                            <p className="mt-3 text-sm font-semibold">
-                              {rr.jobsCount} jobs · {formatMoney(rr.revenue)} ·{" "}
-                              {rr.emptyMiles} empty mi
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => applyChainFromPlan(rr.plan.jobs)}
-                              className="mt-3 rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                            >
-                              Use this chain →
-                            </button>
                           </td>
                         </tr>
                       )}

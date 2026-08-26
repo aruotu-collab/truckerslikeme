@@ -684,6 +684,7 @@ export function JobsMapPanel() {
             formatMoney={money}
             runPrefs={runPrefs}
             initialChainIds={runChainIds}
+            initialTab="runs"
           />
         )}
 
