@@ -29,12 +29,12 @@ create policy "Admins read page visits"
 create index if not exists page_visits_visited_at_idx on public.page_visits (visited_at desc);
 create index if not exists page_visits_path_idx on public.page_visits (path);
 
--- Extend page visits with country, member, referrer, hashed IPalter table public.page_visits
+-- Extend page visits with country, member, referrer, hashed IP
+alter table public.page_visits
   add column if not exists country text,
   add column if not exists user_id uuid references public.profiles (id) on delete set null,
   add column if not exists referrer text,
   add column if not exists ip_hash text;
-
 create index if not exists page_visits_country_idx on public.page_visits (country);
 create index if not exists page_visits_user_idx on public.page_visits (user_id);
 create index if not exists page_visits_ip_hash_idx on public.page_visits (ip_hash);
