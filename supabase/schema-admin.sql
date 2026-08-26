@@ -1,6 +1,6 @@
 -- Admin role for TruckersLikeMe (run in Supabase SQL editor)
 -- Promotes aruotu@gmail.com to admin + Pro.
--- Self-contained: adds plan/role columns if your profiles table predates schema.sql.
+-- Self-contained: bootstraps profiles + page_visits even on partial databases.
 
 do $$ begin
   create type public.plan_tier as enum ('free', 'pro');
@@ -14,6 +14,25 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- Minimal profiles table if missing entirely
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  display_name text,
+  email text,
+  role public.user_role not null default 'driver',
+  plan public.plan_tier not null default 'free',
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- Backfill columns on older / partial profiles tables
+alter table public.profiles
+  add column if not exists display_name text;
+
+alter table public.profiles
+  add column if not exists email text;
+
 alter table public.profiles
   add column if not exists plan public.plan_tier not null default 'free';
 
@@ -21,7 +40,34 @@ alter table public.profiles
   add column if not exists role public.user_role not null default 'driver';
 
 alter table public.profiles
-  add column if not exists email text;
+  add column if not exists ai_queries_used integer not null default 0;
+
+alter table public.profiles
+  add column if not exists mpg numeric(4, 1) not null default 6.5;
+
+alter table public.profiles
+  add column if not exists cost_per_mile numeric(6, 3) not null default 0.65;
+
+alter table public.profiles
+  add column if not exists diesel_price_override numeric(6, 3);
+
+alter table public.profiles
+  add column if not exists analyses_used integer not null default 0;
+
+alter table public.profiles
+  add column if not exists analyses_reset_at timestamptz;
+
+alter table public.profiles
+  add column if not exists stripe_customer_id text;
+
+alter table public.profiles
+  add column if not exists stripe_subscription_id text;
+
+alter table public.profiles
+  add column if not exists created_at timestamptz not null default now();
+
+alter table public.profiles
+  add column if not exists last_seen_at timestamptz;
 
 -- Keep email on profile for admin member lists
 create or replace function public.handle_new_user()
