@@ -697,6 +697,7 @@ export function JobsMapPanel() {
               runPrefs={runPrefs}
               initialChainIds={runChainIds}
               runOnly
+              onMarkWon={(id) => setStatus(id, "won")}
             />
           </div>
         )}
@@ -705,12 +706,26 @@ export function JobsMapPanel() {
       {/* Job list — primary bid entry */}
       {mainTab === "jobs" && jobsLook === "list" && (
       <section className="space-y-3">
-        <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-          Enter your bids
-        </h2>
-        <p className="text-sm text-muted">
-          Your quote on each job is what My run uses for revenue and £/mi.
-        </p>
+        <div>
+          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
+            {filter === "won"
+              ? `Won jobs (${counts.won})`
+              : filter === "hunting"
+                ? "Hunting — enter your bids"
+                : "Enter your bids"}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            {filter === "won"
+              ? "Jobs you’ve marked as won. Open Shiply links anytime, or put one back to Hunting if it falls through."
+              : "Your quote on each job is what My run uses for revenue and £/mi."}
+          </p>
+          {filter === "won" && counts.won === 0 && (
+            <p className="mt-2 border border-asphalt/10 bg-white px-3 py-2 text-sm text-muted">
+              No wins yet — when Shiply accepts a bid, tap{" "}
+              <strong className="text-asphalt">I got this</strong> on that job.
+            </p>
+          )}
+        </div>
         {!visible.length ? (
           <p className="text-sm text-muted">
             No jobs in this view yet. Scan Shiply and add them above.

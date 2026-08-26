@@ -38,6 +38,7 @@ type Props = {
   onOpenDistances?: () => void;
   /** Skip nested tabs — only show suggested run compare. */
   runOnly?: boolean;
+  onMarkWon?: (jobId: string) => void;
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -111,6 +112,7 @@ export function JobsPlannerGrid({
   initialTab = "jobs",
   onOpenDistances,
   runOnly = false,
+  onMarkWon,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
@@ -180,6 +182,7 @@ export function JobsPlannerGrid({
         formatMoney={formatMoney}
         totalJobCount={jobs.length}
         mappedJobCount={runBuilder.totalJobs}
+        onMarkWon={onMarkWon}
       />
     );
   }
@@ -910,16 +913,20 @@ function RunsCompareView({
   formatMoney,
   totalJobCount,
   mappedJobCount,
+  onMarkWon,
 }: {
   plans: BidPlan[];
   driver: JobsMapDriver | null;
   formatMoney: (n: number) => string;
   totalJobCount: number;
   mappedJobCount: number;
+  onMarkWon?: (jobId: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
   );
+  /** Jobs the driver dropped from the selected suggested run. */
+  const [excludedIds, setExcludedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!plans.length) {
@@ -931,15 +938,57 @@ function RunsCompareView({
     }
   }, [plans, selectedId]);
 
-  const selected =
+  // Reset exclusions when switching suggested run
+  useEffect(() => {
+    setExcludedIds([]);
+  }, [selectedId]);
+
+  const basePlan =
     plans.find((p) => p.id === selectedId) ?? plans[0] ?? null;
 
+  const workingPlan = useMemo(() => {
+    if (!basePlan) return null;
+    const kept = basePlan.jobs.filter((j) => !excludedIds.includes(j.id));
+    if (kept.length === basePlan.jobs.length) return basePlan;
+    if (!kept.length) {
+      return {
+        ...basePlan,
+        jobs: [],
+        revenue: 0,
+        loadedMiles: 0,
+        emptyMiles: 0,
+        totalMiles: 0,
+        revenuePerMile: 0,
+        emptyPct: 0,
+        legs: [],
+      } satisfies BidPlan;
+    }
+    const chain = buildManualChain(
+      kept.map((j) => j.id),
+      kept,
+      driver,
+    );
+    if (!chain) return basePlan;
+    return {
+      ...basePlan,
+      label: `${basePlan.label} (edited)`,
+      jobs: chain.jobs,
+      revenue: chain.revenue,
+      loadedMiles: chain.loadedMiles,
+      emptyMiles: chain.emptyMiles,
+      totalMiles: chain.totalMiles,
+      revenuePerMile: chain.revenuePerMile,
+      emptyPct: chain.emptyPct,
+      legs: [],
+    } satisfies BidPlan;
+  }, [basePlan, excludedIds, driver]);
+
   const sequence = useMemo(
-    () => (selected ? buildRunSequence(selected, driver) : null),
-    [selected, driver],
+    () => (workingPlan ? buildRunSequence(workingPlan, driver) : null),
+    [workingPlan, driver],
   );
 
-  if (!plans.length || !selected || !sequence) {
+  if (!plans.length || !basePlan || !workingPlan || !sequence) {
     const hasStart = Boolean(driver?.label?.trim());
     let title = "No suggested runs yet";
     let detail = "Add jobs and set your start location, then come back here.";
@@ -967,9 +1016,19 @@ function RunsCompareView({
   }
 
   const loadedPct =
-    selected.totalMiles > 0
-      ? Math.round((selected.loadedMiles / selected.totalMiles) * 100)
+    workingPlan.totalMiles > 0
+      ? Math.round((workingPlan.loadedMiles / workingPlan.totalMiles) * 100)
       : 0;
+
+  function dropFromRun(jobId: string) {
+    setExcludedIds((prev) =>
+      prev.includes(jobId) ? prev : [...prev, jobId],
+    );
+  }
+
+  function restoreAll() {
+    setExcludedIds([]);
+  }
 
   return (
     <div className="space-y-5 border border-asphalt/10 bg-white">
@@ -981,7 +1040,8 @@ function RunsCompareView({
           Suggested runs
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Compare scored chains — tap a row, then follow the journey.
+          Compare scored chains — tap a row, drop jobs you don’t want, then bid
+          the rest on Shiply.
         </p>
       </div>
 
@@ -1003,7 +1063,7 @@ function RunsCompareView({
             <tbody>
               {plans.slice(0, 6).map((plan, i) => {
                 const meta = RUN_GOAL_BADGE[plan.goal];
-                const active = plan.id === selected.id;
+                const active = plan.id === basePlan.id;
                 return (
                   <tr
                     key={plan.id}
@@ -1023,7 +1083,9 @@ function RunsCompareView({
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 tabular-nums">{plan.jobs.length}</td>
+                    <td className="px-3 py-2.5 tabular-nums">
+                      {plan.jobs.length}
+                    </td>
                     <td className="px-3 py-2.5 font-semibold tabular-nums">
                       {plan.revenue > 0 ? formatMoney(plan.revenue) : "—"}
                     </td>
@@ -1033,7 +1095,9 @@ function RunsCompareView({
                     <td className="px-3 py-2.5 tabular-nums text-muted">
                       {plan.emptyMiles}
                     </td>
-                    <td className="px-3 py-2.5 tabular-nums">{plan.totalMiles}</td>
+                    <td className="px-3 py-2.5 tabular-nums">
+                      {plan.totalMiles}
+                    </td>
                     <td className="px-3 py-2.5 font-semibold tabular-nums">
                       {plan.revenue > 0 && plan.totalMiles > 0
                         ? `£${plan.revenuePerMile.toFixed(2)}`
@@ -1047,6 +1111,23 @@ function RunsCompareView({
         </div>
       </div>
 
+      {excludedIds.length > 0 && (
+        <div className="mx-4 flex flex-wrap items-center justify-between gap-2 border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-asphalt sm:mx-5">
+          <span>
+            Removed {excludedIds.length} job
+            {excludedIds.length === 1 ? "" : "s"} from this run — totals
+            updated below.
+          </span>
+          <button
+            type="button"
+            onClick={restoreAll}
+            className="text-xs font-semibold tracking-wide text-amber uppercase underline"
+          >
+            Restore all
+          </button>
+        </div>
+      )}
+
       <div className="border-y border-asphalt/10 bg-concrete/20 px-4 py-4 sm:px-5">
         <div className="flex h-3 overflow-hidden border border-asphalt/15 bg-white">
           <div className="bg-asphalt" style={{ width: `${loadedPct}%` }} />
@@ -1056,7 +1137,11 @@ function RunsCompareView({
           />
         </div>
         <p className="mt-2 text-[11px] text-muted">
-          Loaded {selected.loadedMiles} mi · Deadhead {selected.emptyMiles} mi
+          Loaded {workingPlan.loadedMiles} mi · Deadhead{" "}
+          {workingPlan.emptyMiles} mi
+          {workingPlan.revenue > 0
+            ? ` · ${formatMoney(workingPlan.revenue)}`
+            : ""}
         </p>
       </div>
 
@@ -1064,58 +1149,68 @@ function RunsCompareView({
         <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
           Journey
         </p>
-        <ol className="mt-3 space-y-0">
-          {sequence.stops.map((stop, i) => {
-            const next = sequence.stops[i + 1];
-            return (
-              <li key={`${stop.index}-${stop.placeKey}-${i}`}>
-                <div className="flex gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center bg-asphalt text-[11px] font-bold text-white">
-                    {stop.index}
-                  </span>
-                  <div className="min-w-0 flex-1 pt-1 pb-1">
-                    <p className="font-semibold text-asphalt">{stop.placeLabel}</p>
-                    <p className="text-xs text-muted">
-                      {stop.role === "start"
-                        ? "You start"
-                        : stop.role === "pickup"
-                          ? "Pickup"
-                          : stop.role === "deliver"
-                            ? "Drop-off"
-                            : stop.note ?? ""}
-                    </p>
-                  </div>
-                </div>
-                {next && (next.arriveBy === "loaded" || next.arriveBy === "deadhead") && (
-                  <div className="ml-4 border-l border-asphalt/15 py-2 pl-7">
-                    <div
-                      className={`px-3 py-1.5 text-xs ${
-                        next.arriveBy === "loaded"
-                          ? "border border-asphalt/20 bg-asphalt/5 text-asphalt"
-                          : "border border-dashed border-amber/50 bg-amber/5 text-muted"
-                      }`}
-                    >
-                      <strong className="tabular-nums">
-                        {next.milesFromPrev} mi
-                      </strong>{" "}
-                      {next.arriveBy === "loaded"
-                        ? "loaded — earning"
-                        : "empty — deadhead"}
+        {workingPlan.jobs.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">
+            No jobs left in this run. Restore jobs or pick another suggestion.
+          </p>
+        ) : (
+          <ol className="mt-3 space-y-0">
+            {sequence.stops.map((stop, i) => {
+              const next = sequence.stops[i + 1];
+              return (
+                <li key={`${stop.index}-${stop.placeKey}-${i}`}>
+                  <div className="flex gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center bg-asphalt text-[11px] font-bold text-white">
+                      {stop.index}
+                    </span>
+                    <div className="min-w-0 flex-1 pt-1 pb-1">
+                      <p className="font-semibold text-asphalt">
+                        {stop.placeLabel}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {stop.role === "start"
+                          ? "You start"
+                          : stop.role === "pickup"
+                            ? "Pickup"
+                            : stop.role === "deliver"
+                              ? "Drop-off"
+                              : (stop.note ?? "")}
+                      </p>
                     </div>
                   </div>
-                )}
-              </li>
-            );
-          })}
-        </ol>
+                  {next &&
+                    (next.arriveBy === "loaded" ||
+                      next.arriveBy === "deadhead") && (
+                      <div className="ml-4 border-l border-asphalt/15 py-2 pl-7">
+                        <div
+                          className={`px-3 py-1.5 text-xs ${
+                            next.arriveBy === "loaded"
+                              ? "border border-asphalt/20 bg-asphalt/5 text-asphalt"
+                              : "border border-dashed border-amber/50 bg-amber/5 text-muted"
+                          }`}
+                        >
+                          <strong className="tabular-nums">
+                            {next.milesFromPrev} mi
+                          </strong>{" "}
+                          {next.arriveBy === "loaded"
+                            ? "loaded — earning"
+                            : "empty — deadhead"}
+                        </div>
+                      </div>
+                    )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
 
       <div className="border-t border-asphalt/10 px-4 py-4 sm:px-5">
         <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-          Jobs in this run ({selected.jobs.length})
+          Jobs in this run ({workingPlan.jobs.length})
         </p>
         <ul className="mt-3 divide-y divide-asphalt/10 border border-asphalt/10">
-          {selected.jobs.map((job, i) => (
+          {workingPlan.jobs.map((job, i) => (
             <li
               key={job.id}
               className="flex flex-wrap items-center gap-3 px-3 py-3"
@@ -1132,21 +1227,46 @@ function RunsCompareView({
                   {job.myBid != null && job.myBid > 0
                     ? ` · ${formatMoney(job.myBid)}`
                     : " · set bid on Jobs tab"}
+                  {job.status === "won" ? " · Won" : ""}
                 </p>
               </div>
-              {job.href && (
-                <a
-                  href={job.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
+              <div className="flex flex-wrap gap-2">
+                {job.href && (
+                  <a
+                    href={job.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
+                  >
+                    Open on Shiply
+                  </a>
+                )}
+                {onMarkWon && job.status !== "won" && (
+                  <button
+                    type="button"
+                    onClick={() => onMarkWon(job.id)}
+                    className="shrink-0 rounded-sm bg-[#2f6b4f] px-3 py-2 text-[11px] font-bold tracking-wide text-white uppercase"
+                  >
+                    I got this
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => dropFromRun(job.id)}
+                  className="shrink-0 rounded-sm border border-asphalt/20 px-3 py-2 text-[11px] font-bold tracking-wide text-muted uppercase hover:border-alert hover:text-alert"
                 >
-                  Open on Shiply
-                </a>
-              )}
+                  Drop from run
+                </button>
+              </div>
             </li>
           ))}
         </ul>
+        {workingPlan.jobs.length > 0 && (
+          <p className="mt-2 text-xs text-muted">
+            Drop from run only edits this suggestion — it does not delete the
+            job from your board.
+          </p>
+        )}
       </div>
     </div>
   );
