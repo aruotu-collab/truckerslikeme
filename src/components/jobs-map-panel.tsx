@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { JobsDistanceMatrix } from "@/components/jobs-distance-matrix";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
-import { JobsTubeMap } from "@/components/jobs-tube-map";
 import { useMarket } from "@/lib/market-context";
 import {
   buildRouteConnections,
@@ -13,7 +11,6 @@ import {
   sortConnections,
   unmappedJobs,
   type DirectionId,
-  type MapViewMode,
   type SortMode,
 } from "@/lib/jobs-map-explore";
 import {
@@ -45,19 +42,6 @@ const FILTERS: { id: JobsMapFilter; label: string }[] = [
   { id: "won", label: "Won" },
 ];
 
-const VIEW_MODES: { id: MapViewMode; label: string; hint: string }[] = [
-  {
-    id: "explore",
-    label: "All jobs",
-    hint: "59 jobs as direction clusters — tap to drill in",
-  },
-  {
-    id: "connections",
-    label: "Connections",
-    hint: "Tube map for one hub city",
-  },
-];
-
 const SORTS: { id: SortMode; label: string }[] = [
   { id: "money", label: "Most money" },
   { id: "jobs", label: "Most jobs" },
@@ -65,7 +49,8 @@ const SORTS: { id: SortMode; label: string }[] = [
   { id: "distance", label: "Shortest" },
 ];
 
-type PanelMode = "map" | "lanes" | "distances" | "runs";
+type MainTab = "jobs" | "run";
+type JobsLook = "list" | "map" | "lanes";
 
 export function JobsMapPanel() {
   const { money } = useMarket();
@@ -74,8 +59,8 @@ export function JobsMapPanel() {
   const [startDraft, setStartDraft] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [filter, setFilter] = useState<JobsMapFilter>("all");
-  const [viewMode, setViewMode] = useState<MapViewMode>("explore");
-  const [panelMode, setPanelMode] = useState<PanelMode>("lanes");
+  const [mainTab, setMainTab] = useState<MainTab>("jobs");
+  const [jobsLook, setJobsLook] = useState<JobsLook>("list");
   const [sortMode, setSortMode] = useState<SortMode>("money");
   const [selectedDirection, setSelectedDirection] =
     useState<DirectionId | null>(null);
@@ -361,13 +346,8 @@ export function JobsMapPanel() {
           Map Jobs
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          {panelMode === "lanes"
-            ? `${visible.length} jobs — scan pickup→drop lanes in the heatmap matrix, then build runs.`
-            : panelMode === "distances"
-              ? `${visible.length} jobs — town-to-town miles for deadhead planning between drops and pickups.`
-              : panelMode === "runs"
-                ? `${visible.length} jobs — compare scored runs, then open the blue/red sequence chart.`
-                : `${visible.length} jobs near your routes — explore by direction on the map.`}
+          Add Shiply jobs, enter your bids, then open <strong>My run</strong> to
+          see the best pickup→drop chain and what you’d earn.
         </p>
       </header>
 
@@ -378,9 +358,8 @@ export function JobsMapPanel() {
             Where are you starting?
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Required — shows as the amber <strong>YOU</strong> stop on the
-            collect side of the tube map.
-          </p>
+          Required — we plan empty miles from here to your first pickup.
+        </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
@@ -567,7 +546,7 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
-      {/* Visual explorer / planner */}
+      {/* Simple board: Jobs (bid) | My run (earn) */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -575,207 +554,109 @@ export function JobsMapPanel() {
               {visible.length} jobs on board
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {panelMode === "lanes"
-                ? "Origin–destination matrix — darker cells mean more jobs on that lane"
-                : panelMode === "distances"
-                  ? "Town-to-town miles — use after a drop to see empty miles to the next pickup"
-                  : panelMode === "runs"
-                    ? "Top suggested runs scored by revenue, deadhead, and £ per mile"
-                    : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
+              {mainTab === "jobs"
+                ? "Enter your bid on each job you want — then open My run to see earnings."
+                : "Suggested chains from your board. Revenue uses your bids only."}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div
-              className="inline-flex flex-wrap border border-asphalt/15 bg-white"
-              role="tablist"
-              aria-label="View mode"
-            >
-              {(
-                [
-                  { id: "map" as const, label: "Map" },
-                  { id: "lanes" as const, label: "Lanes" },
-                  { id: "distances" as const, label: "Distances" },
-                  { id: "runs" as const, label: "Runs" },
-                ] as const
-              ).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={panelMode === t.id}
-                  onClick={() => setPanelMode(t.id)}
-                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                    panelMode === t.id
-                      ? "bg-amber text-asphalt"
-                      : "text-asphalt/70 hover:bg-concrete/50"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            {panelMode === "map" && (
-            <div
-              className="inline-flex border border-asphalt/15 bg-white"
-              role="tablist"
-            >
-              {VIEW_MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={viewMode === m.id}
-                  onClick={() => setViewMode(m.id)}
-                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                    viewMode === m.id
-                      ? "bg-asphalt text-white"
-                      : "text-asphalt/70 hover:bg-concrete/50"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            )}
-            <div
-              className="inline-flex border border-asphalt/15 bg-white"
-              role="tablist"
-              aria-label="Job filter"
-            >
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-3 ${
-                    filter === f.id
-                      ? "bg-amber text-asphalt"
-                      : "text-asphalt/70 hover:bg-concrete/50"
-                  }`}
-                >
-                  {f.label}
-                  <span className="ml-1 opacity-70">{counts[f.id]}</span>
-                </button>
-              ))}
-            </div>
+          <div
+            className="inline-flex flex-wrap border border-asphalt/15 bg-white"
+            role="toolbar"
+            aria-label="Board controls"
+          >
+            {(
+              [
+                { id: "jobs" as const, label: "Jobs" },
+                { id: "run" as const, label: "My run" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={mainTab === t.id}
+                onClick={() => setMainTab(t.id)}
+                className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
+                  mainTab === t.id
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+            <span className="mx-0.5 w-px self-stretch bg-asphalt/15" aria-hidden />
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase ${
+                  filter === f.id
+                    ? "bg-amber text-asphalt"
+                    : "text-asphalt/70 hover:bg-concrete/50"
+                }`}
+              >
+                {f.label}
+                <span className="ml-1 opacity-70">{counts[f.id]}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {panelMode === "lanes" && (
+        {mainTab === "jobs" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              Look
+            </span>
+            {(
+              [
+                { id: "list" as const, label: "List + bids" },
+                { id: "map" as const, label: "Map" },
+                { id: "lanes" as const, label: "Lanes" },
+              ] as const
+            ).map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setJobsLook(v.id)}
+                className={`rounded-sm px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${
+                  jobsLook === v.id
+                    ? "bg-asphalt text-white"
+                    : "text-asphalt/60 hover:bg-concrete/50 hover:text-asphalt"
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setMainTab("run")}
+              className="ml-auto rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+            >
+              See my run →
+            </button>
+          </div>
+        )}
+
+        {mainTab === "jobs" && jobsLook === "lanes" && (
           <JobsLaneMatrix
             jobs={visible}
             driver={driver}
             formatMoney={money}
             onAddToRun={(laneJobs) => {
               setRunChainIds(laneJobs.map((j) => j.id));
-              setPanelMode("runs");
+              setMainTab("run");
             }}
           />
         )}
 
-        {panelMode === "distances" && (
-          <JobsDistanceMatrix
-            jobs={visible}
-            driver={driver}
-            onGoToRuns={() => setPanelMode("runs")}
-          />
-        )}
-
-        {panelMode === "runs" && (
-          <JobsPlannerGrid
-            jobs={visible}
-            driver={driver}
-            formatMoney={money}
-            runPrefs={runPrefs}
-            initialChainIds={runChainIds}
-            initialTab="runs"
-            onOpenDistances={() => setPanelMode("distances")}
-          />
-        )}
-
-        {panelMode === "map" && viewMode === "explore" && (
-          <>
-            <div className="flex flex-col gap-2 border border-asphalt/10 bg-white px-4 py-3 sm:flex-row sm:items-end">
-              <label className="flex-1 text-sm">
-                <span className="font-medium text-asphalt">
-                  Where are you heading?
-                </span>
-                <input
-                  type="text"
-                  value={headingDraft}
-                  onChange={(e) => setHeadingDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setHeadingToward(headingDraft.trim() || null);
-                    }
-                  }}
-                  placeholder="Anywhere, or e.g. London, Manchester…"
-                  className="mt-1 w-full border border-asphalt/15 bg-concrete/20 px-3 py-2 text-sm outline-none focus:border-amber"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setHeadingToward(headingDraft.trim() || null)
-                }
-                className="shrink-0 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
-              >
-                Apply corridor
-              </button>
-              {headingToward && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHeadingToward(null);
-                    setHeadingDraft("");
-                  }}
-                  className="shrink-0 text-xs font-semibold text-muted uppercase"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {headingToward && corridorGroups.length > 1 && (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {corridorGroups.map((g) => (
-                  <div
-                    key={g.id}
-                    className="border border-asphalt/10 bg-white px-3 py-2.5"
-                  >
-                    <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
-                      {g.label}
-                    </p>
-                    <p className="mt-0.5 text-lg font-semibold text-asphalt">
-                      {g.jobs.length}{" "}
-                      <span className="text-sm font-normal text-muted">
-                        job{g.jobs.length === 1 ? "" : "s"}
-                      </span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {SORTS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSortMode(s.id)}
-                  className={`rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase ${
-                    sortMode === s.id
-                      ? "bg-asphalt text-white"
-                      : "border border-asphalt/15 text-muted"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+        {mainTab === "jobs" && jobsLook === "map" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Direction clusters on your board — tap to drill in. Enter bids on
+              List + bids.
+            </p>
             <JobsExploreMap
               jobs={exploreJobs}
               driver={driver}
@@ -787,142 +668,49 @@ export function JobsMapPanel() {
               onSelectRoute={setSelectedRouteId}
               formatMoney={money}
             />
-            {unmapped.length > 0 && (
-              <p className="text-xs text-muted">
-                {unmapped.length} job{unmapped.length === 1 ? "" : "s"} hidden
-                from the map (place not recognised — listed below only).
-              </p>
-            )}
-            {runBuilder.plans.length > 0 && (
-              <div className="space-y-3 border-t border-asphalt/10 pt-4">
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <div>
-                    <h3 className="font-display text-lg tracking-wide text-asphalt uppercase">
-                      Suggested runs
-                    </h3>
-                    <p className="text-sm text-muted">
-                      {runBuilder.totalJobs} jobs · {runBuilder.plans.length}{" "}
-                      viable runs · {runBuilder.unpairedCount} unpaired
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPanelMode("runs")}
-                    className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                  >
-                    Build my run →
-                  </button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {runBuilder.plans.slice(0, 3).map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => setPanelMode("runs")}
-                      className="border border-asphalt/10 bg-white px-4 py-3 text-left hover:border-amber/50"
-                    >
-                      <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
-                        {plan.label}
-                      </p>
-                      <p className="mt-1 font-semibold text-asphalt">
-                        {plan.jobs.length} jobs · {money(plan.revenue)}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {money(plan.revenuePerMile)}/mi · {plan.emptyMiles} empty mi
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          </div>
         )}
 
-        {panelMode === "map" && viewMode === "connections" && (
+        {mainTab === "run" && (
           <div className="space-y-3">
-            <p className="text-sm text-muted">
-              Pick a hub — tube map shows only jobs touching that city.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {hubOptions.map((h) => (
+            {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
+              0 && (
+              <div className="border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
+                No bids yet — revenue shows £0 until you enter quotes on{" "}
                 <button
-                  key={h.key}
                   type="button"
-                  onClick={() => setHubKey(h.key)}
-                  className={`rounded-sm px-3 py-1.5 text-xs font-semibold tracking-wide uppercase ${
-                    hubKey === h.key
-                      ? "bg-asphalt text-white"
-                      : "border border-asphalt/15 text-asphalt"
-                  }`}
+                  onClick={() => {
+                    setMainTab("jobs");
+                    setJobsLook("list");
+                  }}
+                  className="font-semibold text-amber underline"
                 >
-                  {h.label} ({h.n})
+                  Jobs
                 </button>
-              ))}
-            </div>
-            {hubKey ? (
-              <JobsTubeMap
-                jobs={hubJobs}
-                driver={driver}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-              />
-            ) : (
-              <p className="text-sm text-muted">
-                Choose Manchester, Birmingham, London… to open the network view.
-              </p>
+                .
+              </div>
             )}
+            <JobsPlannerGrid
+              jobs={visible}
+              driver={driver}
+              formatMoney={money}
+              runPrefs={runPrefs}
+              initialChainIds={runChainIds}
+              runOnly
+            />
           </div>
         )}
       </section>
 
-      {/* Synced opportunity cards (Explore) */}
-      {panelMode === "map" && viewMode === "explore" && routes.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-            Best opportunities
-          </h2>
-          <p className="text-sm text-muted">
-            Same routes as the map — tap to highlight.{" "}
-            {routes.length} connections from {visible.length} jobs.
-          </p>
-          <ul className="space-y-2">
-            {routes.slice(0, 12).map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRouteId(
-                      selectedRouteId === r.id ? null : r.id,
-                    );
-                    setSelectedCityKey(r.destKey);
-                    setSelectedDirection(null);
-                  }}
-                  className={`w-full border px-4 py-3 text-left transition ${
-                    selectedRouteId === r.id
-                      ? "border-amber bg-amber/5"
-                      : "border-asphalt/10 bg-white hover:border-asphalt/25"
-                  }`}
-                >
-                  <p className="font-medium text-asphalt">
-                    {r.originLabel} → {r.destLabel}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {r.jobCount} job{r.jobCount === 1 ? "" : "s"} ·{" "}
-                    {money(r.totalPay)}
-                    {r.avgMiles != null ? ` · ~${r.avgMiles} mi` : ""}
-                  </p>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Job list — was "Jobs on board" */}
+      {/* Job list — primary bid entry */}
+      {mainTab === "jobs" && jobsLook === "list" && (
       <section className="space-y-3">
         <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-          All jobs
+          Enter your bids
         </h2>
+        <p className="text-sm text-muted">
+          Your quote on each job is what My run uses for revenue and £/mi.
+        </p>
         {!visible.length ? (
           <p className="text-sm text-muted">
             No jobs in this view yet. Scan Shiply and add them above.
@@ -1105,6 +893,7 @@ export function JobsMapPanel() {
           </details>
         )}
       </section>
+      )}
     </div>
   );
 }

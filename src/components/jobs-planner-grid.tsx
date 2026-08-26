@@ -36,6 +36,8 @@ type Props = {
   initialChainIds?: string[];
   initialTab?: PlannerTab;
   onOpenDistances?: () => void;
+  /** Skip nested tabs — only show suggested run compare. */
+  runOnly?: boolean;
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -108,8 +110,9 @@ export function JobsPlannerGrid({
   initialChainIds,
   initialTab = "jobs",
   onOpenDistances,
+  runOnly = false,
 }: Props) {
-  const [tab, setTab] = useState<PlannerTab>(initialTab);
+  const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
   const [sortDir, setSortDir] = useState<PlannerSortDir>("asc");
   const [filters, setFilters] = useState<PlannerFilters>(DEFAULT_PLANNER_FILTERS);
@@ -121,9 +124,9 @@ export function JobsPlannerGrid({
   useEffect(() => {
     if (initialChainIds?.length) {
       setChainIds(initialChainIds);
-      setTab("jobs");
+      if (!runOnly) setTab("jobs");
     }
-  }, [initialChainIds]);
+  }, [initialChainIds, runOnly]);
 
   const rows = useMemo(
     () => buildPlannerRows(jobs, driver, runPrefs),
@@ -168,6 +171,18 @@ export function JobsPlannerGrid({
       ),
     [focusJob, jobs, driver, matrixMaxDeadhead, runPrefs],
   );
+
+  if (runOnly) {
+    return (
+      <RunsCompareView
+        plans={runBuilder.plans}
+        driver={driver}
+        formatMoney={formatMoney}
+        totalJobCount={jobs.length}
+        mappedJobCount={runBuilder.totalJobs}
+      />
+    );
+  }
 
   function toggleChain(jobId: string) {
     setChainIds((prev) =>
