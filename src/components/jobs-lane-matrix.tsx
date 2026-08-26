@@ -118,132 +118,128 @@ export function JobsLaneMatrix({
         </div>
       )}
 
-      <div className="overflow-x-auto border border-asphalt/20 bg-white shadow-sm">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th
-                className="sticky left-0 z-30 min-w-[7rem] border border-asphalt/20 bg-[#4472c4] px-2 py-3 text-left text-[10px] font-bold tracking-wide text-white uppercase"
-                rowSpan={2}
-              >
-                <span className="block leading-tight">Pickup</span>
-                <span className="block text-[8px] font-normal normal-case opacity-90">
-                  /
-                </span>
-                <span className="block text-[8px] font-normal normal-case opacity-90">
-                  Drop off
-                </span>
-              </th>
-              <th
-                colSpan={matrix.drops.length + 1}
-                className="border border-asphalt/20 bg-[#ffc000] px-2 py-1.5 text-center text-[10px] font-bold tracking-wide text-asphalt uppercase"
-              >
-                Drop-off
-              </th>
-            </tr>
-            <tr>
-              {matrix.drops.map((drop) => (
-                <th
-                  key={drop.key}
-                  className={`max-w-[2.5rem] min-w-[2.25rem] cursor-pointer border border-asphalt/20 bg-[#ffc000] px-1 py-2 text-center align-bottom transition hover:bg-[#ffd966] ${
-                    filterDrop === drop.key ? "ring-2 ring-inset ring-asphalt" : ""
-                  }`}
-                  onClick={() => {
-                    setFilterDrop(filterDrop === drop.key ? null : drop.key);
-                    setSelectedCell(null);
-                  }}
-                  title={`${drop.label} — ${drop.total} incoming jobs`}
-                >
-                  <span
-                    className="inline-block text-[10px] leading-tight font-semibold text-asphalt"
-                    style={{
-                      writingMode: "vertical-rl",
-                      transform: "rotate(180deg)",
-                      maxHeight: "5.5rem",
-                    }}
-                  >
-                    {drop.label}
+      <div className="relative border border-asphalt/20 bg-white shadow-sm">
+        <div className="border-b border-asphalt/10 bg-[#ffc000] px-3 py-1.5 text-center text-[10px] font-bold tracking-wide text-asphalt uppercase">
+          Drop-off → scroll sideways
+        </div>
+        <div className="max-h-[min(70vh,560px)] overflow-auto">
+          <table className="w-max min-w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 top-0 z-40 min-w-[7.5rem] border border-asphalt/20 bg-[#4472c4] px-2 py-3 text-left text-[10px] font-bold tracking-wide text-white uppercase shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">
+                  <span className="block leading-tight">Pickup</span>
+                  <span className="block text-[8px] font-normal normal-case opacity-90">
+                    / Drop off
                   </span>
                 </th>
-              ))}
-              <th className="min-w-[3rem] border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-[9px] font-bold tracking-wide text-muted uppercase">
-                Out
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {matrix.pickups.map((pickup) => (
-              <tr key={pickup.key}>
-                <th
-                  className={`sticky left-0 z-20 cursor-pointer border border-asphalt/20 bg-[#4472c4] px-3 py-2 text-left text-xs font-semibold text-white transition hover:bg-[#5a82d4] ${
-                    filterPickup === pickup.key
-                      ? "ring-2 ring-inset ring-amber"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    setFilterPickup(
-                      filterPickup === pickup.key ? null : pickup.key,
-                    );
-                    setSelectedCell(null);
-                  }}
-                  title={`${pickup.label} — ${pickup.total} outgoing jobs`}
-                >
-                  {pickup.label}
-                </th>
-                {matrix.drops.map((drop) => {
-                  const cell = matrix.cells.get(
-                    laneCellKey(pickup.key, drop.key),
-                  );
-                  const count = cell?.count ?? 0;
-                  const isSelected =
-                    selectedCell?.pickupKey === pickup.key &&
-                    selectedCell?.dropKey === drop.key;
-
-                  return (
-                    <td
-                      key={drop.key}
-                      className={`border border-asphalt/15 px-1 py-1 text-center tabular-nums ${
-                        count > 0
-                          ? "cursor-pointer hover:ring-2 hover:ring-amber/60"
-                          : ""
-                      } ${isSelected ? "ring-2 ring-asphalt" : ""}`}
-                      style={laneHeatStyle(count, matrix.maxCount)}
-                      onClick={() => {
-                        if (cell) setSelectedCell(cell);
+                {matrix.drops.map((drop) => (
+                  <th
+                    key={drop.key}
+                    className={`sticky top-0 z-30 max-w-[2.5rem] min-w-[2.25rem] cursor-pointer border border-asphalt/20 bg-[#ffc000] px-1 py-2 text-center align-bottom transition hover:bg-[#ffd966] ${
+                      filterDrop === drop.key
+                        ? "ring-2 ring-inset ring-asphalt"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setFilterDrop(filterDrop === drop.key ? null : drop.key);
+                      setSelectedCell(null);
+                    }}
+                    title={`${drop.label} — ${drop.total} incoming jobs`}
+                  >
+                    <span
+                      className="inline-block text-[10px] leading-tight font-semibold text-asphalt"
+                      style={{
+                        writingMode: "vertical-rl",
+                        transform: "rotate(180deg)",
+                        maxHeight: "5.5rem",
                       }}
-                      title={
-                        count > 0
-                          ? `${pickup.label} → ${drop.label} · ${count} job${count === 1 ? "" : "s"}`
-                          : undefined
-                      }
                     >
-                      {count > 0 ? count : ""}
-                    </td>
-                  );
-                })}
-                <td className="border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-xs font-semibold tabular-nums text-asphalt">
-                  {pickup.total}
+                      {drop.label}
+                    </span>
+                  </th>
+                ))}
+                <th className="sticky right-0 top-0 z-40 min-w-[3.25rem] border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-[9px] font-bold tracking-wide text-muted uppercase shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.15)]">
+                  Out
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.pickups.map((pickup) => (
+                <tr key={pickup.key}>
+                  <th
+                    className={`sticky left-0 z-20 cursor-pointer border border-asphalt/20 bg-[#4472c4] px-3 py-2 text-left text-xs font-semibold text-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)] transition hover:bg-[#5a82d4] ${
+                      filterPickup === pickup.key
+                        ? "ring-2 ring-inset ring-amber"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setFilterPickup(
+                        filterPickup === pickup.key ? null : pickup.key,
+                      );
+                      setSelectedCell(null);
+                    }}
+                    title={`${pickup.label} — ${pickup.total} outgoing jobs`}
+                  >
+                    {pickup.label}
+                  </th>
+                  {matrix.drops.map((drop) => {
+                    const cell = matrix.cells.get(
+                      laneCellKey(pickup.key, drop.key),
+                    );
+                    const count = cell?.count ?? 0;
+                    const isSelected =
+                      selectedCell?.pickupKey === pickup.key &&
+                      selectedCell?.dropKey === drop.key;
+
+                    return (
+                      <td
+                        key={drop.key}
+                        className={`border border-asphalt/15 px-1 py-1 text-center tabular-nums ${
+                          count > 0
+                            ? "cursor-pointer hover:ring-2 hover:ring-amber/60"
+                            : "bg-white"
+                        } ${isSelected ? "ring-2 ring-asphalt" : ""}`}
+                        style={laneHeatStyle(count, matrix.maxCount)}
+                        onClick={() => {
+                          if (cell) setSelectedCell(cell);
+                        }}
+                        title={
+                          count > 0
+                            ? `${pickup.label} → ${drop.label} · ${count} job${count === 1 ? "" : "s"}`
+                            : undefined
+                        }
+                      >
+                        {count > 0 ? count : ""}
+                      </td>
+                    );
+                  })}
+                  <td className="sticky right-0 z-20 border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-xs font-semibold tabular-nums text-asphalt shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.12)]">
+                    {pickup.total}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <th className="sticky bottom-0 left-0 z-40 border border-asphalt/20 bg-[#dfe3e8] px-3 py-2 text-left text-[9px] font-bold tracking-wide text-muted uppercase shadow-[2px_-2px_4px_-2px_rgba(0,0,0,0.12)]">
+                  In
+                </th>
+                {matrix.drops.map((drop) => (
+                  <td
+                    key={drop.key}
+                    className="sticky bottom-0 z-30 border border-asphalt/20 bg-[#dfe3e8] px-2 py-2 text-center text-xs font-semibold tabular-nums text-asphalt shadow-[0_-2px_4px_-2px_rgba(0,0,0,0.08)]"
+                  >
+                    {drop.total}
+                  </td>
+                ))}
+                <td className="sticky bottom-0 right-0 z-40 border border-asphalt/20 bg-[#dfe3e8] px-2 py-2 text-center text-xs font-bold tabular-nums shadow-[-2px_-2px_4px_-2px_rgba(0,0,0,0.12)]">
+                  {matrix.totalJobs}
                 </td>
               </tr>
-            ))}
-            <tr>
-              <th className="sticky left-0 z-20 border border-asphalt/20 bg-[#e8ecf0] px-3 py-2 text-left text-[9px] font-bold tracking-wide text-muted uppercase">
-                In
-              </th>
-              {matrix.drops.map((drop) => (
-                <td
-                  key={drop.key}
-                  className="border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-xs font-semibold tabular-nums text-asphalt"
-                >
-                  {drop.total}
-                </td>
-              ))}
-              <td className="border border-asphalt/20 bg-[#e8ecf0] px-2 py-2 text-center text-xs font-bold tabular-nums">
-                {matrix.totalJobs}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+        <p className="border-t border-asphalt/10 px-3 py-1.5 text-[10px] text-muted">
+          Scroll sideways for more towns · Pickup + Out + In stay fixed
+        </p>
       </div>
 
       <p className="text-xs text-muted">
