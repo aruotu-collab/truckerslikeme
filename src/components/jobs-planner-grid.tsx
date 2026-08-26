@@ -1040,8 +1040,8 @@ function RunsCompareView({
           Suggested runs
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Compare scored chains — tap a row, drop jobs you don’t want, then bid
-          the rest on Shiply.
+          Tap a row to open its journey underneath — jobs for that run stay
+          below.
         </p>
       </div>
 
@@ -1065,45 +1065,143 @@ function RunsCompareView({
                 const meta = RUN_GOAL_BADGE[plan.goal];
                 const active = plan.id === basePlan.id;
                 return (
-                  <tr
-                    key={plan.id}
-                    onClick={() => setSelectedId(plan.id)}
-                    className={`cursor-pointer border-b border-asphalt/5 ${
-                      active ? "bg-amber/15" : "hover:bg-concrete/40"
-                    }`}
-                  >
-                    <td className="px-3 py-2.5 font-mono text-xs font-semibold text-amber">
-                      {i + 1}
-                    </td>
-                    <td className="px-3 py-2.5 font-medium text-asphalt">
-                      {meta.title}
-                      {active && (
-                        <span className="ml-2 text-[10px] font-semibold tracking-wide text-amber uppercase">
-                          Selected
+                  <Fragment key={plan.id}>
+                    <tr
+                      onClick={() => setSelectedId(plan.id)}
+                      className={`cursor-pointer border-b border-asphalt/5 ${
+                        active
+                          ? "bg-amber/15"
+                          : "hover:bg-concrete/40"
+                      }`}
+                    >
+                      <td className="px-3 py-2.5 font-mono text-xs font-semibold text-amber">
+                        {i + 1}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-asphalt">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="text-[10px] text-muted"
+                            aria-hidden
+                          >
+                            {active ? "▼" : "▶"}
+                          </span>
+                          {meta.title}
+                          {active && (
+                            <span className="text-[10px] font-semibold tracking-wide text-amber uppercase">
+                              Selected
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums">
-                      {plan.jobs.length}
-                    </td>
-                    <td className="px-3 py-2.5 font-semibold tabular-nums">
-                      {plan.revenue > 0 ? formatMoney(plan.revenue) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums text-muted">
-                      {plan.loadedMiles}
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums text-muted">
-                      {plan.emptyMiles}
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums">
-                      {plan.totalMiles}
-                    </td>
-                    <td className="px-3 py-2.5 font-semibold tabular-nums">
-                      {plan.revenue > 0 && plan.totalMiles > 0
-                        ? `£${plan.revenuePerMile.toFixed(2)}`
-                        : "—"}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-3 py-2.5 tabular-nums">
+                        {plan.jobs.length}
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold tabular-nums">
+                        {plan.revenue > 0 ? formatMoney(plan.revenue) : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 tabular-nums text-muted">
+                        {plan.loadedMiles}
+                      </td>
+                      <td className="px-3 py-2.5 tabular-nums text-muted">
+                        {plan.emptyMiles}
+                      </td>
+                      <td className="px-3 py-2.5 tabular-nums">
+                        {plan.totalMiles}
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold tabular-nums">
+                        {plan.revenue > 0 && plan.totalMiles > 0
+                          ? `£${plan.revenuePerMile.toFixed(2)}`
+                          : "—"}
+                      </td>
+                    </tr>
+                    {active && (
+                      <tr className="border-b border-asphalt/10 bg-amber/5">
+                        <td colSpan={8} className="px-4 py-4 sm:px-5">
+                          <div className="mb-3 flex h-2.5 overflow-hidden border border-asphalt/15 bg-white">
+                            <div
+                              className="bg-asphalt"
+                              style={{ width: `${loadedPct}%` }}
+                            />
+                            <div
+                              className="bg-[#c4a035]/70"
+                              style={{ width: `${100 - loadedPct}%` }}
+                            />
+                          </div>
+                          <p className="mb-3 text-[11px] text-muted">
+                            Loaded {workingPlan.loadedMiles} mi · Deadhead{" "}
+                            {workingPlan.emptyMiles} mi
+                            {workingPlan.revenue > 0
+                              ? ` · ${formatMoney(workingPlan.revenue)}`
+                              : ""}
+                          </p>
+                          <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                            Journey
+                          </p>
+                          {workingPlan.jobs.length === 0 ? (
+                            <p className="mt-2 text-sm text-muted">
+                              No jobs left in this run. Restore jobs or pick
+                              another suggestion.
+                            </p>
+                          ) : (
+                            <ol className="mt-2 space-y-0">
+                              {sequence.stops.map((stop, si) => {
+                                const next = sequence.stops[si + 1];
+                                return (
+                                  <li
+                                    key={`${stop.index}-${stop.placeKey}-${si}`}
+                                  >
+                                    <div className="flex gap-3">
+                                      <span className="flex size-7 shrink-0 items-center justify-center bg-asphalt text-[10px] font-bold text-white">
+                                        {stop.index}
+                                      </span>
+                                      <div className="min-w-0 flex-1 pt-0.5 pb-0.5">
+                                        <p className="text-sm font-semibold text-asphalt">
+                                          {stop.placeLabel}
+                                        </p>
+                                        <p className="text-xs text-muted">
+                                          {stop.role === "start"
+                                            ? "You start"
+                                            : stop.role === "pickup"
+                                              ? "Pickup"
+                                              : stop.role === "deliver"
+                                                ? "Drop-off"
+                                                : (stop.note ?? "")}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {next &&
+                                      (next.arriveBy === "loaded" ||
+                                        next.arriveBy === "deadhead") && (
+                                        <div className="ml-3.5 border-l border-asphalt/15 py-1.5 pl-6">
+                                          <div
+                                            className={`px-2.5 py-1 text-xs ${
+                                              next.arriveBy === "loaded"
+                                                ? "border border-asphalt/20 bg-asphalt/5 text-asphalt"
+                                                : "border border-dashed border-amber/50 bg-amber/5 text-muted"
+                                            }`}
+                                          >
+                                            <strong className="tabular-nums">
+                                              {next.milesFromPrev} mi
+                                            </strong>{" "}
+                                            {next.arriveBy === "loaded"
+                                              ? "loaded — earning"
+                                              : "empty — deadhead"}
+                                          </div>
+                                        </div>
+                                      )}
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          )}
+                          <p className="mt-3 text-[11px] text-muted">
+                            Jobs for this run are listed below — drop any you
+                            don’t want.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -1116,7 +1214,7 @@ function RunsCompareView({
           <span>
             Removed {excludedIds.length} job
             {excludedIds.length === 1 ? "" : "s"} from this run — totals
-            updated below.
+            updated.
           </span>
           <button
             type="button"
@@ -1127,83 +1225,6 @@ function RunsCompareView({
           </button>
         </div>
       )}
-
-      <div className="border-y border-asphalt/10 bg-concrete/20 px-4 py-4 sm:px-5">
-        <div className="flex h-3 overflow-hidden border border-asphalt/15 bg-white">
-          <div className="bg-asphalt" style={{ width: `${loadedPct}%` }} />
-          <div
-            className="bg-[#c4a035]/70"
-            style={{ width: `${100 - loadedPct}%` }}
-          />
-        </div>
-        <p className="mt-2 text-[11px] text-muted">
-          Loaded {workingPlan.loadedMiles} mi · Deadhead{" "}
-          {workingPlan.emptyMiles} mi
-          {workingPlan.revenue > 0
-            ? ` · ${formatMoney(workingPlan.revenue)}`
-            : ""}
-        </p>
-      </div>
-
-      <div className="px-4 pb-2 sm:px-5">
-        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-          Journey
-        </p>
-        {workingPlan.jobs.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">
-            No jobs left in this run. Restore jobs or pick another suggestion.
-          </p>
-        ) : (
-          <ol className="mt-3 space-y-0">
-            {sequence.stops.map((stop, i) => {
-              const next = sequence.stops[i + 1];
-              return (
-                <li key={`${stop.index}-${stop.placeKey}-${i}`}>
-                  <div className="flex gap-3">
-                    <span className="flex size-8 shrink-0 items-center justify-center bg-asphalt text-[11px] font-bold text-white">
-                      {stop.index}
-                    </span>
-                    <div className="min-w-0 flex-1 pt-1 pb-1">
-                      <p className="font-semibold text-asphalt">
-                        {stop.placeLabel}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {stop.role === "start"
-                          ? "You start"
-                          : stop.role === "pickup"
-                            ? "Pickup"
-                            : stop.role === "deliver"
-                              ? "Drop-off"
-                              : (stop.note ?? "")}
-                      </p>
-                    </div>
-                  </div>
-                  {next &&
-                    (next.arriveBy === "loaded" ||
-                      next.arriveBy === "deadhead") && (
-                      <div className="ml-4 border-l border-asphalt/15 py-2 pl-7">
-                        <div
-                          className={`px-3 py-1.5 text-xs ${
-                            next.arriveBy === "loaded"
-                              ? "border border-asphalt/20 bg-asphalt/5 text-asphalt"
-                              : "border border-dashed border-amber/50 bg-amber/5 text-muted"
-                          }`}
-                        >
-                          <strong className="tabular-nums">
-                            {next.milesFromPrev} mi
-                          </strong>{" "}
-                          {next.arriveBy === "loaded"
-                            ? "loaded — earning"
-                            : "empty — deadhead"}
-                        </div>
-                      </div>
-                    )}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </div>
 
       <div className="border-t border-asphalt/10 px-4 py-4 sm:px-5">
         <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
