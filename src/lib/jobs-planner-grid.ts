@@ -17,13 +17,44 @@ import { resolveUkPlace, type LatLon } from "@/lib/uk-places";
 export type PlannerTab = "jobs" | "connections" | "runs";
 
 export type PlannerSort =
+  | "default"
+  | "job"
   | "pay"
   | "rpm"
   | "miles"
   | "pickup"
   | "drop"
   | "deadhead"
-  | "fromMe";
+  | "fromMe"
+  | "nextPickup"
+  | "bestNext"
+  | "fit";
+
+export type PlannerSortDir = "asc" | "desc";
+
+/** Preferred first click direction for each column. */
+export const PLANNER_SORT_DEFAULT_DIR: Record<PlannerSort, PlannerSortDir> = {
+  default: "asc",
+  job: "asc",
+  pay: "desc",
+  rpm: "desc",
+  miles: "asc",
+  pickup: "asc",
+  drop: "asc",
+  deadhead: "asc",
+  fromMe: "asc",
+  nextPickup: "asc",
+  bestNext: "asc",
+  fit: "asc",
+};
+
+const FIT_RANK: Record<string, number> = {
+  excellent: 0,
+  good: 1,
+  possible: 2,
+  home: 3,
+  poor: 4,
+};
 
 export type PlannerFilters = {
   maxFromMe: number | null;
@@ -340,27 +371,59 @@ export function filterPlannerRows(
 export function sortPlannerRows(
   rows: PlannerJobRow[],
   sort: PlannerSort,
+  dir: PlannerSortDir = "asc",
 ): PlannerJobRow[] {
+  if (sort === "default") return [...rows];
+
+  const mul = dir === "asc" ? 1 : -1;
   const copy = [...rows];
   copy.sort((a, b) => {
+    let cmp = 0;
     switch (sort) {
+      case "job":
+        cmp = a.code.localeCompare(b.code, undefined, { numeric: true });
+        break;
       case "pay":
-        return b.pay - a.pay;
+        cmp = a.pay - b.pay;
+        break;
       case "rpm":
-        return b.rpm - a.rpm;
+        cmp = a.rpm - b.rpm;
+        break;
       case "miles":
-        return a.miles - b.miles;
+        cmp = a.miles - b.miles;
+        break;
       case "pickup":
-        return a.pickup.localeCompare(b.pickup);
+        cmp = a.pickup.localeCompare(b.pickup);
+        break;
       case "drop":
-        return a.drop.localeCompare(b.drop);
+        cmp = a.drop.localeCompare(b.drop);
+        break;
       case "deadhead":
-        return (a.bestNext?.deadhead ?? 999) - (b.bestNext?.deadhead ?? 999);
+        cmp =
+          (a.bestNext?.deadhead ?? 9999) - (b.bestNext?.deadhead ?? 9999);
+        break;
       case "fromMe":
-        return (a.emptyToPickup ?? 999) - (b.emptyToPickup ?? 999);
+        cmp = (a.emptyToPickup ?? 9999) - (b.emptyToPickup ?? 9999);
+        break;
+      case "nextPickup":
+        cmp = (a.bestNext?.route ?? "").localeCompare(b.bestNext?.route ?? "");
+        break;
+      case "bestNext":
+        cmp = (a.bestNext?.code ?? "zzz").localeCompare(
+          b.bestNext?.code ?? "zzz",
+          undefined,
+          { numeric: true },
+        );
+        break;
+      case "fit":
+        cmp =
+          (FIT_RANK[a.fit.tone] ?? 9) - (FIT_RANK[b.fit.tone] ?? 9);
+        break;
       default:
-        return 0;
+        cmp = 0;
     }
+    if (cmp !== 0) return cmp * mul;
+    return a.code.localeCompare(b.code, undefined, { numeric: true });
   });
   return copy;
 }

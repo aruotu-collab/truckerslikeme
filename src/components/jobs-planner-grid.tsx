@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { SuggestedRunPanel } from "@/components/suggested-run-panel";
 import {
   buildConnectionMatrix,
   buildManualChain,
@@ -9,16 +8,23 @@ import {
   connectionsFromJob,
   DEFAULT_PLANNER_FILTERS,
   filterPlannerRows,
+  PLANNER_SORT_DEFAULT_DIR,
   sortPlannerRows,
   type PlannerFilters,
   type PlannerSort,
+  type PlannerSortDir,
   type PlannerTab,
 } from "@/lib/jobs-planner-grid";
 import {
   buildBidPlans,
   DEFAULT_RUN_PREFS,
+  type BidPlan,
   type RunBuilderPrefs,
 } from "@/lib/jobs-run-builder";
+import {
+  buildRunSequence,
+  RUN_GOAL_BADGE,
+} from "@/lib/jobs-run-sequence";
 import { DIRECTION_LABELS, type DirectionId } from "@/lib/jobs-map-explore";
 import { shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 
@@ -29,22 +35,14 @@ type Props = {
   runPrefs?: RunBuilderPrefs;
   initialChainIds?: string[];
   initialTab?: PlannerTab;
+  onOpenDistances?: () => void;
 };
 
-const TABS: { id: PlannerTab; label: string }[] = [
+const TABS: { id: PlannerTab | "distances"; label: string }[] = [
   { id: "jobs", label: "Jobs" },
   { id: "connections", label: "Connections" },
   { id: "runs", label: "Runs" },
-];
-
-const SORTS: { id: PlannerSort; label: string }[] = [
-  { id: "pay", label: "£" },
-  { id: "rpm", label: "£/mi" },
-  { id: "miles", label: "Miles" },
-  { id: "fromMe", label: "From me" },
-  { id: "deadhead", label: "Deadhead" },
-  { id: "pickup", label: "Pickup" },
-  { id: "drop", label: "Drop" },
+  { id: "distances", label: "Distances" },
 ];
 
 function fitClass(tone: string) {
@@ -61,6 +59,47 @@ function fitClass(tone: string) {
   }
 }
 
+function SortTh({
+  label,
+  column,
+  sort,
+  dir,
+  onSort,
+  className = "",
+  sticky,
+}: {
+  label: string;
+  column: PlannerSort;
+  sort: PlannerSort;
+  dir: PlannerSortDir;
+  onSort: (column: PlannerSort) => void;
+  className?: string;
+  sticky?: string;
+}) {
+  const active = sort === column;
+  return (
+    <th
+      className={`${sticky ?? ""} px-3 py-3 ${className}`}
+      aria-sort={
+        active ? (dir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-1 text-left text-[10px] font-semibold tracking-wide uppercase transition hover:text-asphalt ${
+          active ? "text-asphalt" : "text-muted"
+        }`}
+      >
+        {label}
+        <span className="font-mono text-[9px] opacity-80" aria-hidden>
+          {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export function JobsPlannerGrid({
   jobs,
   driver,
@@ -68,9 +107,11 @@ export function JobsPlannerGrid({
   runPrefs = DEFAULT_RUN_PREFS,
   initialChainIds,
   initialTab = "jobs",
+  onOpenDistances,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(initialTab);
-  const [sort, setSort] = useState<PlannerSort>("pay");
+  const [sort, setSort] = useState<PlannerSort>("default");
+  const [sortDir, setSortDir] = useState<PlannerSortDir>("asc");
   const [filters, setFilters] = useState<PlannerFilters>(DEFAULT_PLANNER_FILTERS);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
@@ -90,8 +131,8 @@ export function JobsPlannerGrid({
   );
 
   const filteredRows = useMemo(
-    () => sortPlannerRows(filterPlannerRows(rows, filters), sort),
-    [rows, filters, sort],
+    () => sortPlannerRows(filterPlannerRows(rows, filters), sort, sortDir),
+    [rows, filters, sort, sortDir],
   );
 
   const chain = useMemo(
@@ -136,6 +177,25 @@ export function JobsPlannerGrid({
     );
   }
 
+  function handleSort(column: PlannerSort) {
+    if (column === "default") {
+      setSort("default");
+      setSortDir("asc");
+      return;
+    }
+    if (sort === column) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSort(column);
+    setSortDir(PLANNER_SORT_DEFAULT_DIR[column]);
+  }
+
+  function resetSort() {
+    setSort("default");
+    setSortDir("asc");
+  }
+
   return (
     <div className="space-y-4">
       {/* Chain builder panel */}
@@ -176,7 +236,7 @@ export function JobsPlannerGrid({
       {/* Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div
-          className="inline-flex border border-asphalt/15 bg-white font-display tracking-wide uppercase"
+          className="inline-flex flex-wrap border border-asphalt/15 bg-white font-display tracking-wide uppercase"
           role="tablist"
         >
           {TABS.map((t) => (
@@ -184,12 +244,20 @@ export function JobsPlannerGrid({
               key={t.id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
+              aria-selected={t.id !== "distances" && tab === t.id}
+              onClick={() => {
+                if (t.id === "distances") {
+                  onOpenDistances?.();
+                  return;
+                }
+                setTab(t.id);
+              }}
               className={`px-4 py-2.5 text-xs font-semibold sm:px-5 ${
-                tab === t.id
+                t.id !== "distances" && tab === t.id
                   ? "bg-asphalt text-white"
-                  : "text-asphalt/70 hover:bg-concrete/50"
+                  : t.id === "distances"
+                    ? "text-amber hover:bg-amber/10"
+                    : "text-asphalt/70 hover:bg-concrete/50"
               }`}
             >
               {t.label}
@@ -309,21 +377,24 @@ export function JobsPlannerGrid({
       {/* JOBS tab */}
       {tab === "jobs" && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {SORTS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSort(s.id)}
-                className={`rounded-sm px-2.5 py-1 text-[11px] font-semibold uppercase ${
-                  sort === s.id
-                    ? "bg-asphalt text-white"
-                    : "border border-asphalt/15 text-muted"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={resetSort}
+              className={`rounded-sm px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                sort === "default"
+                  ? "bg-asphalt text-white"
+                  : "border border-asphalt/15 text-muted hover:border-asphalt/40"
+              }`}
+            >
+              Default order
+            </button>
+            {sort !== "default" && (
+              <p className="text-[11px] text-muted">
+                Sorted by {sort} ({sortDir === "asc" ? "low→high" : "high→low"})
+                · click a column again to flip
+              </p>
+            )}
           </div>
 
           {/* Desktop table */}
@@ -334,23 +405,89 @@ export function JobsPlannerGrid({
                   <th className="sticky left-0 z-20 w-10 bg-[#f4f6f8] px-2 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                     ☑
                   </th>
-                  <th className="sticky left-10 z-20 w-14 bg-[#f4f6f8] px-2 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    Job
-                  </th>
-                  <th className="sticky left-24 z-20 w-28 bg-[#f4f6f8] px-2 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    Pickup
-                  </th>
-                  <th className="sticky left-[13.5rem] z-20 w-28 bg-[#f4f6f8] px-2 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    Drop
-                  </th>
-                  <th className="px-3 py-3">£</th>
-                  <th className="px-3 py-3">Miles</th>
-                  <th className="px-3 py-3">From me</th>
-                  <th className="px-3 py-3">Next pickup</th>
-                  <th className="px-3 py-3">Deadhead</th>
-                  <th className="px-3 py-3">Fit</th>
-                  <th className="px-3 py-3">£/mile</th>
-                  <th className="px-3 py-3">Best next</th>
+                  <SortTh
+                    label="Job"
+                    column="job"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                    sticky="sticky left-10 z-20 w-14 bg-[#f4f6f8] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                    className="!px-2"
+                  />
+                  <SortTh
+                    label="Pickup"
+                    column="pickup"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                    sticky="sticky left-24 z-20 w-28 bg-[#f4f6f8] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                    className="!px-2"
+                  />
+                  <SortTh
+                    label="Drop"
+                    column="drop"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                    sticky="sticky left-[13.5rem] z-20 w-28 bg-[#f4f6f8] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]"
+                    className="!px-2"
+                  />
+                  <SortTh
+                    label="£"
+                    column="pay"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="Miles"
+                    column="miles"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="From me"
+                    column="fromMe"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="Next pickup"
+                    column="nextPickup"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="Deadhead"
+                    column="deadhead"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="Fit"
+                    column="fit"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="£/mile"
+                    column="rpm"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    label="Best next"
+                    column="bestNext"
+                    sort={sort}
+                    dir={sortDir}
+                    onSort={handleSort}
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -669,20 +806,264 @@ export function JobsPlannerGrid({
         </div>
       )}
 
-      {/* RUNS tab — dark Suggested Run screen matching product mockup */}
+      {/* RUNS tab — simple light compare (no dark mockup panel) */}
       {tab === "runs" && (
-        <SuggestedRunPanel
+        <RunsCompareView
           plans={runBuilder.plans}
           driver={driver}
           formatMoney={formatMoney}
-          mappedJobCount={runBuilder.totalJobs}
           totalJobCount={jobs.length}
-          onOptimise={() => {
-            setTab("jobs");
-            window.setTimeout(() => setTab("runs"), 0);
-          }}
+          mappedJobCount={runBuilder.totalJobs}
         />
       )}
+    </div>
+  );
+}
+
+function RunsCompareView({
+  plans,
+  driver,
+  formatMoney,
+  totalJobCount,
+  mappedJobCount,
+}: {
+  plans: BidPlan[];
+  driver: JobsMapDriver | null;
+  formatMoney: (n: number) => string;
+  totalJobCount: number;
+  mappedJobCount: number;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(
+    plans[0]?.id ?? null,
+  );
+
+  useEffect(() => {
+    if (!plans.length) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !plans.some((p) => p.id === selectedId)) {
+      setSelectedId(plans[0]!.id);
+    }
+  }, [plans, selectedId]);
+
+  const selected =
+    plans.find((p) => p.id === selectedId) ?? plans[0] ?? null;
+
+  const sequence = useMemo(
+    () => (selected ? buildRunSequence(selected, driver) : null),
+    [selected, driver],
+  );
+
+  if (!plans.length || !selected || !sequence) {
+    const hasStart = Boolean(driver?.label?.trim());
+    let title = "No suggested runs yet";
+    let detail = "Add jobs and set your start location, then come back here.";
+    if (!hasStart) {
+      title = "Set your start location";
+      detail = "Suggested runs need a starting town above the board.";
+    } else if (totalJobCount === 0) {
+      title = "No jobs on the board";
+      detail = "Scan Shiply and add jobs first.";
+    } else if (mappedJobCount === 0) {
+      title = "Jobs aren’t mapped yet";
+      detail = "We couldn’t recognise pickup/drop towns on these jobs.";
+    } else {
+      title = "Couldn’t build a chain";
+      detail = "No jobs linked within a sensible deadhead yet.";
+    }
+    return (
+      <div className="border border-asphalt/10 bg-white px-5 py-10 text-center">
+        <p className="font-display text-lg tracking-wide text-asphalt uppercase">
+          {title}
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted">{detail}</p>
+      </div>
+    );
+  }
+
+  const loadedPct =
+    selected.totalMiles > 0
+      ? Math.round((selected.loadedMiles / selected.totalMiles) * 100)
+      : 0;
+
+  return (
+    <div className="space-y-5 border border-asphalt/10 bg-white">
+      <div className="border-b border-asphalt/10 px-4 py-4 sm:px-5">
+        <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">
+          Bid planner
+        </p>
+        <h3 className="mt-1 font-display text-2xl tracking-wide text-asphalt uppercase">
+          Suggested runs
+        </h3>
+        <p className="mt-1 text-sm text-muted">
+          Compare scored chains — tap a row, then follow the journey.
+        </p>
+      </div>
+
+      <div className="px-4 sm:px-5">
+        <div className="overflow-x-auto border border-asphalt/10">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-asphalt/10 bg-[#f4f6f8] text-left text-[10px] font-semibold tracking-wide text-muted uppercase">
+                <th className="px-3 py-2.5">#</th>
+                <th className="px-3 py-2.5">Goal</th>
+                <th className="px-3 py-2.5">Jobs</th>
+                <th className="px-3 py-2.5">Revenue</th>
+                <th className="px-3 py-2.5">Loaded</th>
+                <th className="px-3 py-2.5">Deadhead</th>
+                <th className="px-3 py-2.5">Total</th>
+                <th className="px-3 py-2.5">£ / mi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.slice(0, 6).map((plan, i) => {
+                const meta = RUN_GOAL_BADGE[plan.goal];
+                const active = plan.id === selected.id;
+                return (
+                  <tr
+                    key={plan.id}
+                    onClick={() => setSelectedId(plan.id)}
+                    className={`cursor-pointer border-b border-asphalt/5 ${
+                      active ? "bg-amber/15" : "hover:bg-concrete/40"
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 font-mono text-xs font-semibold text-amber">
+                      {i + 1}
+                    </td>
+                    <td className="px-3 py-2.5 font-medium text-asphalt">
+                      {meta.title}
+                      {active && (
+                        <span className="ml-2 text-[10px] font-semibold tracking-wide text-amber uppercase">
+                          Selected
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums">{plan.jobs.length}</td>
+                    <td className="px-3 py-2.5 font-semibold tabular-nums">
+                      {plan.revenue > 0 ? formatMoney(plan.revenue) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums text-muted">
+                      {plan.loadedMiles}
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums text-muted">
+                      {plan.emptyMiles}
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums">{plan.totalMiles}</td>
+                    <td className="px-3 py-2.5 font-semibold tabular-nums">
+                      {plan.revenue > 0 && plan.totalMiles > 0
+                        ? `£${plan.revenuePerMile.toFixed(2)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="border-y border-asphalt/10 bg-concrete/20 px-4 py-4 sm:px-5">
+        <div className="flex h-3 overflow-hidden border border-asphalt/15 bg-white">
+          <div className="bg-asphalt" style={{ width: `${loadedPct}%` }} />
+          <div
+            className="bg-[#c4a035]/70"
+            style={{ width: `${100 - loadedPct}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          Loaded {selected.loadedMiles} mi · Deadhead {selected.emptyMiles} mi
+        </p>
+      </div>
+
+      <div className="px-4 pb-2 sm:px-5">
+        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+          Journey
+        </p>
+        <ol className="mt-3 space-y-0">
+          {sequence.stops.map((stop, i) => {
+            const next = sequence.stops[i + 1];
+            return (
+              <li key={`${stop.index}-${stop.placeKey}-${i}`}>
+                <div className="flex gap-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center bg-asphalt text-[11px] font-bold text-white">
+                    {stop.index}
+                  </span>
+                  <div className="min-w-0 flex-1 pt-1 pb-1">
+                    <p className="font-semibold text-asphalt">{stop.placeLabel}</p>
+                    <p className="text-xs text-muted">
+                      {stop.role === "start"
+                        ? "You start"
+                        : stop.role === "pickup"
+                          ? "Pickup"
+                          : stop.role === "deliver"
+                            ? "Drop-off"
+                            : stop.note ?? ""}
+                    </p>
+                  </div>
+                </div>
+                {next && (next.arriveBy === "loaded" || next.arriveBy === "deadhead") && (
+                  <div className="ml-4 border-l border-asphalt/15 py-2 pl-7">
+                    <div
+                      className={`px-3 py-1.5 text-xs ${
+                        next.arriveBy === "loaded"
+                          ? "border border-asphalt/20 bg-asphalt/5 text-asphalt"
+                          : "border border-dashed border-amber/50 bg-amber/5 text-muted"
+                      }`}
+                    >
+                      <strong className="tabular-nums">
+                        {next.milesFromPrev} mi
+                      </strong>{" "}
+                      {next.arriveBy === "loaded"
+                        ? "loaded — earning"
+                        : "empty — deadhead"}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      <div className="border-t border-asphalt/10 px-4 py-4 sm:px-5">
+        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+          Jobs in this run ({selected.jobs.length})
+        </p>
+        <ul className="mt-3 divide-y divide-asphalt/10 border border-asphalt/10">
+          {selected.jobs.map((job, i) => (
+            <li
+              key={job.id}
+              className="flex flex-wrap items-center gap-3 px-3 py-3"
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center bg-asphalt font-mono text-[11px] font-bold text-white">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-asphalt">
+                  {shortPlace(job.origin)} → {shortPlace(job.destination)}
+                </p>
+                <p className="text-xs text-muted">
+                  {job.miles != null ? `${job.miles} mi` : "Miles unknown"}
+                  {job.myBid != null && job.myBid > 0
+                    ? ` · ${formatMoney(job.myBid)}`
+                    : " · set bid on Jobs tab"}
+                </p>
+              </div>
+              {job.href && (
+                <a
+                  href={job.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
+                >
+                  Open on Shiply
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { JobsDistanceMatrix } from "@/components/jobs-distance-matrix";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
@@ -64,7 +65,7 @@ const SORTS: { id: SortMode; label: string }[] = [
   { id: "distance", label: "Shortest" },
 ];
 
-type PanelMode = "map" | "lanes" | "runs";
+type PanelMode = "map" | "lanes" | "distances" | "runs";
 
 export function JobsMapPanel() {
   const { money } = useMarket();
@@ -362,9 +363,11 @@ export function JobsMapPanel() {
         <p className="mt-3 text-base text-muted sm:text-lg">
           {panelMode === "lanes"
             ? `${visible.length} jobs — scan pickup→drop lanes in the heatmap matrix, then build runs.`
-            : panelMode === "runs"
-              ? `${visible.length} jobs — sort, filter, and chain bids in the logistics spreadsheet.`
-              : `${visible.length} jobs near your routes — explore by direction on the map.`}
+            : panelMode === "distances"
+              ? `${visible.length} jobs — town-to-town miles for deadhead planning between drops and pickups.`
+              : panelMode === "runs"
+                ? `${visible.length} jobs — compare scored runs, then open the blue/red sequence chart.`
+                : `${visible.length} jobs near your routes — explore by direction on the map.`}
         </p>
       </header>
 
@@ -574,56 +577,42 @@ export function JobsMapPanel() {
             <p className="mt-1 text-sm text-muted">
               {panelMode === "lanes"
                 ? "Origin–destination matrix — darker cells mean more jobs on that lane"
-                : panelMode === "runs"
-                  ? "Excel-style logistics grid — tick jobs to build your bid plan"
-                  : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
+                : panelMode === "distances"
+                  ? "Town-to-town miles — use after a drop to see empty miles to the next pickup"
+                  : panelMode === "runs"
+                    ? "Top suggested runs scored by revenue, deadhead, and £ per mile"
+                    : VIEW_MODES.find((m) => m.id === viewMode)?.hint}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <div
-              className="inline-flex border border-asphalt/15 bg-white"
+              className="inline-flex flex-wrap border border-asphalt/15 bg-white"
               role="tablist"
               aria-label="View mode"
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelMode === "map"}
-                onClick={() => setPanelMode("map")}
-                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                  panelMode === "map"
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                Map
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelMode === "lanes"}
-                onClick={() => setPanelMode("lanes")}
-                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                  panelMode === "lanes"
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                Lanes
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelMode === "runs"}
-                onClick={() => setPanelMode("runs")}
-                className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
-                  panelMode === "runs"
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                Runs
-              </button>
+              {(
+                [
+                  { id: "map" as const, label: "Map" },
+                  { id: "lanes" as const, label: "Lanes" },
+                  { id: "distances" as const, label: "Distances" },
+                  { id: "runs" as const, label: "Runs" },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={panelMode === t.id}
+                  onClick={() => setPanelMode(t.id)}
+                  className={`px-3 py-2 text-xs font-semibold tracking-wide uppercase sm:px-4 ${
+                    panelMode === t.id
+                      ? "bg-amber text-asphalt"
+                      : "text-asphalt/70 hover:bg-concrete/50"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
             {panelMode === "map" && (
             <div
@@ -686,6 +675,14 @@ export function JobsMapPanel() {
           />
         )}
 
+        {panelMode === "distances" && (
+          <JobsDistanceMatrix
+            jobs={visible}
+            driver={driver}
+            onGoToRuns={() => setPanelMode("runs")}
+          />
+        )}
+
         {panelMode === "runs" && (
           <JobsPlannerGrid
             jobs={visible}
@@ -694,6 +691,7 @@ export function JobsMapPanel() {
             runPrefs={runPrefs}
             initialChainIds={runChainIds}
             initialTab="runs"
+            onOpenDistances={() => setPanelMode("distances")}
           />
         )}
 
