@@ -7,6 +7,7 @@ import {
 import {
   placeKey,
   shortPlace,
+  jobMyBid,
   type JobsMapDriver,
   type MapJob,
 } from "@/lib/jobs-map";
@@ -164,7 +165,7 @@ export type CorridorGroup = {
 };
 
 function jobPay(j: MapJob) {
-  return j.rateTotal != null && j.rateTotal > 0 ? j.rateTotal : 0;
+  return jobMyBid(j);
 }
 
 function avgMiles(jobs: MapJob[]) {
@@ -176,8 +177,8 @@ function avgMiles(jobs: MapJob[]) {
 function avgRpm(jobs: MapJob[]) {
   const rpms = jobs
     .map((j) =>
-      j.rateTotal != null && j.miles != null && j.miles > 0
-        ? j.rateTotal / j.miles
+      jobMyBid(j) > 0 && j.miles != null && j.miles > 0
+        ? jobMyBid(j) / j.miles
         : null,
     )
     .filter((r): r is number => r != null);

@@ -1,4 +1,4 @@
-import { placeKey, shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import { placeKey, shortPlace, jobMyBid, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 import { resolveUkPlace, type LatLon } from "@/lib/uk-places";
 
 export type LanePlace = {
@@ -29,7 +29,7 @@ export type LaneMatrix = {
 };
 
 function jobPay(j: MapJob) {
-  return j.rateTotal != null && j.rateTotal > 0 ? j.rateTotal : 0;
+  return jobMyBid(j);
 }
 
 function bearingDeg(from: LatLon, to: LatLon) {

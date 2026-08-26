@@ -109,39 +109,46 @@ export function SuggestedRunPanel({
           </span>
         </div>
 
-        {/* Summary metrics */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-          <div className="flex items-center gap-2 text-slate-200">
-            <span className="text-sky-400" aria-hidden>
-              ⧉
-            </span>
-            <span>
-              <strong className="font-semibold text-white">{n}</strong> jobs
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-200">
-            <span className="text-sky-400" aria-hidden>
-              £
-            </span>
-            <span>
-              <strong className="font-semibold text-white">
-                {formatMoney(selected.revenue)}
-              </strong>{" "}
-              potential revenue
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-200">
-            <span className="text-sky-400" aria-hidden>
-              ↩
-            </span>
-            <span>
-              <strong className="font-semibold text-white">
-                {selected.emptyMiles}
-              </strong>{" "}
-              extra miles
-            </span>
-          </div>
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <div className="flex items-center gap-2 text-slate-200">
+          <span className="text-sky-400" aria-hidden>
+            ⧉
+          </span>
+          <span>
+            <strong className="font-semibold text-white">{n}</strong> jobs
+          </span>
         </div>
+        <div className="flex items-center gap-2 text-slate-200">
+          <span className="text-sky-400" aria-hidden>
+            £
+          </span>
+          <span>
+            {selected.revenue > 0 ? (
+              <>
+                <strong className="font-semibold text-white">
+                  {formatMoney(selected.revenue)}
+                </strong>{" "}
+                from your bids
+              </>
+            ) : (
+              <span className="text-slate-400">
+                Add your bids on each job to see potential revenue
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-slate-200">
+          <span className="text-sky-400" aria-hidden>
+            ↩
+          </span>
+          <span>
+            <strong className="font-semibold text-white">
+              {selected.emptyMiles}
+            </strong>{" "}
+            extra miles
+          </span>
+        </div>
+      </div>
       </div>
 
       <div className="space-y-6 px-5 py-5">
@@ -165,7 +172,7 @@ export function SuggestedRunPanel({
                   <span className="text-sky-400">{i + 1}</span> {meta.title}
                 </p>
                 <p className="mt-1.5 text-lg font-semibold text-white">
-                  {formatMoney(plan.revenue)}
+                  {plan.revenue > 0 ? formatMoney(plan.revenue) : "Set bids"}
                 </p>
                 <p className="mt-0.5 text-[11px] text-slate-400">
                   {plan.jobs.length} jobs · {plan.emptyMiles} extra miles
@@ -243,8 +250,8 @@ export function SuggestedRunPanel({
                       destination={shortPlace(job.destination)}
                       miles={job.miles}
                       pay={
-                        job.rateTotal != null
-                          ? formatMoney(job.rateTotal)
+                        job.myBid != null
+                          ? formatMoney(job.myBid)
                           : null
                       }
                     />
@@ -260,8 +267,8 @@ export function SuggestedRunPanel({
                       destination={shortPlace(job.destination)}
                       miles={job.miles}
                       pay={
-                        job.rateTotal != null
-                          ? formatMoney(job.rateTotal)
+                        job.myBid != null
+                          ? formatMoney(job.myBid)
                           : null
                       }
                     />

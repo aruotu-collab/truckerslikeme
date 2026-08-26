@@ -7,7 +7,10 @@ export type MapJob = {
   origin: string | null;
   destination: string | null;
   miles: number | null;
+  /** Scraped Shiply figure — often wrong (quote counts etc). Do not show as the driver's pay. */
   rateTotal: number | null;
+  /** Driver's intended bid / quote for this job. Used for run revenue. */
+  myBid: number | null;
   item: string | null;
   href: string | null;
   status: MapJobStatus;
@@ -69,6 +72,15 @@ export function shortPlace(place: string | null | undefined) {
   return place.split(",")[0]?.trim() || place.trim();
 }
 
+/** Driver's quote only — never scraped Shiply amounts. */
+export function jobMyBid(job: MapJob): number {
+  return job.myBid != null && job.myBid > 0 ? job.myBid : 0;
+}
+
+export function hasMyBid(job: MapJob): boolean {
+  return jobMyBid(job) > 0;
+}
+
 function migrateStatus(raw: string | undefined): MapJobStatus {
   if (raw === "won" || raw === "bidding" || raw === "skipped") return raw;
   return "hunting";
@@ -87,6 +99,13 @@ export function readJobsMapState(): JobsMapState {
     const jobs = (Array.isArray(parsed.jobs) ? parsed.jobs : []).map((j) => ({
       ...j,
       status: migrateStatus(j.status),
+      myBid:
+        typeof (j as MapJob).myBid === "number" &&
+        Number.isFinite((j as MapJob).myBid)
+          ? (j as MapJob).myBid
+          : null,
+      // Drop scraped amounts — they are not the driver's bid
+      rateTotal: null as number | null,
     }));
     let driver = parsed.driver ?? null;
     if (!driver && typeof parsed.start === "string" && parsed.start.trim()) {
@@ -349,7 +368,8 @@ export function mergeScannedJobs(
       next[matchIdx] = {
         ...prev,
         miles: s.miles ?? prev.miles,
-        rateTotal: s.rateTotal ?? prev.rateTotal,
+        // Never import scraped Shiply £ as the driver's quote
+        rateTotal: null,
         item: s.item ?? prev.item,
         href: s.href ?? prev.href,
         updatedAt: now,
@@ -362,7 +382,8 @@ export function mergeScannedJobs(
       origin: s.origin,
       destination: s.destination,
       miles: s.miles,
-      rateTotal: s.rateTotal,
+      rateTotal: null,
+      myBid: null,
       item: s.item,
       href: s.href ?? null,
       status: "hunting",

@@ -224,6 +224,16 @@ export function JobsMapPanel() {
     );
   }
 
+  function setMyBid(id: string, myBid: number | null) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, myBid, updatedAt: new Date().toISOString() }
+          : j,
+      ),
+    );
+  }
+
   function removeJob(id: string) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
     if (selectedId === id) setSelectedId(null);
@@ -523,7 +533,6 @@ export function JobsMapPanel() {
                         {[
                           job.item,
                           job.miles != null ? `${job.miles} mi` : null,
-                          job.rateTotal != null ? money(job.rateTotal) : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -949,9 +958,6 @@ export function JobsMapPanel() {
                           {[
                             job.item,
                             job.miles != null ? `${job.miles} mi` : null,
-                            job.rateTotal != null
-                              ? money(job.rateTotal)
-                              : null,
                           ]
                             .filter(Boolean)
                             .join(" · ")}
@@ -964,6 +970,39 @@ export function JobsMapPanel() {
                       </span>
                     </div>
                   </button>
+
+                  <label className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                      Your bid £
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="decimal"
+                      placeholder="Enter quote"
+                      value={job.myBid ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        if (!raw) {
+                          setMyBid(job.id, null);
+                          return;
+                        }
+                        const n = Number(raw);
+                        setMyBid(
+                          job.id,
+                          Number.isFinite(n) && n > 0 ? n : null,
+                        );
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-28 border border-asphalt/15 bg-white px-2 py-1.5 text-sm tabular-nums outline-none focus:border-amber"
+                    />
+                    {job.myBid != null && job.miles != null && job.miles > 0 && (
+                      <span className="text-xs text-muted">
+                        {money(job.myBid / job.miles)}/mi
+                      </span>
+                    )}
+                  </label>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {job.href ? (

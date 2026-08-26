@@ -293,10 +293,13 @@ export function JobsLaneMatrix({
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {job.rateTotal != null && (
+                    {job.myBid != null && (
                       <span className="font-semibold tabular-nums">
-                        {formatMoney(job.rateTotal)}
+                        {formatMoney(job.myBid)}
                       </span>
+                    )}
+                    {job.myBid == null && (
+                      <span className="text-xs text-slate-500">No bid yet</span>
                     )}
                     {job.href && (
                       <a

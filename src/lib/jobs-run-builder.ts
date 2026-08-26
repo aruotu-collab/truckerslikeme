@@ -1,5 +1,6 @@
 import { boundsAround, projectLatLon, resolveUkPlace, type LatLon } from "@/lib/uk-places";
 import {
+  jobMyBid,
   placeKey,
   shortPlace,
   type JobsMapDriver,
@@ -96,7 +97,7 @@ function haversineMi(a: LatLon, b: LatLon) {
 }
 
 function jobPay(j: MapJob) {
-  return j.rateTotal != null && j.rateTotal > 0 ? j.rateTotal : 0;
+  return jobMyBid(j);
 }
 
 function jobMiles(j: ScoredJob) {

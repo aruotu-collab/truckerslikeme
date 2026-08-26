@@ -116,7 +116,7 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
                 {active && (
                   <title>
                     {job.origin} → {job.destination}
-                    {job.rateTotal != null ? ` · £${job.rateTotal}` : ""}
+                    {job.myBid != null ? ` · £${job.myBid}` : ""}
                   </title>
                 )}
               </g>
@@ -187,8 +187,8 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
           <span className="font-medium text-asphalt">
             {selected.origin} → {selected.destination}
           </span>
-          {selected.rateTotal != null && (
-            <span className="text-muted">£{selected.rateTotal}</span>
+          {selected.myBid != null && (
+            <span className="text-muted">Your bid £{selected.myBid}</span>
           )}
           {selected.miles != null && (
             <span className="text-muted">{selected.miles} mi</span>

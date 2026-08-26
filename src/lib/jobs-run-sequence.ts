@@ -1,4 +1,4 @@
-import { placeKey, shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import { placeKey, shortPlace, jobMyBid, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 import type { BidPlan, RunGoal } from "@/lib/jobs-run-builder";
 import { resolveUkPlace, type LatLon } from "@/lib/uk-places";
 
@@ -74,7 +74,7 @@ function townOf(place: string | null | undefined): SequenceTown | null {
 }
 
 function jobPay(j: MapJob) {
-  return j.rateTotal != null && j.rateTotal > 0 ? j.rateTotal : 0;
+  return jobMyBid(j);
 }
 
 function jobLoadedMiles(job: MapJob) {

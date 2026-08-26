@@ -11,7 +11,7 @@ import {
   type ConnectionQuality,
   type RunBuilderPrefs,
 } from "@/lib/jobs-run-builder";
-import { placeKey, shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import { placeKey, shortPlace, jobMyBid, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 import { resolveUkPlace, type LatLon } from "@/lib/uk-places";
 
 export type PlannerTab = "jobs" | "connections" | "runs";
@@ -135,7 +135,7 @@ function bearingDeg(from: LatLon, to: LatLon) {
 }
 
 function jobPay(j: MapJob) {
-  return j.rateTotal != null && j.rateTotal > 0 ? j.rateTotal : 0;
+  return jobMyBid(j);
 }
 
 function driverPoint(driver: JobsMapDriver | null): LatLon | null {

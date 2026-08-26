@@ -395,7 +395,7 @@ export function JobsPlannerGrid({
                           {row.drop}
                         </td>
                         <td className="px-3 py-2.5 font-semibold tabular-nums">
-                          {formatMoney(row.pay)}
+                          {row.pay > 0 ? formatMoney(row.pay) : "—"}
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-muted">
                           {row.miles}
@@ -417,7 +417,7 @@ export function JobsPlannerGrid({
                           {row.fit.emoji} {row.fit.label}
                         </td>
                         <td className="px-3 py-2.5 tabular-nums font-medium">
-                          {formatMoney(row.rpm)}
+                          {row.pay > 0 ? formatMoney(row.rpm) : "—"}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-xs">
                           {row.bestNext?.code ?? "—"}
@@ -498,8 +498,11 @@ export function JobsPlannerGrid({
                       {row.pickup} → {row.drop}
                     </p>
                     <p className="mt-1 text-sm text-muted">
-                      {formatMoney(row.pay)} · {row.miles} mi ·{" "}
-                      {formatMoney(row.rpm)}/mi
+                      {row.pay > 0 ? formatMoney(row.pay) : "No bid"} ·{" "}
+                      {row.miles} mi
+                      {row.pay > 0 && row.rpm > 0
+                        ? ` · ${formatMoney(row.rpm)}/mi`
+                        : ""}
                     </p>
                     {row.bestNext && (
                       <p className="mt-1 text-xs text-muted">

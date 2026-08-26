@@ -281,9 +281,9 @@ export function JobsExploreMap({
               >
                 <span className="text-asphalt">
                   {j.item || "Job"}
-                  {j.rateTotal != null
-                    ? ` · ${formatMoney(j.rateTotal)}`
-                    : ""}
+                  {j.myBid != null
+                    ? ` · ${formatMoney(j.myBid)}`
+                    : " · No bid"}
                 </span>
                 <span
                   className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${mapStatusMeta[j.status].soft}`}
