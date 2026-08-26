@@ -31,6 +31,14 @@ import {
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
+import {
+  diffAgainstLastScan,
+  formatLastScan,
+  jobFingerprint,
+  readLastScanSnapshot,
+  scanSummaryMessage,
+  writeLastScanSnapshot,
+} from "@/lib/shiply-scan-snapshot";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
 
@@ -72,6 +80,11 @@ export function JobsMapPanel() {
   const [coach, setCoach] = useState<string | null>(null);
   const [scanned, setScanned] = useState<VisibleShiplyJob[]>([]);
   const [selectedScan, setSelectedScan] = useState<Record<string, boolean>>({});
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
+  const [newScanFingerprints, setNewScanFingerprints] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = readJobsMapState();
@@ -83,6 +96,8 @@ export function JobsMapPanel() {
       .then((r) => r.json())
       .then((d: { enabled?: boolean }) => setEnabled(Boolean(d.enabled)))
       .catch(() => setEnabled(false));
+    const prev = readLastScanSnapshot();
+    if (prev) setLastScanAt(prev.scannedAt);
   }, []);
 
   useEffect(() => {
@@ -259,6 +274,13 @@ export function JobsMapPanel() {
         return;
       }
       const list = data.jobs ?? [];
+      const previous = readLastScanSnapshot();
+      const diff = diffAgainstLastScan(previous, list);
+      const scannedAt = new Date().toISOString();
+      writeLastScanSnapshot(list);
+      setLastScanAt(scannedAt);
+      setNewScanFingerprints(diff.newFingerprints);
+      setScanSummary(scanSummaryMessage(diff, list.length, scannedAt));
       setScanned(list);
       setCoach(data.coach ?? null);
       const next: Record<string, boolean> = {};
@@ -441,7 +463,24 @@ export function JobsMapPanel() {
                 New session
               </button>
             </div>
+            {lastScanAt && !scanSummary && (
+              <p className="text-sm text-muted">
+                Last scan {formatLastScan(lastScanAt)}
+              </p>
+            )}
           </div>
+        )}
+
+        {scanSummary && (
+          <p
+            className={`text-sm ${
+              newScanFingerprints.size > 0
+                ? "border-l-4 border-amber bg-amber/10 px-4 py-3 font-medium text-asphalt"
+                : "text-muted"
+            }`}
+          >
+            {scanSummary}
+          </p>
         )}
 
         {coach && <p className="text-sm text-asphalt">{coach}</p>}
@@ -453,7 +492,9 @@ export function JobsMapPanel() {
               {Object.values(selectedScan).filter(Boolean).length} selected)
             </p>
             <ul className="max-h-56 space-y-2 overflow-y-auto">
-              {scanned.map((job) => (
+              {scanned.map((job) => {
+                const isNew = newScanFingerprints.has(jobFingerprint(job));
+                return (
                 <li key={job.id}>
                   <label className="flex cursor-pointer gap-3 border border-asphalt/10 px-3 py-2.5 hover:bg-concrete/30">
                     <input
@@ -470,6 +511,11 @@ export function JobsMapPanel() {
                     <span className="min-w-0 flex-1 text-sm">
                       <span className="font-medium text-asphalt">
                         {shortPlace(job.origin)} → {shortPlace(job.destination)}
+                        {isNew && (
+                          <span className="ml-2 rounded-sm bg-amber px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
+                            New
+                          </span>
+                        )}
                       </span>
                       <span className="mt-0.5 block text-xs text-muted">
                         {[
@@ -482,7 +528,8 @@ export function JobsMapPanel() {
                     </span>
                   </label>
                 </li>
-              ))}
+              );
+              })}
             </ul>
             <div className="flex flex-wrap gap-2">
               <button

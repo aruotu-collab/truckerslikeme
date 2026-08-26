@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import type { RunJob, RunPrefs } from "@/lib/run-builder";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
+import {
+  diffAgainstLastScan,
+  formatLastScan,
+  jobFingerprint,
+  readLastScanSnapshot,
+  scanSummaryMessage,
+  writeLastScanSnapshot,
+} from "@/lib/shiply-scan-snapshot";
 import { useMarket } from "@/lib/market-context";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
@@ -34,6 +42,16 @@ export function ShiplyConnect({
   const [coach, setCoach] = useState<string | null>(null);
   const [scanned, setScanned] = useState<VisibleShiplyJob[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
+  const [newScanFingerprints, setNewScanFingerprints] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
+
+  useEffect(() => {
+    const prev = readLastScanSnapshot();
+    if (prev) setLastScanAt(prev.scannedAt);
+  }, []);
 
   useEffect(() => {
     void fetch("/api/run/shiply/session")
@@ -110,6 +128,13 @@ export function ShiplyConnect({
         return;
       }
       const jobs = data.jobs ?? [];
+      const previous = readLastScanSnapshot();
+      const diff = diffAgainstLastScan(previous, jobs);
+      const scannedAt = new Date().toISOString();
+      writeLastScanSnapshot(jobs);
+      setLastScanAt(scannedAt);
+      setNewScanFingerprints(diff.newFingerprints);
+      setScanSummary(scanSummaryMessage(diff, jobs.length, scannedAt));
       setScanned(jobs);
       setCoach(data.coach ?? null);
       const next: Record<string, boolean> = {};
@@ -253,7 +278,24 @@ export function ShiplyConnect({
               New session
             </button>
           </div>
+          {lastScanAt && !scanSummary && (
+            <p className="text-sm text-muted">
+              Last scan {formatLastScan(lastScanAt)}
+            </p>
+          )}
         </div>
+      )}
+
+      {scanSummary && (
+        <p
+          className={`text-sm ${
+            newScanFingerprints.size > 0
+              ? "border-l-4 border-amber bg-amber/10 px-4 py-3 font-medium text-asphalt"
+              : "text-muted"
+          }`}
+        >
+          {scanSummary}
+        </p>
       )}
 
       {coach && <p className="text-sm text-asphalt">{coach}</p>}
@@ -265,7 +307,9 @@ export function ShiplyConnect({
             selected)
           </p>
           <ul className="space-y-2">
-            {scanned.map((job) => (
+            {scanned.map((job) => {
+              const isNew = newScanFingerprints.has(jobFingerprint(job));
+              return (
               <li key={job.id}>
                 <label className="flex cursor-pointer gap-3 border border-asphalt/10 px-3 py-3 hover:bg-concrete/30">
                   <input
@@ -282,6 +326,11 @@ export function ShiplyConnect({
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium text-asphalt">
                       {job.origin || "?"} → {job.destination || "?"}
+                      {isNew && (
+                        <span className="ml-2 rounded-sm bg-amber px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
+                          New
+                        </span>
+                      )}
                     </span>
                     <span className="mt-0.5 block text-xs text-muted">
                       {[
@@ -299,7 +348,8 @@ export function ShiplyConnect({
                   </span>
                 </label>
               </li>
-            ))}
+            );
+            })}
           </ul>
             <button
               type="button"
