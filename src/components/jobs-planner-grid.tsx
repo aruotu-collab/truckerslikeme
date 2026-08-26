@@ -482,7 +482,7 @@ export function JobsPlannerGrid({
                     onSort={handleSort}
                   />
                   <SortTh
-                    label="Best next"
+                    label="Best next · tap"
                     column="bestNext"
                     sort={sort}
                     dir={sortDir}
@@ -520,9 +520,18 @@ export function JobsPlannerGrid({
                             onClick={() =>
                               setExpandedJobId(expanded ? null : row.job.id)
                             }
-                            className="text-amber hover:underline"
+                            aria-expanded={expanded}
+                            title={
+                              expanded
+                                ? "Hide possible next jobs"
+                                : "Show possible next jobs"
+                            }
+                            className="inline-flex items-center gap-1 text-amber hover:underline"
                           >
                             {row.code}
+                            <span className="text-[9px] font-semibold text-muted" aria-hidden>
+                              {expanded ? "▲" : "▼"}
+                            </span>
                           </button>
                         </td>
                         <td className="sticky left-24 z-10 bg-inherit px-2 py-2.5 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
@@ -556,8 +565,29 @@ export function JobsPlannerGrid({
                         <td className="px-3 py-2.5 tabular-nums font-medium">
                           {row.pay > 0 ? formatMoney(row.rpm) : "—"}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-xs">
-                          {row.bestNext?.code ?? "—"}
+                        <td className="px-3 py-2.5">
+                          {row.bestNext ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedJobId(expanded ? null : row.job.id)
+                              }
+                              aria-expanded={expanded}
+                              title={`Show possible next jobs after ${row.code}`}
+                              className={`inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 font-mono text-xs font-semibold transition ${
+                                expanded
+                                  ? "border-amber bg-amber text-asphalt"
+                                  : "border-amber bg-amber/15 text-amber shadow-sm hover:bg-amber/30"
+                              }`}
+                            >
+                              {row.bestNext.code}
+                              <span className="font-sans text-[10px] font-bold tracking-wide uppercase">
+                                {expanded ? "▲ hide" : "▼ options"}
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
                         </td>
                       </tr>
                       {expanded && nextConns.length > 0 && (
@@ -642,10 +672,49 @@ export function JobsPlannerGrid({
                         : ""}
                     </p>
                     {row.bestNext && (
-                      <p className="mt-1 text-xs text-muted">
-                        Next: {row.bestNext.route} ({row.bestNext.deadhead} mi){" "}
-                        {row.bestNext.code}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedJobId(
+                            expandedJobId === row.job.id ? null : row.job.id,
+                          )
+                        }
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-sm border border-amber/50 bg-amber/10 px-2.5 py-1.5 text-xs font-semibold text-amber"
+                      >
+                        Best next {row.bestNext.code}
+                        <span className="font-normal text-muted">
+                          · {row.bestNext.deadhead} mi empty · tap for options
+                        </span>
+                      </button>
+                    )}
+                    {expandedJobId === row.job.id && (
+                      <div className="mt-3 border-t border-asphalt/10 pt-3">
+                        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                          Possible next jobs
+                        </p>
+                        <ul className="mt-2 space-y-2">
+                          {connectionsFromJob(
+                            row.job,
+                            jobs,
+                            driver,
+                            runPrefs,
+                            8,
+                          ).map((c) => (
+                            <li
+                              key={c.toJob.id}
+                              className="text-xs text-asphalt"
+                            >
+                              <span className="font-mono font-semibold text-amber">
+                                {c.toCode}
+                              </span>{" "}
+                              {c.route} · {c.deadheadMi} mi empty ·{" "}
+                              <span className={fitClass(c.fit.tone)}>
+                                {c.fit.label}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                   <span className={`text-xs ${fitClass(row.fit.tone)}`}>
