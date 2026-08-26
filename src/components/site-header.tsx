@@ -13,6 +13,11 @@ type SiteHeaderProps = {
 
 const primaryNav = [
   {
+    href: "/",
+    label: "Home",
+    match: (pathname: string) => pathname === "/",
+  },
+  {
     href: "/run",
     label: "Build My Run",
     match: (pathname: string) => pathname.startsWith("/run"),
@@ -73,16 +78,6 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
             </Link>
           );
         })}
-        <Link
-          href="/me"
-          className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
-            pathname.startsWith("/me") || pathname.startsWith("/members")
-              ? "bg-amber text-asphalt"
-              : "text-white/80 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          Me
-        </Link>
         {isAdmin && (
           <Link
             href="/admin"
