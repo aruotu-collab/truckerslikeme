@@ -29,6 +29,7 @@ export function MyJobsPanel() {
   const [jobs, setJobs] = useState<MapJob[]>([]);
   const [filter, setFilter] = useState<MyJobsFilter>("bidding");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -65,18 +66,21 @@ export function MyJobsPanel() {
     );
   }
 
-  function removeJob(id: string) {
-    const job = jobs.find((j) => j.id === id);
-    const route = job
-      ? `${shortPlace(job.origin)} → ${shortPlace(job.destination)}`
-      : "this job";
-    const ok = window.confirm(
-      `Remove ${route} permanently?\n\nThis cannot be undone. Use Skip if you might want it again.`,
-    );
-    if (!ok) return;
+  function requestRemove(id: string) {
+    setPendingRemoveId(id);
+  }
+
+  function confirmRemove() {
+    if (!pendingRemoveId) return;
+    const id = pendingRemoveId;
     setJobs((prev) => prev.filter((j) => j.id !== id));
     if (selectedId === id) setSelectedId(null);
+    setPendingRemoveId(null);
   }
+
+  const pendingRemoveJob = pendingRemoveId
+    ? jobs.find((j) => j.id === pendingRemoveId) ?? null
+    : null;
 
   return (
     <div className="space-y-8">
@@ -240,7 +244,7 @@ export function MyJobsPanel() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => removeJob(job.id)}
+                        onClick={() => requestRemove(job.id)}
                         className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
                       >
                         Remove
@@ -309,7 +313,7 @@ export function MyJobsPanel() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => removeJob(job.id)}
+                    onClick={() => requestRemove(job.id)}
                     className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
                   >
                     Remove
@@ -321,6 +325,56 @@ export function MyJobsPanel() {
             );
           })}
         </ul>
+      )}
+
+      {pendingRemoveJob && (
+        <div
+          className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-asphalt/70 p-4 backdrop-blur-sm sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="remove-job-title"
+          onClick={() => setPendingRemoveId(null)}
+        >
+          <div
+            className="animate-slide-up w-full max-w-md border border-asphalt/10 bg-background p-6 shadow-2xl sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-xs tracking-[0.2em] text-alert uppercase">
+              Remove job
+            </p>
+            <h2
+              id="remove-job-title"
+              className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase"
+            >
+              Are you sure?
+            </h2>
+            <p className="mt-3 text-sm text-muted">
+              Remove{" "}
+              <span className="font-semibold text-asphalt">
+                {shortPlace(pendingRemoveJob.origin)} →{" "}
+                {shortPlace(pendingRemoveJob.destination)}
+              </span>{" "}
+              permanently? This cannot be undone. Use Skip if you might want it
+              again.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingRemoveId(null)}
+                className="rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemove}
+                className="rounded-sm bg-alert px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
+              >
+                Remove permanently
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
