@@ -153,15 +153,15 @@ export function TodayRunBar({
                 <span className="text-[10px] font-semibold text-emerald-700 uppercase">
                   Won
                 </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onRemoveFromRun(j.id)}
-                  className="text-[10px] font-semibold text-muted uppercase hover:text-alert"
-                >
-                  Drop
-                </button>
-              )}
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onRemoveFromRun(j.id)}
+                className="rounded-sm border border-alert/30 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-alert uppercase hover:bg-red-100"
+                aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
+              >
+                Remove
+              </button>
             </li>
           ))}
         </ul>

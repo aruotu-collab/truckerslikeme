@@ -262,6 +262,16 @@ export function JobsMapPanel() {
     setTodayRunIds((ids) => ids.filter((x) => x !== id));
   }
 
+  function focusBoardJob(id: string) {
+    const el = document.getElementById(`board-job-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-amber", "ring-offset-2");
+    window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-amber", "ring-offset-2");
+    }, 1800);
+  }
+
   function resetDriverToHome() {
     if (home) setDriver({ ...home });
   }
@@ -737,6 +747,9 @@ export function JobsMapPanel() {
                 onMarkWon={() => setJobStatus(job.id, "won")}
                 onRemove={() => removeJob(job.id)}
                 onAddToRun={() => addToTodayRun(job.id)}
+                onRemoveFromRun={() => removeFromTodayRun(job.id)}
+                onFocusJob={focusBoardJob}
+                onAddJobToRun={addToTodayRun}
               />
             ))}
           </ul>

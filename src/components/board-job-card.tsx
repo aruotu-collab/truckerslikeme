@@ -27,6 +27,9 @@ type BoardJobCardProps = {
   onMarkWon?: () => void;
   onRemove?: () => void;
   onAddToRun?: () => void;
+  onRemoveFromRun?: () => void;
+  onFocusJob?: (jobId: string) => void;
+  onAddJobToRun?: (jobId: string) => void;
 };
 
 export function BoardJobCard({
@@ -39,6 +42,9 @@ export function BoardJobCard({
   onMarkWon,
   onRemove,
   onAddToRun,
+  onRemoveFromRun,
+  onFocusJob,
+  onAddJobToRun,
 }: BoardJobCardProps) {
   const { money, market } = useMarket();
   const meta = mapStatusMeta[job.status as MapJobStatus];
@@ -46,9 +52,14 @@ export function BoardJobCard({
   const d = snap.decision;
   const next = bestNextAfterJob(job, allJobs, driver);
   const add = chainAddHint(job, todayRunJobs, driver, home, market);
+  const inRun = todayRunJobs.some((j) => j.id === job.id);
+  const nextInRun = next ? todayRunJobs.some((j) => j.id === next.job.id) : false;
 
   return (
-    <li className="flex flex-col gap-3 border-b border-asphalt/10 py-4 last:border-b-0">
+    <li
+      id={`board-job-${job.id}`}
+      className="flex scroll-mt-36 flex-col gap-3 border-b border-asphalt/10 py-4 last:border-b-0"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-medium text-asphalt">
@@ -192,6 +203,39 @@ export function BoardJobCard({
               {next.fit.emoji} {next.fit.label}
             </span>
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {onFocusJob && (
+              <button
+                type="button"
+                onClick={() => onFocusJob(next.job.id)}
+                className="rounded-sm border border-asphalt/20 px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase"
+              >
+                Show on board
+              </button>
+            )}
+            {onAddJobToRun && !nextInRun && next.job.status !== "won" && (
+              <button
+                type="button"
+                onClick={() => onAddJobToRun(next.job.id)}
+                className="rounded-sm bg-asphalt px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
+              >
+                Add to today&apos;s run
+              </button>
+            )}
+            {nextInRun && (
+              <span className="text-[10px] font-semibold tracking-wide text-emerald-700 uppercase">
+                Already in today&apos;s run
+              </span>
+            )}
+            {next.job.href ? (
+              <ShiplyLink
+                href={next.job.href}
+                className="text-[10px] font-semibold tracking-wide text-amber uppercase"
+              >
+                Shiply →
+              </ShiplyLink>
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -205,13 +249,22 @@ export function BoardJobCard({
             I got this
           </button>
         )}
-        {onAddToRun && job.status !== "won" && (
+        {onAddToRun && job.status !== "won" && !inRun && (
           <button
             type="button"
             onClick={onAddToRun}
             className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
           >
             Add to today&apos;s run
+          </button>
+        )}
+        {onRemoveFromRun && inRun && (
+          <button
+            type="button"
+            onClick={onRemoveFromRun}
+            className="rounded-sm border border-alert/40 bg-red-50 px-3 py-1.5 text-[10px] font-semibold tracking-wide text-alert uppercase"
+          >
+            Remove from today&apos;s run
           </button>
         )}
         {job.href ? (
