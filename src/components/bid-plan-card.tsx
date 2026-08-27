@@ -1,5 +1,6 @@
 "use client";
 
+import { ShiplyLink } from "@/components/shiply-link";
 import type { BidPlan, BidPlanLeg } from "@/lib/jobs-run-builder";
 
 type Props = {
@@ -98,15 +99,13 @@ export function BidPlanCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {hrefs.map((j) => (
-          <a
+          <ShiplyLink
             key={j.id}
             href={j.href!}
-            target="_blank"
-            rel="noreferrer"
             className="rounded-sm bg-amber px-3 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
           >
             Bid · {j.item || "Job"} →
-          </a>
+          </ShiplyLink>
         ))}
         <a
           href="/run"

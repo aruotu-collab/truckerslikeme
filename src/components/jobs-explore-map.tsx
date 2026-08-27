@@ -1,5 +1,6 @@
 "use client";
 
+import { ShiplyLink } from "@/components/shiply-link";
 import {
   layoutExploreMap,
   type DirectionId,
@@ -291,14 +292,12 @@ export function JobsExploreMap({
                   {mapStatusMeta[j.status].label}
                 </span>
                 {j.href && (
-                  <a
+                  <ShiplyLink
                     href={j.href}
-                    target="_blank"
-                    rel="noreferrer"
                     className="text-xs font-semibold text-amber uppercase"
                   >
                     Shiply →
-                  </a>
+                  </ShiplyLink>
                 )}
               </li>
             ))}

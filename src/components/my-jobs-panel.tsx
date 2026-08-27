@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
+import { ShiplyLink } from "@/components/shiply-link";
 import { useMarket } from "@/lib/market-context";
 import {
   countMyJobs,
@@ -201,14 +202,12 @@ export function MyJobsPanel() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {job.href ? (
-                    <a
+                    <ShiplyLink
                       href={job.href}
-                      target="_blank"
-                      rel="noreferrer"
                       className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
                     >
                       Open on Shiply →
-                    </a>
+                    </ShiplyLink>
                   ) : null}
                   {job.status !== "won" && job.status !== "bidding" && (
                     <button

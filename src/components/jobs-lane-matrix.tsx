@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ShiplyLink } from "@/components/shiply-link";
 import {
   buildLaneMatrix,
   filterMatrixByDrop,
@@ -298,14 +299,12 @@ export function JobsLaneMatrix({
                       <span className="text-xs text-slate-500">No bid yet</span>
                     )}
                     {job.href && (
-                      <a
+                      <ShiplyLink
                         href={job.href}
-                        target="_blank"
-                        rel="noreferrer"
                         className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
                       >
                         Bid →
-                      </a>
+                      </ShiplyLink>
                     )}
                   </div>
                 </li>

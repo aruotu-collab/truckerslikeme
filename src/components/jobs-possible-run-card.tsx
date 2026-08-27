@@ -1,5 +1,6 @@
 "use client";
 
+import { ShiplyLink } from "@/components/shiply-link";
 import type { PossibleRun, RunStep } from "@/lib/jobs-map-explore";
 
 type Props = {
@@ -56,15 +57,13 @@ export function PossibleRunCard({ run, formatMoney }: Props) {
       <div className="mt-4 flex flex-wrap gap-2">
         {hrefs.length > 0 ? (
           hrefs.map((j) => (
-            <a
+            <ShiplyLink
               key={j.id}
               href={j.href!}
-              target="_blank"
-              rel="noreferrer"
               className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase"
             >
               Open job on Shiply →
-            </a>
+            </ShiplyLink>
           ))
         ) : (
           <span className="text-xs text-muted">No Shiply links from scan</span>

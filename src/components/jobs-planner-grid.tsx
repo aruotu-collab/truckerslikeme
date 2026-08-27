@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { ShiplyLink } from "@/components/shiply-link";
 import {
   buildConnectionMatrix,
   buildManualChain,
@@ -1253,14 +1254,12 @@ function RunsCompareView({
               </div>
               <div className="flex flex-wrap gap-2">
                 {job.href && (
-                  <a
+                  <ShiplyLink
                     href={job.href}
-                    target="_blank"
-                    rel="noreferrer"
                     className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
                   >
                     Open on Shiply
-                  </a>
+                  </ShiplyLink>
                 )}
                 {onMarkWon && job.status !== "won" && (
                   <button

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobBidField } from "@/components/job-bid-field";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
+import { ShiplyLink } from "@/components/shiply-link";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
 import { useMarket } from "@/lib/market-context";
 import {
@@ -792,14 +793,12 @@ export function JobsMapPanel() {
                         </button>
                       )}
                       {job.href ? (
-                        <a
+                        <ShiplyLink
                           href={job.href}
-                          target="_blank"
-                          rel="noreferrer"
                           className="text-[11px] font-semibold tracking-wide text-amber uppercase"
                         >
                           Shiply →
-                        </a>
+                        </ShiplyLink>
                       ) : null}
                       <button
                         type="button"

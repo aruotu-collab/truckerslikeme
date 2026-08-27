@@ -1,5 +1,6 @@
 "use client";
 
+import { ShiplyLink } from "@/components/shiply-link";
 import {
   DRIVER_STATION_KEY,
   layoutTubeMap,
@@ -199,14 +200,12 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
             {mapStatusMeta[selected.status].label}
           </span>
           {selected.href ? (
-            <a
+            <ShiplyLink
               href={selected.href}
-              target="_blank"
-              rel="noreferrer"
               className="ml-auto rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
             >
               Open on Shiply →
-            </a>
+            </ShiplyLink>
           ) : (
             <span className="ml-auto text-xs text-muted">
               No Shiply link from scan
