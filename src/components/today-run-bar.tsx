@@ -14,8 +14,11 @@ type TodayRunBarProps = {
   todayRunIds: string[];
   home: JobsMapDriver | null;
   driver: JobsMapDriver | null;
+  hiddenCount?: number;
+  highlightHidden?: boolean;
   onResetToHome: () => void;
   onOpenRun: () => void;
+  onShowHidden?: () => void;
   onRemoveFromRun?: (jobId: string) => void;
 };
 
@@ -24,8 +27,11 @@ export function TodayRunBar({
   todayRunIds,
   home,
   driver,
+  hiddenCount = 0,
+  highlightHidden = false,
   onResetToHome,
   onOpenRun,
+  onShowHidden,
   onRemoveFromRun,
 }: TodayRunBarProps) {
   const { money, market } = useMarket();
@@ -33,7 +39,7 @@ export function TodayRunBar({
   const net: RunChainNet | null = evaluateRunChain(chain, home, market);
   const awayFromHome = positionsDiffer(home, driver);
 
-  if (!home?.label?.trim() && chain.length === 0) return null;
+  if (!home?.label?.trim() && chain.length === 0 && hiddenCount === 0) return null;
 
   const pathLabel = [
     home?.label ? shortPlace(home.label) : null,
@@ -70,6 +76,20 @@ export function TodayRunBar({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {hiddenCount > 0 && onShowHidden && (
+            <button
+              type="button"
+              onClick={onShowHidden}
+              className={`rounded-sm border px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase ${
+                highlightHidden
+                  ? "border-amber bg-amber/15 text-asphalt"
+                  : "border-asphalt/20 bg-white text-asphalt hover:border-amber/50 hover:bg-amber/10"
+              }`}
+              aria-label={`Show ${hiddenCount} hidden jobs`}
+            >
+              Hidden jobs ({hiddenCount})
+            </button>
+          )}
           {awayFromHome && (
             <button
               type="button"

@@ -273,20 +273,11 @@ export function JobsMapPanel() {
     );
     setTodayRunIds((ids) => ids.filter((x) => x !== id));
     setJustHiddenId(id);
-    setHiddenOpen(true);
-    setMainTab("jobs");
-    setJobsLook("list");
     if (hideUndoTimer.current) clearTimeout(hideUndoTimer.current);
     hideUndoTimer.current = setTimeout(() => {
       setJustHiddenId(null);
       hideUndoTimer.current = null;
     }, 8000);
-    window.setTimeout(() => {
-      hiddenSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }, 50);
   }
 
   function restoreJob(id: string) {
@@ -480,8 +471,11 @@ export function JobsMapPanel() {
       todayRunIds={todayRunIds}
       home={home}
       driver={driver}
+      hiddenCount={hiddenJobs.length}
+      highlightHidden={Boolean(justHiddenId)}
       onResetToHome={resetDriverToHome}
       onOpenRun={() => setMainTab("run")}
+      onShowHidden={showHiddenJobs}
       onRemoveFromRun={removeFromTodayRun}
     />
   );
@@ -743,53 +737,37 @@ export function JobsMapPanel() {
                     : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div
-                className="inline-flex flex-wrap border border-asphalt/15 bg-white"
-                role="toolbar"
-                aria-label="Board controls"
-              >
-                {(
-                  [
-                    { id: "jobs" as const, label: "Jobs" },
-                    { id: "run" as const, label: "My run" },
-                  ] as const
-                ).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    aria-pressed={mainTab === t.id}
-                    onClick={() => setMainTab(t.id)}
-                    className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
-                      mainTab === t.id
-                        ? "bg-amber text-asphalt"
-                        : "text-asphalt/70 hover:bg-concrete/50"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-                <Link
-                  href="/jobs"
-                  className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
-                >
-                  My Jobs →
-                </Link>
-              </div>
-              {hiddenJobs.length > 0 && (
+            <div
+              className="inline-flex flex-wrap border border-asphalt/15 bg-white"
+              role="toolbar"
+              aria-label="Board controls"
+            >
+              {(
+                [
+                  { id: "jobs" as const, label: "Jobs" },
+                  { id: "run" as const, label: "My run" },
+                ] as const
+              ).map((t) => (
                 <button
+                  key={t.id}
                   type="button"
-                  onClick={showHiddenJobs}
-                  className={`rounded-sm border px-3 py-2 text-[10px] font-semibold tracking-wide uppercase ${
-                    justHiddenId
-                      ? "border-amber bg-amber/15 text-asphalt"
-                      : "border-asphalt/20 bg-white text-asphalt hover:border-amber/50 hover:bg-amber/10"
+                  aria-pressed={mainTab === t.id}
+                  onClick={() => setMainTab(t.id)}
+                  className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
+                    mainTab === t.id
+                      ? "bg-amber text-asphalt"
+                      : "text-asphalt/70 hover:bg-concrete/50"
                   }`}
-                  aria-label={`Show ${hiddenJobs.length} hidden jobs`}
                 >
-                  Hidden jobs ({hiddenJobs.length})
+                  {t.label}
                 </button>
-              )}
+              ))}
+              <Link
+                href="/jobs"
+                className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
+              >
+                My Jobs →
+              </Link>
             </div>
           </div>
 
@@ -835,7 +813,7 @@ export function JobsMapPanel() {
                 {shortPlace(justHiddenJob.origin)} →{" "}
                 {shortPlace(justHiddenJob.destination)}
               </span>
-              . Find it via Hidden jobs above, or below.
+              . Use Hidden jobs in Today&apos;s run above when you want it back.
             </p>
             <div className="flex flex-wrap gap-2">
               <button
