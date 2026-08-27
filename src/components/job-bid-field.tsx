@@ -50,9 +50,11 @@ export function JobBidField({
           <span className="text-xs text-muted">
             {money(value / miles)}/loaded mi
           </span>
-          <span className="w-full text-[10px] text-muted">
-            Quote ÷ loaded miles only — not trip profit.
-          </span>
+          {!compact && (
+            <span className="w-full text-[10px] text-muted">
+              Quote ÷ loaded miles only — not trip profit.
+            </span>
+          )}
         </>
       )}
     </label>
