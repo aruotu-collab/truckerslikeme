@@ -508,6 +508,8 @@ export function JobsMapPanel() {
       onShowHidden={showHiddenJobs}
       onRemoveFromRun={removeFromTodayRun}
       onMarkDelivered={markDelivered}
+      onMarkWon={(id) => setJobStatus(id, "won")}
+      onSetBid={setMyBid}
     />
   );
 
@@ -1037,6 +1039,13 @@ export function JobsMapPanel() {
               runOnly
               onSetBid={setMyBid}
               onMarkWon={(id) => setJobStatus(id, "won")}
+              todayRunIds={todayRunIds}
+              onAddJobToTodayRun={addToTodayRun}
+              onCommitToTodayRun={(ids) => {
+                setTodayRunIds(ids);
+                setMainTab("jobs");
+                setJobsLook("list");
+              }}
             />
           </div>
         )}

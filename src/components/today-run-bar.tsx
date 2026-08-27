@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { JobBidField } from "@/components/job-bid-field";
+import { ShiplyLink } from "@/components/shiply-link";
 import {
   evaluateRunChain,
   orderTodayRun,
@@ -22,6 +24,8 @@ type TodayRunBarProps = {
   onShowHidden?: () => void;
   onRemoveFromRun?: (jobId: string) => void;
   onMarkDelivered?: (jobId: string) => void;
+  onMarkWon?: (jobId: string) => void;
+  onSetBid?: (jobId: string, myBid: number | null) => void;
 };
 
 export function TodayRunBar({
@@ -36,6 +40,8 @@ export function TodayRunBar({
   onShowHidden,
   onRemoveFromRun,
   onMarkDelivered,
+  onMarkWon,
+  onSetBid,
 }: TodayRunBarProps) {
   const { money, market } = useMarket();
   const chain = orderTodayRun(todayRunIds, jobs);
@@ -65,7 +71,7 @@ export function TodayRunBar({
           </p>
           <p className="mt-1 text-sm font-medium text-asphalt">
             {chain.length === 0
-              ? "No jobs in the chain yet — mark wins or add from My Jobs → Won."
+              ? "No jobs in the chain yet — add from the board, My run, or My Jobs → Won."
               : pathLabel}
           </p>
           {awayFromHome && driver?.label ? (
@@ -167,49 +173,99 @@ export function TodayRunBar({
         </dl>
       )}
 
-      {chain.length > 0 && (onRemoveFromRun || onMarkDelivered) && (
-        <ul className="mt-3 flex flex-wrap gap-2">
+      {chain.length > 0 && (
+        <ul className="mt-3 space-y-2 border-t border-amber/30 pt-3">
           {chain.map((j, i) => (
             <li
               key={j.id}
-              className="inline-flex flex-wrap items-center gap-1.5 rounded-sm border border-asphalt/15 bg-white px-2 py-1 text-[11px]"
+              className="border border-asphalt/15 bg-white px-3 py-2.5"
             >
-              <span className="font-mono text-[10px] text-amber">{i + 1}</span>
-              <span className="text-asphalt">
-                {shortPlace(j.origin)}→{shortPlace(j.destination)}
-              </span>
-              {j.status === "won" ? (
-                <span className="text-[10px] font-semibold text-emerald-700 uppercase">
-                  Won
-                </span>
-              ) : null}
-              {onMarkDelivered && j.status === "won" && (
-                <button
-                  type="button"
-                  onClick={() => onMarkDelivered(j.id)}
-                  className="rounded-sm border border-sky-600/30 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900 uppercase hover:bg-sky-100"
-                >
-                  Delivered
-                </button>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-asphalt">
+                    <span className="mr-1.5 font-mono text-[10px] text-amber">
+                      {i + 1}
+                    </span>
+                    {shortPlace(j.origin)} → {shortPlace(j.destination)}
+                    {j.status === "won" ? (
+                      <span className="ml-2 text-[10px] font-semibold text-emerald-700 uppercase">
+                        Won
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
+
+              {onSetBid && j.status !== "won" && j.status !== "delivered" && (
+                <div className="mt-2">
+                  <JobBidField
+                    compact
+                    value={j.myBid}
+                    miles={j.miles}
+                    onChange={(myBid) => onSetBid(j.id, myBid)}
+                  />
+                </div>
               )}
-              {onRemoveFromRun && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveFromRun(j.id)}
-                  className="rounded-sm border border-alert/30 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-alert uppercase hover:bg-red-100"
-                  aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
-                >
-                  Remove
-                </button>
+
+              {j.status === "won" && j.myBid != null && j.myBid > 0 && (
+                <p className="mt-1 text-xs text-muted">
+                  Won at {money(j.myBid)}
+                </p>
               )}
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {j.href ? (
+                  <ShiplyLink
+                    href={j.href}
+                    className="rounded-sm bg-amber px-2.5 py-1 text-[10px] font-semibold tracking-wide text-asphalt uppercase"
+                  >
+                    Bid on Shiply →
+                  </ShiplyLink>
+                ) : null}
+                {onMarkWon && j.status !== "won" && j.status !== "delivered" && (
+                  <button
+                    type="button"
+                    onClick={() => onMarkWon(j.id)}
+                    className="rounded-sm bg-[#2f6b4f] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
+                  >
+                    I got this
+                  </button>
+                )}
+                {onMarkDelivered && j.status === "won" && (
+                  <button
+                    type="button"
+                    onClick={() => onMarkDelivered(j.id)}
+                    className="rounded-sm border border-sky-600/30 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold text-sky-900 uppercase"
+                  >
+                    Delivered
+                  </button>
+                )}
+                {onRemoveFromRun && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFromRun(j.id)}
+                    className="rounded-sm border border-alert/30 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-alert uppercase"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       )}
 
       <p className="mt-2 text-[11px] text-muted">
-        Chain maths — fee, fuel, and running cost for the whole day plan, not
-        one job in isolation. Manage wins on{" "}
+        Today&apos;s run is your bid/win queue for the day. Suggested chains live
+        under My run — use{" "}
+        <button
+          type="button"
+          onClick={onOpenRun}
+          className="font-semibold text-amber uppercase hover:text-asphalt"
+        >
+          My run →
+        </button>{" "}
+        then push a chain here. Wins also sync to{" "}
         <Link
           href="/jobs?tab=won"
           className="font-semibold text-amber hover:text-asphalt"
