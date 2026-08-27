@@ -21,6 +21,7 @@ const FILTERS: { id: MyJobsFilter; label: string }[] = [
   { id: "bidding", label: "Bidding" },
   { id: "won", label: "Won" },
   { id: "considering", label: "Considering" },
+  { id: "skipped", label: "Skipped" },
 ];
 
 export function MyJobsPanel() {
@@ -121,7 +122,9 @@ export function MyJobsPanel() {
               ? "When Shiply accepts a bid, mark the job as won here."
               : filter === "bidding"
                 ? "Enter your quote on jobs from Map Jobs — they appear here when you're bidding."
-                : "Scan Shiply on Map Jobs and add jobs to your board first."}
+                : filter === "skipped"
+                  ? "Skipped and Hidden jobs land here — restore one to bid again, or remove it for good."
+                  : "Scan Shiply on Map Jobs and add jobs to your board first."}
           </p>
           <Link
             href="/map"
@@ -172,7 +175,7 @@ export function MyJobsPanel() {
                   </div>
                 </button>
 
-                {filter !== "won" && (
+                {filter !== "won" && filter !== "skipped" && (
                   <div className="mt-3">
                     <JobBidField
                       value={job.myBid}
@@ -200,7 +203,43 @@ export function MyJobsPanel() {
                   </p>
                 )}
 
+                {filter === "skipped" && job.myBid != null && job.myBid > 0 && (
+                  <p className="mt-2 text-sm text-muted">
+                    Last quote {money(job.myBid)}
+                    {job.miles != null && job.miles > 0
+                      ? ` · ${money(job.myBid / job.miles)}/mi`
+                      : ""}
+                  </p>
+                )}
+
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {filter === "skipped" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "hunting")}
+                        className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                      >
+                        Restore
+                      </button>
+                      {job.href ? (
+                        <ShiplyLink
+                          href={job.href}
+                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
+                        >
+                          Open on Shiply →
+                        </ShiplyLink>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => removeJob(job.id)}
+                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <>
                   {job.href ? (
                     <ShiplyLink
                       href={job.href}
@@ -267,40 +306,13 @@ export function MyJobsPanel() {
                   >
                     Remove
                   </button>
+                    </>
+                  )}
                 </div>
               </li>
             );
           })}
         </ul>
-      )}
-
-      {jobs.some((j) => j.status === "skipped") && (
-        <details className="text-sm text-muted">
-          <summary className="cursor-pointer font-medium text-asphalt">
-            Skipped ({jobs.filter((j) => j.status === "skipped").length})
-          </summary>
-          <ul className="mt-2 space-y-1">
-            {jobs
-              .filter((j) => j.status === "skipped")
-              .map((j) => (
-                <li
-                  key={j.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 px-3 py-2"
-                >
-                  <span>
-                    {shortPlace(j.origin)} → {shortPlace(j.destination)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStatus(j.id, "hunting")}
-                    className="text-[11px] font-semibold tracking-wide uppercase text-amber"
-                  >
-                    Restore
-                  </button>
-                </li>
-              ))}
-          </ul>
-        </details>
       )}
     </div>
   );

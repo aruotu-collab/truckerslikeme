@@ -167,15 +167,17 @@ export function huntBoardJobs(jobs: MapJob[]) {
   return jobs.filter((j) => j.status !== "won" && j.status !== "skipped");
 }
 
-export type MyJobsFilter = "bidding" | "won" | "considering";
+export type MyJobsFilter = "bidding" | "won" | "considering" | "skipped";
 
 export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
   if (filter === "won") return jobs.filter((j) => j.status === "won");
+  if (filter === "skipped") return jobs.filter((j) => j.status === "skipped");
   if (filter === "bidding") {
     return jobs.filter(
       (j) =>
-        j.status === "bidding" ||
-        (j.myBid != null && j.myBid > 0 && j.status !== "won"),
+        j.status !== "skipped" &&
+        (j.status === "bidding" ||
+          (j.myBid != null && j.myBid > 0 && j.status !== "won")),
     );
   }
   return jobs.filter(
@@ -189,6 +191,7 @@ export function countMyJobs(jobs: MapJob[]) {
     bidding: filterMyJobs(jobs, "bidding").length,
     won: filterMyJobs(jobs, "won").length,
     considering: filterMyJobs(jobs, "considering").length,
+    skipped: filterMyJobs(jobs, "skipped").length,
   };
 }
 
