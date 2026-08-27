@@ -66,6 +66,14 @@ export function MyJobsPanel() {
   }
 
   function removeJob(id: string) {
+    const job = jobs.find((j) => j.id === id);
+    const route = job
+      ? `${shortPlace(job.origin)} → ${shortPlace(job.destination)}`
+      : "this job";
+    const ok = window.confirm(
+      `Remove ${route} permanently?\n\nThis cannot be undone. Use Skip if you might want it again.`,
+    );
+    if (!ok) return;
     setJobs((prev) => prev.filter((j) => j.id !== id));
     if (selectedId === id) setSelectedId(null);
   }
