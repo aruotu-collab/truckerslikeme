@@ -48,7 +48,7 @@ export function TodayRunBar({
     .join(" · ");
 
   return (
-    <section className="sticky top-0 z-30 border border-amber/40 bg-amber/10 px-4 py-3 shadow-sm sm:px-5">
+    <section className="border border-amber/50 bg-[#fff8e8] px-4 py-3 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">

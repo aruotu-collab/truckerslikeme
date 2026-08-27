@@ -376,6 +376,18 @@ export function JobsMapPanel() {
     setError(null);
   }
 
+  const todayRunBar = (
+    <TodayRunBar
+      jobs={jobs}
+      todayRunIds={todayRunIds}
+      home={home}
+      driver={driver}
+      onResetToHome={resetDriverToHome}
+      onOpenRun={() => setMainTab("run")}
+      onRemoveFromRun={removeFromTodayRun}
+    />
+  );
+
   return (
     <div className="space-y-10">
       <header className="max-w-2xl">
@@ -615,96 +627,119 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
-      <TodayRunBar
-        jobs={jobs}
-        todayRunIds={todayRunIds}
-        home={home}
-        driver={driver}
-        onResetToHome={resetDriverToHome}
-        onOpenRun={() => setMainTab("run")}
-        onRemoveFromRun={removeFromTodayRun}
-      />
-
       {/* Simple board: Jobs (bid) | My run (earn) */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-              {visible.length} jobs on board
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {mainTab === "jobs"
-                ? "Explore the board — enter bids on List, Map, or Lanes."
-                : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
-            </p>
-          </div>
-          <div
-            className="inline-flex flex-wrap border border-asphalt/15 bg-white"
-            role="toolbar"
-            aria-label="Board controls"
-          >
-            {(
-              [
-                { id: "jobs" as const, label: "Jobs" },
-                { id: "run" as const, label: "My run" },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                aria-pressed={mainTab === t.id}
-                onClick={() => setMainTab(t.id)}
-                className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
-                  mainTab === t.id
-                    ? "bg-amber text-asphalt"
-                    : "text-asphalt/70 hover:bg-concrete/50"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-            <Link
-              href="/jobs"
-              className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
+        <div className="sticky top-0 z-20 -mx-5 space-y-4 bg-background px-5 pb-4 sm:-mx-8 sm:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
+                {mainTab === "jobs" && jobsLook === "list"
+                  ? "On your board"
+                  : `${visible.length} jobs on board`}
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                {mainTab === "jobs" && jobsLook === "list"
+                  ? "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or remove."
+                  : mainTab === "jobs"
+                    ? "Explore the board — enter bids on List, Map, or Lanes."
+                    : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
+              </p>
+            </div>
+            <div
+              className="inline-flex flex-wrap border border-asphalt/15 bg-white"
+              role="toolbar"
+              aria-label="Board controls"
             >
-              My Jobs →
-            </Link>
+              {(
+                [
+                  { id: "jobs" as const, label: "Jobs" },
+                  { id: "run" as const, label: "My run" },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  aria-pressed={mainTab === t.id}
+                  onClick={() => setMainTab(t.id)}
+                  className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
+                    mainTab === t.id
+                      ? "bg-amber text-asphalt"
+                      : "text-asphalt/70 hover:bg-concrete/50"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+              <Link
+                href="/jobs"
+                className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
+              >
+                My Jobs →
+              </Link>
+            </div>
           </div>
+
+          {mainTab === "jobs" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                Look
+              </span>
+              {(
+                [
+                  { id: "list" as const, label: "List" },
+                  { id: "map" as const, label: "Map" },
+                  { id: "lanes" as const, label: "Lanes" },
+                ] as const
+              ).map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setJobsLook(v.id)}
+                  className={`rounded-sm px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${
+                    jobsLook === v.id
+                      ? "bg-asphalt text-white"
+                      : "text-asphalt/60 hover:bg-concrete/50 hover:text-asphalt"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {todayRunBar}
         </div>
 
-        {mainTab === "jobs" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-              Look
-            </span>
-            {(
-              [
-                { id: "list" as const, label: "List" },
-                { id: "map" as const, label: "Map" },
-                { id: "lanes" as const, label: "Lanes" },
-              ] as const
-            ).map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setJobsLook(v.id)}
-                className={`rounded-sm px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${
-                  jobsLook === v.id
-                    ? "bg-asphalt text-white"
-                    : "text-asphalt/60 hover:bg-concrete/50 hover:text-asphalt"
-                }`}
-              >
-                {v.label}
-              </button>
+        {mainTab === "jobs" && jobsLook === "list" && !startReady && visible.length > 0 && (
+          <p className="border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-asphalt">
+            Set your start location above so each job can show empty miles to
+            pickup.
+          </p>
+        )}
+
+        {mainTab === "jobs" && jobsLook === "list" && !visible.length && (
+          <p className="text-sm text-muted">
+            No jobs on the board yet. Scan Shiply and add them above.
+          </p>
+        )}
+
+        {mainTab === "jobs" && jobsLook === "list" && visible.length > 0 && (
+          <ul className="border-y border-asphalt/10">
+            {visible.map((job) => (
+              <BoardJobCard
+                key={job.id}
+                job={job}
+                driver={driver}
+                allJobs={visible}
+                todayRunJobs={orderTodayRun(todayRunIds, jobs)}
+                home={home}
+                onSetBid={(myBid) => setMyBid(job.id, myBid)}
+                onMarkWon={() => setJobStatus(job.id, "won")}
+                onRemove={() => removeJob(job.id)}
+                onAddToRun={() => addToTodayRun(job.id)}
+              />
             ))}
-            <button
-              type="button"
-              onClick={() => setMainTab("run")}
-              className="ml-auto rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
-            >
-              See my run →
-            </button>
-          </div>
+          </ul>
         )}
 
         {mainTab === "jobs" && jobsLook === "lanes" && (
@@ -763,57 +798,6 @@ export function JobsMapPanel() {
           </div>
         )}
       </section>
-
-      {/* Job list — hunt board with keep/remove decision signals */}
-      {mainTab === "jobs" && jobsLook === "list" && (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-                On your board
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                Enter a quote to see after-fee net and verdict — then keep,
-                bid on Shiply, or remove.
-              </p>
-            </div>
-            <Link
-              href="/jobs"
-              className="rounded-sm bg-amber px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase"
-            >
-              My Jobs →
-            </Link>
-          </div>
-          {!startReady && visible.length > 0 && (
-            <p className="border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-asphalt">
-              Set your start location above so each job can show empty miles
-              to pickup.
-            </p>
-          )}
-          {!visible.length ? (
-            <p className="text-sm text-muted">
-              No jobs on the board yet. Scan Shiply and add them above.
-            </p>
-          ) : (
-            <ul className="border-y border-asphalt/10">
-              {visible.map((job) => (
-                <BoardJobCard
-                  key={job.id}
-                  job={job}
-                  driver={driver}
-                  allJobs={visible}
-                  todayRunJobs={orderTodayRun(todayRunIds, jobs)}
-                  home={home}
-                  onSetBid={(myBid) => setMyBid(job.id, myBid)}
-                  onMarkWon={() => setJobStatus(job.id, "won")}
-                  onRemove={() => removeJob(job.id)}
-                  onAddToRun={() => addToTodayRun(job.id)}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
     </div>
   );
 }
