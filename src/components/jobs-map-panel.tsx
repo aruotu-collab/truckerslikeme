@@ -35,6 +35,7 @@ import {
   appendTodayRunId,
   driverAtJobDrop,
   orderTodayRun,
+  pruneTodayRunIds,
 } from "@/lib/jobs-today-run";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
@@ -116,7 +117,30 @@ export function JobsMapPanel() {
     writeJobsMapState({ jobs, driver, home, todayRunIds });
   }, [jobs, driver, home, todayRunIds, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    setTodayRunIds((ids) => {
+      const pruned = pruneTodayRunIds(ids, jobs);
+      if (
+        pruned.length === ids.length &&
+        pruned.every((id, index) => id === ids[index])
+      ) {
+        return ids;
+      }
+      return pruned;
+    });
+  }, [jobs, hydrated]);
+
+  const todayRunJobs = useMemo(
+    () => orderTodayRun(todayRunIds, jobs),
+    [todayRunIds, jobs],
+  );
+
   const visible = huntBoardJobs(jobs);
+  const hiddenJobs = useMemo(
+    () => jobs.filter((j) => j.status === "skipped"),
+    [jobs],
+  );
   const startReady = Boolean(driver?.label.trim());
 
   const corridorGroups = useMemo(
@@ -214,8 +238,23 @@ export function JobsMapPanel() {
     }
   }
 
-  function removeJob(id: string) {
-    setJobs((prev) => prev.filter((j) => j.id !== id));
+  function hideJob(id: string) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? {
+              ...j,
+              status: "skipped" as MapJobStatus,
+              updatedAt: new Date().toISOString(),
+            }
+          : j,
+      ),
+    );
+    setTodayRunIds((ids) => ids.filter((x) => x !== id));
+  }
+
+  function restoreJob(id: string) {
+    setJobStatus(id, "hunting");
   }
 
   function setMyBid(id: string, myBid: number | null) {
@@ -649,7 +688,7 @@ export function JobsMapPanel() {
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
-                  ? "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or remove."
+                  ? "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
                   : mainTab === "jobs"
                     ? "Explore the board — enter bids on List, Map, or Lanes."
                     : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
@@ -727,9 +766,16 @@ export function JobsMapPanel() {
           </p>
         )}
 
-        {mainTab === "jobs" && jobsLook === "list" && !visible.length && (
+        {mainTab === "jobs" && jobsLook === "list" && !visible.length && !hiddenJobs.length && (
           <p className="text-sm text-muted">
             No jobs on the board yet. Scan Shiply and add them above.
+          </p>
+        )}
+
+        {mainTab === "jobs" && jobsLook === "list" && !visible.length && hiddenJobs.length > 0 && (
+          <p className="text-sm text-muted">
+            No jobs on the board — restore one from Hidden jobs below, or scan
+            Shiply above.
           </p>
         )}
 
@@ -741,11 +787,13 @@ export function JobsMapPanel() {
                 job={job}
                 driver={driver}
                 allJobs={visible}
-                todayRunJobs={orderTodayRun(todayRunIds, jobs)}
+                todayRunJobs={todayRunJobs}
+                todayRunIds={todayRunIds}
+                runLookupJobs={jobs}
                 home={home}
                 onSetBid={(myBid) => setMyBid(job.id, myBid)}
                 onMarkWon={() => setJobStatus(job.id, "won")}
-                onRemove={() => removeJob(job.id)}
+                onHide={() => hideJob(job.id)}
                 onAddToRun={() => addToTodayRun(job.id)}
                 onRemoveFromRun={() => removeFromTodayRun(job.id)}
                 onFocusJob={focusBoardJob}
@@ -753,6 +801,50 @@ export function JobsMapPanel() {
               />
             ))}
           </ul>
+        )}
+
+        {mainTab === "jobs" && jobsLook === "list" && hiddenJobs.length > 0 && (
+          <details className="text-sm text-muted">
+            <summary className="cursor-pointer font-medium text-asphalt">
+              Hidden jobs ({hiddenJobs.length})
+            </summary>
+            <p className="mt-2 text-xs">
+              Passed for now — restore to bid again. Same list as Skipped on{" "}
+              <Link href="/jobs" className="font-semibold text-amber hover:text-asphalt">
+                My Jobs
+              </Link>
+              .
+            </p>
+            <ul className="mt-2 space-y-1">
+              {hiddenJobs.map((j) => (
+                <li
+                  key={j.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-3 py-2"
+                >
+                  <span className="text-asphalt">
+                    {shortPlace(j.origin)} → {shortPlace(j.destination)}
+                    {j.myBid != null && j.myBid > 0 ? (
+                      <span className="ml-2 text-muted">
+                        · quote {money(j.myBid)}
+                      </span>
+                    ) : null}
+                    {j.item ? (
+                      <span className="mt-0.5 block text-xs text-muted">
+                        {j.item}
+                      </span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => restoreJob(j.id)}
+                    className="shrink-0 text-[11px] font-semibold tracking-wide text-amber uppercase hover:text-asphalt"
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {mainTab === "jobs" && jobsLook === "lanes" && (

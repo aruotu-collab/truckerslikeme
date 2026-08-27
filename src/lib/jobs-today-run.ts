@@ -82,6 +82,34 @@ export function appendTodayRunId(ids: string[], jobId: string): string[] {
   return [...ids, jobId];
 }
 
+/** Same origin/destination as a job already in today's run (duplicate Shiply listings). */
+export function jobRouteKey(job: Pick<MapJob, "origin" | "destination">): string {
+  const o = placeKey(job.origin);
+  const d = placeKey(job.destination);
+  return o && d ? `${o}|${d}` : "";
+}
+
+export function isInTodayRun(jobId: string, todayRunIds: string[]): boolean {
+  return todayRunIds.includes(jobId);
+}
+
+/** Id match, or same route already in the chain (different listing id). */
+export function isJobOrRouteInTodayRun(
+  job: MapJob,
+  todayRunIds: string[],
+  jobs: MapJob[],
+): boolean {
+  if (todayRunIds.includes(job.id)) return true;
+  const key = jobRouteKey(job);
+  if (!key) return false;
+  return orderTodayRun(todayRunIds, jobs).some((j) => jobRouteKey(j) === key);
+}
+
+export function pruneTodayRunIds(todayRunIds: string[], jobs: MapJob[]): string[] {
+  const valid = new Set(jobs.map((j) => j.id));
+  return todayRunIds.filter((id) => valid.has(id));
+}
+
 /** Full-chain economics from start through ordered jobs. */
 export function evaluateRunChain(
   jobs: MapJob[],

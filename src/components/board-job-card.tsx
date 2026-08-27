@@ -14,6 +14,8 @@ import {
   bestNextAfterJob,
   chainAddHint,
   fitToneClass,
+  isInTodayRun,
+  isJobOrRouteInTodayRun,
 } from "@/lib/jobs-today-run";
 import { useMarket } from "@/lib/market-context";
 
@@ -22,10 +24,12 @@ type BoardJobCardProps = {
   driver: JobsMapDriver | null;
   allJobs: MapJob[];
   todayRunJobs: MapJob[];
+  todayRunIds: string[];
+  runLookupJobs: MapJob[];
   home: JobsMapDriver | null;
   onSetBid: (myBid: number | null) => void;
   onMarkWon?: () => void;
-  onRemove?: () => void;
+  onHide?: () => void;
   onAddToRun?: () => void;
   onRemoveFromRun?: () => void;
   onFocusJob?: (jobId: string) => void;
@@ -37,10 +41,12 @@ export function BoardJobCard({
   driver,
   allJobs,
   todayRunJobs,
+  todayRunIds,
+  runLookupJobs,
   home,
   onSetBid,
   onMarkWon,
-  onRemove,
+  onHide,
   onAddToRun,
   onRemoveFromRun,
   onFocusJob,
@@ -52,8 +58,10 @@ export function BoardJobCard({
   const d = snap.decision;
   const next = bestNextAfterJob(job, allJobs, driver);
   const add = chainAddHint(job, todayRunJobs, driver, home, market);
-  const inRun = todayRunJobs.some((j) => j.id === job.id);
-  const nextInRun = next ? todayRunJobs.some((j) => j.id === next.job.id) : false;
+  const inRun = isInTodayRun(job.id, todayRunIds);
+  const nextInRun = next
+    ? isJobOrRouteInTodayRun(next.job, todayRunIds, runLookupJobs)
+    : false;
 
   return (
     <li
@@ -224,7 +232,9 @@ export function BoardJobCard({
             )}
             {nextInRun && (
               <span className="text-[10px] font-semibold tracking-wide text-emerald-700 uppercase">
-                Already in today&apos;s run
+                {isInTodayRun(next.job.id, todayRunIds)
+                  ? "Already in today\u2019s run"
+                  : "Same route already in today\u2019s run"}
               </span>
             )}
             {next.job.href ? (
@@ -275,13 +285,13 @@ export function BoardJobCard({
             Shiply →
           </ShiplyLink>
         ) : null}
-        {onRemove && (
+        {onHide && job.status !== "won" && (
           <button
             type="button"
-            onClick={onRemove}
-            className="text-[11px] font-semibold tracking-wide text-alert uppercase"
+            onClick={onHide}
+            className="text-[11px] font-semibold tracking-wide text-muted uppercase hover:text-asphalt"
           >
-            Remove
+            Hide
           </button>
         )}
       </div>
