@@ -90,8 +90,8 @@ export function MarketingHome() {
       </section>
 
       {/* Live product strip — verdict + corridor */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="border border-emerald-200 bg-emerald-50 px-5 py-6 sm:px-6">
+      <section className="space-y-6">
+        <div className="border border-emerald-200 bg-emerald-50 px-5 py-6 sm:px-6 lg:max-w-xl">
           <p className="font-display text-xs tracking-[0.16em] text-emerald-800 uppercase">
             Before you bid
           </p>
@@ -132,21 +132,55 @@ export function MarketingHome() {
         </div>
 
         <div className="overflow-hidden border border-asphalt/10 bg-white">
-          <div className="border-b border-asphalt/10 px-4 py-3 sm:px-5">
+          <div className="border-b border-asphalt/10 px-4 py-4 sm:px-6">
             <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
               Plan the corridor
             </p>
-            <p className="mt-1 text-sm text-muted">
-              {DEMO_CORRIDOR.origin} → {DEMO_CORRIDOR.destination} · ~
-              {DEMO_CORRIDOR.miles} mi · {DEMO_CORRIDOR.stops.length} stops
+            <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-emerald-700 text-xs font-bold text-white">
+                  A
+                </span>
+                <div>
+                  <p className="font-display text-sm tracking-wide text-asphalt uppercase">
+                    {DEMO_CORRIDOR.origin}
+                  </p>
+                  <p className="text-xs text-muted">Pickup · mi 0</p>
+                </div>
+              </div>
+              <div className="hidden text-muted sm:block" aria-hidden>
+                →
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-alert text-xs font-bold text-white">
+                  B
+                </span>
+                <div>
+                  <p className="font-display text-sm tracking-wide text-asphalt uppercase">
+                    {DEMO_CORRIDOR.destination}
+                  </p>
+                  <p className="text-xs text-muted">
+                    Delivery · mi {DEMO_CORRIDOR.miles}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-muted">
+              ~{DEMO_CORRIDOR.miles} mi · {DEMO_CORRIDOR.stops.length} fuel,
+              parking, and repair stops along the haul
             </p>
           </div>
           <CorridorRibbon
             origin={DEMO_CORRIDOR.origin}
             destination={DEMO_CORRIDOR.destination}
             totalMiles={DEMO_CORRIDOR.miles}
-            stops={DEMO_CORRIDOR.stops.slice(0, 5)}
-            footer=""
+            stops={DEMO_CORRIDOR.stops}
+            hideEndpoints
+            showDetail
+            density="comfortable"
+            scrollControls
+            hint="Swipe or use arrows to browse all stops"
+            footer="Example corridor — plan your own route for live stops near your haul."
           />
           <div className="border-t border-asphalt/10 px-4 py-3 sm:px-5">
             <TrackedLink
