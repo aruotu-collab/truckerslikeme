@@ -1128,12 +1128,12 @@ export function RunBuilder() {
                 }}
               >
                 <Link
-                  href={`/plan?from=${encodeURIComponent(
+                  href={`/find?need=along&from=${encodeURIComponent(
                     shownBest.jobs[0]?.origin || prefs.start,
                   )}&to=${encodeURIComponent(shownBest.finishAt || "")}`}
                   className="rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
                 >
-                  Plan this corridor
+                  Services along corridor
                 </Link>
                 <Link
                   href="/map"

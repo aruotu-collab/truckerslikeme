@@ -469,10 +469,10 @@ export function LoadAnalyzer() {
                   </button>
                 )}
                 <Link
-                  href="/plan"
+                  href="/find?need=along"
                   className="rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
                 >
-                  Plan corridor
+                  Along route services
                 </Link>
                 <Link
                   href="/live"

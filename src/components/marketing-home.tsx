@@ -25,8 +25,8 @@ const pillars = [
     eyebrow: "Execute",
     title: "Run the haul",
     body: "Plan fuel, parking, and repair along the corridor — not guesswork at midnight.",
-    href: "/plan",
-    cta: "Plan route",
+    href: "/find?need=along",
+    cta: "Along route",
   },
 ];
 
@@ -186,12 +186,12 @@ export function MarketingHome() {
           />
           <div className="border-t border-asphalt/10 px-4 py-3 sm:px-5">
             <TrackedLink
-              href="/plan"
+              href="/find?need=along"
               trackEvent="cta"
               trackLabel="Plan your own route"
               className="text-sm font-semibold text-amber transition hover:text-asphalt"
             >
-              Plan your own route →
+              Along route services →
             </TrackedLink>
           </div>
         </div>

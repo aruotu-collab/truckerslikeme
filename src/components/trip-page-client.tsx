@@ -28,7 +28,7 @@ export function TripPageClient() {
     if (from) q.set("from", from);
     if (to) q.set("to", to);
     const s = q.toString();
-    return s ? `/plan?${s}` : "/plan";
+    return s ? `/find?need=along&${s}` : "/find?need=along";
   })();
 
   return (

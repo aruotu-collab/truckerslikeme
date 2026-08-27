@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
@@ -13,43 +13,57 @@ type SiteHeaderProps = {
   variant?: "overlay" | "solid";
 };
 
-const primaryNav = [
+const primaryNav: {
+  href: string;
+  label: string;
+  labelNode?: ReactNode;
+  match: (pathname: string, need: string | null) => boolean;
+}[] = [
   {
     href: "/",
     label: "Home",
-    match: (pathname: string) => pathname === "/",
+    match: (pathname) => pathname === "/",
   },
   {
     href: "/run",
     label: "Build My Run",
-    match: (pathname: string) => pathname.startsWith("/run"),
+    match: (pathname) => pathname.startsWith("/run"),
   },
   {
     href: "/map",
     label: "Job Board",
-    match: (pathname: string) => pathname.startsWith("/map"),
+    match: (pathname) => pathname.startsWith("/map"),
   },
   {
     href: "/plan",
     label: "Plan Route",
-    match: (pathname: string) =>
-      pathname.startsWith("/plan") && !pathname.startsWith("/plan/"),
+    labelNode: (
+      <>
+        Plan Route
+        <sup className="ml-0.5 text-[9px] font-medium normal-case tracking-normal text-amber-hot/90">
+          couriers
+        </sup>
+      </>
+    ),
+    match: (pathname) => pathname.startsWith("/plan"),
   },
   {
     href: "/find",
     label: "Nearest Services",
-    match: (pathname: string, need: string | null) =>
+    match: (pathname, need) =>
       pathname.startsWith("/find") ||
       pathname.startsWith("/trip") ||
-      (need != null &&
-        (need === "parking" || need === "diesel" || need === "repair")),
+      need === "parking" ||
+      need === "diesel" ||
+      need === "repair" ||
+      need === "along",
   },
   {
     href: "/jobs",
     label: "My Jobs",
-    match: (pathname: string) => pathname.startsWith("/jobs"),
+    match: (pathname) => pathname.startsWith("/jobs"),
   },
-] as const;
+];
 
 function NavScroll({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
@@ -78,7 +92,7 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
                   : "text-white/80 hover:bg-white/10 hover:text-white"
               }`}
             >
-              {item.label}
+              {item.labelNode ?? item.label}
             </TrackedLink>
           );
         })}

@@ -654,11 +654,11 @@ export function LoadChecker() {
   const planRouteHref = (() => {
     const origin = corridor?.origin || location || "";
     const dest = corridor?.destination || "";
-    if (!origin && !dest) return "/plan";
-    const q = new URLSearchParams();
+    if (!origin && !dest) return "/find?need=along";
+    const q = new URLSearchParams({ need: "along" });
     if (origin) q.set("from", origin);
     if (dest) q.set("to", dest);
-    return `/plan?${q.toString()}`;
+    return `/find?${q.toString()}`;
   })();
 
   return (

@@ -18,7 +18,8 @@ export function SiteFooter() {
             Job Board
           </Link>
           <Link href="/plan" className="transition hover:text-asphalt">
-            Plan Route
+            Plan Route{" "}
+            <sup className="text-[9px] normal-case">couriers</sup>
           </Link>
           <Link href="/find" className="transition hover:text-asphalt">
             Nearest Services

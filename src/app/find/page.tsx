@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Nearest Services | TruckersLikeMe",
   description:
-    "Parking, fuel, and repair near you — tap-first search with driver trust badges.",
+    "Parking, fuel, and repair near you — or along a From→To haul corridor.",
 };
 
 export default function FindPage() {

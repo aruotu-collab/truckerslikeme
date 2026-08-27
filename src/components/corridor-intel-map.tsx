@@ -55,14 +55,14 @@ export function CorridorIntelMap({
           Corridor intel map
         </p>
         <p className="mt-2 text-asphalt">
-          Search a route on Plan to light up the states you&apos;re in and the
-          states you&apos;re going.
+          Search a route under Nearest Services → Along route to light up the
+          states you&apos;re in and the states you&apos;re going.
         </p>
         <a
-          href="/plan"
+          href="/find?need=along"
           className="mt-4 inline-flex rounded-sm bg-amber px-4 py-2.5 text-sm font-semibold text-asphalt uppercase"
         >
-          Plan a route
+          Along route
         </a>
       </div>
     );

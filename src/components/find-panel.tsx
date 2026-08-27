@@ -6,6 +6,7 @@ import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
 import { readCheckDraft } from "@/lib/check-draft";
 import { ResumeCheckBanner } from "@/components/resume-check-banner";
+import { PlanRoutePanel } from "@/components/plan-route-panel";
 import {
   confidenceMeta,
   type PlaceConfidence,
@@ -13,8 +14,10 @@ import {
   type PlaceResult,
 } from "@/lib/places";
 
+type FindSurface = PlaceKind | "along";
+
 const kindOptions: {
-  id: PlaceKind;
+  id: FindSurface;
   label: string;
   eyebrow: string;
   title: string;
@@ -48,6 +51,15 @@ const kindOptions: {
     body: "Workshops and tyre places that take commercial vehicles — call ahead if you’re loaded or broken down.",
     cta: "Show repair near me",
     feedback: "Did you get fixed here?",
+  },
+  {
+    id: "along",
+    label: "Along route",
+    eyebrow: "Whole haul",
+    title: "Along the haul",
+    body: "From → To corridor: fuel, parking, and repair on the way — the old Plan Route for long hauls.",
+    cta: "Show along route",
+    feedback: "",
   },
 ];
 
@@ -144,7 +156,7 @@ export function FindPanel() {
   const { isSignedIn, openGate } = useAuthGate();
   const { setFromCountryCode } = useMarket();
   const [near, setNear] = useState("");
-  const [kind, setKind] = useState<PlaceKind>("parking");
+  const [kind, setKind] = useState<FindSurface>("parking");
   const [truck, setTruck] = useState("artic");
   const [when, setWhen] = useState("overnight");
   const [priority, setPriority] = useState("safe");
@@ -160,16 +172,18 @@ export function FindPanel() {
     () => kindOptions.find((k) => k.id === kind) ?? kindOptions[0],
     [kind],
   );
-  const whenOptions = whenByKind[kind];
-  const priorityOptions = priorityByKind[kind];
+  const whenOptions = kind === "along" ? [] : whenByKind[kind];
+  const priorityOptions = kind === "along" ? [] : priorityByKind[kind];
 
-  function applyKind(next: PlaceKind, syncUrl: boolean) {
+  function applyKind(next: FindSurface, syncUrl: boolean) {
     setKind(next);
     setResults([]);
     setProvider(null);
     setError(null);
-    setWhen(defaultWhen(next));
-    setPriority(defaultPriority(next));
+    if (next !== "along") {
+      setWhen(defaultWhen(next));
+      setPriority(defaultPriority(next));
+    }
     if (!syncUrl) return;
     const sp = new URLSearchParams(params.toString());
     sp.set("need", next);
@@ -188,8 +202,11 @@ export function FindPanel() {
       const place = draft?.corridor?.destination || draft?.location;
       if (place) setNear(place);
     }
-    const nextKind: PlaceKind =
-      need === "diesel" || need === "repair" || need === "parking"
+    const nextKind: FindSurface =
+      need === "diesel" ||
+      need === "repair" ||
+      need === "parking" ||
+      need === "along"
         ? need
         : "parking";
     setKind((prev) => {
@@ -197,8 +214,10 @@ export function FindPanel() {
         setResults([]);
         setProvider(null);
         setError(null);
-        setWhen(defaultWhen(nextKind));
-        setPriority(defaultPriority(nextKind));
+        if (nextKind !== "along") {
+          setWhen(defaultWhen(nextKind));
+          setPriority(defaultPriority(nextKind));
+        }
       }
       return nextKind;
     });
@@ -208,6 +227,7 @@ export function FindPanel() {
   async function runSearch() {
     setError(null);
     setResults([]);
+    if (kind === "along") return;
     if (!near.trim()) {
       setError("Enter a place — city, port, yard, or area.");
       return;
@@ -291,15 +311,17 @@ export function FindPanel() {
   return (
     <div className="space-y-8">
       <ResumeCheckBanner />
-      <section>
-        <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          {copy.eyebrow}
-        </p>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
-          {copy.title}
-        </h1>
-        <p className="mt-3 max-w-2xl text-lg text-muted">{copy.body}</p>
-      </section>
+      {kind !== "along" ? (
+        <section>
+          <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+            {copy.eyebrow}
+          </p>
+          <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+            {copy.title}
+          </h1>
+          <p className="mt-3 max-w-2xl text-lg text-muted">{copy.body}</p>
+        </section>
+      ) : null}
 
       <section className="space-y-5">
         <div>
@@ -319,6 +341,10 @@ export function FindPanel() {
           </div>
         </div>
 
+        {kind === "along" ? (
+          <PlanRoutePanel embedded />
+        ) : (
+          <>
         <div>
           <label className="block">
             <span className="font-display text-xs tracking-[0.16em] text-muted uppercase">
@@ -427,9 +453,11 @@ export function FindPanel() {
             {error}
           </p>
         )}
+          </>
+        )}
       </section>
 
-      {results.length > 0 && (
+      {kind !== "along" && results.length > 0 && (
         <section className="space-y-4 border-t border-asphalt/10 pt-8">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-display text-2xl tracking-wide text-asphalt uppercase">

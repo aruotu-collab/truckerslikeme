@@ -135,7 +135,7 @@ function collectStops(route: PlannedRoute): RibbonStop[] {
     .sort((a, b) => a.mile - b.mile);
 }
 
-export function PlanRoutePanel() {
+export function PlanRoutePanel({ embedded = false }: { embedded?: boolean }) {
   const params = useSearchParams();
   const queryKey = params.toString();
   const { isSignedIn, user, openGate } = useAuthGate();
@@ -354,17 +354,27 @@ export function PlanRoutePanel() {
 
   return (
     <div className="space-y-8">
-      <ResumeCheckBanner />
+      {!embedded ? <ResumeCheckBanner /> : null}
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          Plan route
+          {embedded ? "Nearest services" : "Along route"}
         </p>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
-          See the whole haul
+        <h1
+          className={`mt-2 font-display tracking-wide text-asphalt uppercase ${
+            embedded
+              ? "text-3xl sm:text-4xl"
+              : "text-4xl sm:text-5xl"
+          }`}
+        >
+          {embedded ? "Along the haul" : "Along the haul"}
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          From and to on one line — fuel, parking, and repair along the way.
-          Built for the trip you run today.
+          From and to — fuel, parking, and repair on the corridor. For
+          multi-drop courier days, use{" "}
+          <a href="/plan" className="font-semibold text-amber hover:text-asphalt">
+            Plan Route
+          </a>
+          .
         </p>
       </section>
 
@@ -407,7 +417,7 @@ export function PlanRoutePanel() {
             disabled={!canPlan || discoverBusy}
             className="w-full rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {discoverBusy ? "Finding stops…" : "Plan route"}
+            {discoverBusy ? "Finding stops…" : "Show along route"}
           </button>
         </div>
         <datalist id="plan-city-suggestions">
@@ -450,7 +460,7 @@ export function PlanRoutePanel() {
           </div>
           <p className="text-sm text-muted">
             Enter your from and to above, then tap{" "}
-            <strong className="text-asphalt">Plan route</strong> for live
+            <strong className="text-asphalt">Show along route</strong> for live
             discovery on your haul.
           </p>
         </section>
