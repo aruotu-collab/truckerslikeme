@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   evaluateRunChain,
   orderTodayRun,
@@ -20,6 +21,7 @@ type TodayRunBarProps = {
   onOpenRun: () => void;
   onShowHidden?: () => void;
   onRemoveFromRun?: (jobId: string) => void;
+  onMarkDelivered?: (jobId: string) => void;
 };
 
 export function TodayRunBar({
@@ -33,6 +35,7 @@ export function TodayRunBar({
   onOpenRun,
   onShowHidden,
   onRemoveFromRun,
+  onMarkDelivered,
 }: TodayRunBarProps) {
   const { money, market } = useMarket();
   const chain = orderTodayRun(todayRunIds, jobs);
@@ -62,7 +65,7 @@ export function TodayRunBar({
           </p>
           <p className="mt-1 text-sm font-medium text-asphalt">
             {chain.length === 0
-              ? "No jobs in the chain yet — mark wins or add from the board."
+              ? "No jobs in the chain yet — mark wins or add from My Jobs → Won."
               : pathLabel}
           </p>
           {awayFromHome && driver?.label ? (
@@ -99,6 +102,12 @@ export function TodayRunBar({
               Reset to home
             </button>
           )}
+          <Link
+            href="/jobs?tab=won"
+            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
+          >
+            My Jobs →
+          </Link>
           <button
             type="button"
             onClick={onOpenRun}
@@ -158,12 +167,12 @@ export function TodayRunBar({
         </dl>
       )}
 
-      {chain.length > 0 && onRemoveFromRun && (
+      {chain.length > 0 && (onRemoveFromRun || onMarkDelivered) && (
         <ul className="mt-3 flex flex-wrap gap-2">
           {chain.map((j, i) => (
             <li
               key={j.id}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-asphalt/15 bg-white px-2 py-1 text-[11px]"
+              className="inline-flex flex-wrap items-center gap-1.5 rounded-sm border border-asphalt/15 bg-white px-2 py-1 text-[11px]"
             >
               <span className="font-mono text-[10px] text-amber">{i + 1}</span>
               <span className="text-asphalt">
@@ -174,14 +183,25 @@ export function TodayRunBar({
                   Won
                 </span>
               ) : null}
-              <button
-                type="button"
-                onClick={() => onRemoveFromRun(j.id)}
-                className="rounded-sm border border-alert/30 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-alert uppercase hover:bg-red-100"
-                aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
-              >
-                Remove
-              </button>
+              {onMarkDelivered && j.status === "won" && (
+                <button
+                  type="button"
+                  onClick={() => onMarkDelivered(j.id)}
+                  className="rounded-sm border border-sky-600/30 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900 uppercase hover:bg-sky-100"
+                >
+                  Delivered
+                </button>
+              )}
+              {onRemoveFromRun && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFromRun(j.id)}
+                  className="rounded-sm border border-alert/30 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-alert uppercase hover:bg-red-100"
+                  aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
+                >
+                  Remove
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -189,7 +209,14 @@ export function TodayRunBar({
 
       <p className="mt-2 text-[11px] text-muted">
         Chain maths — fee, fuel, and running cost for the whole day plan, not
-        one job in isolation.
+        one job in isolation. Manage wins on{" "}
+        <Link
+          href="/jobs?tab=won"
+          className="font-semibold text-amber hover:text-asphalt"
+        >
+          My Jobs → Won
+        </Link>
+        .
       </p>
     </section>
   );

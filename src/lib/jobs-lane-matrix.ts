@@ -82,7 +82,9 @@ export function buildLaneMatrix(
   jobs: MapJob[],
   driver: JobsMapDriver | null,
 ): LaneMatrix {
-  const active = jobs.filter((j) => j.status !== "skipped");
+  const active = jobs.filter(
+    (j) => j.status !== "skipped" && j.status !== "delivered",
+  );
   const cells = new Map<string, LaneCell>();
   const pickupCounts = new Map<string, number>();
   const dropCounts = new Map<string, number>();

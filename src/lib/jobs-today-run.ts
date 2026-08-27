@@ -106,8 +106,12 @@ export function isJobOrRouteInTodayRun(
 }
 
 export function pruneTodayRunIds(todayRunIds: string[], jobs: MapJob[]): string[] {
-  const valid = new Set(jobs.map((j) => j.id));
-  return todayRunIds.filter((id) => valid.has(id));
+  const byId = new Map(jobs.map((j) => [j.id, j]));
+  return todayRunIds.filter((id) => {
+    const job = byId.get(id);
+    if (!job) return false;
+    return job.status !== "skipped" && job.status !== "delivered";
+  });
 }
 
 /** Full-chain economics from start through ordered jobs. */

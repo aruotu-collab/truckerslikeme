@@ -440,7 +440,9 @@ export function buildBidPlans(
   driver: JobsMapDriver | null,
   prefs: RunBuilderPrefs = DEFAULT_RUN_PREFS,
 ): RunBuilderResult {
-  const pool = toScoredJobs(jobs.filter((j) => j.status !== "skipped"));
+  const pool = toScoredJobs(
+    jobs.filter((j) => j.status !== "skipped" && j.status !== "delivered"),
+  );
   const totalJobs = pool.length;
   if (!pool.length) {
     return { plans: [], unpairedCount: 0, totalJobs: 0 };

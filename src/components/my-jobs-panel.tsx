@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import { useMarket } from "@/lib/market-context";
 import {
+  addJobsToTodayRun,
   countMyJobs,
   filterMyJobs,
   mapStatusMeta,
   readJobsMapState,
+  replaceTodayRunWithJobs,
   shortPlace,
   writeJobsMapState,
   type MapJob,
@@ -21,30 +23,50 @@ const FILTERS: { id: MyJobsFilter; label: string }[] = [
   { id: "bidding", label: "Bidding" },
   { id: "won", label: "Won" },
   { id: "considering", label: "Considering" },
+  { id: "delivered", label: "Delivered" },
   { id: "skipped", label: "Skipped" },
 ];
+
+function isMyJobsFilter(v: string | null): v is MyJobsFilter {
+  return (
+    v === "bidding" ||
+    v === "won" ||
+    v === "considering" ||
+    v === "delivered" ||
+    v === "skipped"
+  );
+}
 
 export function MyJobsPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
+  const [todayRunIds, setTodayRunIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<MyJobsFilter>("bidding");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [runNote, setRunNote] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setJobs(readJobsMapState().jobs);
+    const loaded = readJobsMapState();
+    setJobs(loaded.jobs);
+    setTodayRunIds(loaded.todayRunIds ?? []);
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (isMyJobsFilter(tab)) setFilter(tab);
+    }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     const prev = readJobsMapState();
-    writeJobsMapState({ ...prev, jobs });
-  }, [jobs, hydrated]);
+    writeJobsMapState({ ...prev, jobs, todayRunIds });
+  }, [jobs, todayRunIds, hydrated]);
 
   const counts = countMyJobs(jobs);
   const visible = filterMyJobs(jobs, filter);
+  const wonJobs = useMemo(() => filterMyJobs(jobs, "won"), [jobs]);
 
   function setStatus(id: string, status: MapJobStatus) {
     setJobs((prev) =>
@@ -54,6 +76,9 @@ export function MyJobsPanel() {
           : j,
       ),
     );
+    if (status === "delivered" || status === "skipped") {
+      setTodayRunIds((ids) => ids.filter((x) => x !== id));
+    }
   }
 
   function setMyBid(id: string, myBid: number | null) {
@@ -74,13 +99,40 @@ export function MyJobsPanel() {
     if (!pendingRemoveId) return;
     const id = pendingRemoveId;
     setJobs((prev) => prev.filter((j) => j.id !== id));
+    setTodayRunIds((ids) => ids.filter((x) => x !== id));
     if (selectedId === id) setSelectedId(null);
     setPendingRemoveId(null);
+  }
+
+  function addWonToTodayRun(id: string) {
+    const ids = addJobsToTodayRun([id]);
+    setTodayRunIds(ids);
+    setRunNote("Added to today’s run on Map Jobs.");
+  }
+
+  function planAllWonJobs() {
+    if (!wonJobs.length) return;
+    const ids = replaceTodayRunWithJobs(wonJobs.map((j) => j.id));
+    setTodayRunIds(ids);
+    setRunNote(
+      `Today’s run set to ${ids.length} won job${ids.length === 1 ? "" : "s"}.`,
+    );
   }
 
   const pendingRemoveJob = pendingRemoveId
     ? jobs.find((j) => j.id === pendingRemoveId) ?? null
     : null;
+
+  const emptyCopy =
+    filter === "won"
+      ? "When Shiply accepts a bid, mark the job as won here — then add it to today’s run."
+      : filter === "bidding"
+        ? "Enter your quote on jobs from Map Jobs — they appear here when you're bidding."
+        : filter === "skipped"
+          ? "Skipped and Hidden jobs land here — restore one to bid again, or remove it for good."
+          : filter === "delivered"
+            ? "Mark a won job delivered when you’ve dropped it — they’ll show here."
+            : "Scan Shiply on Map Jobs and add jobs to your board first.";
 
   return (
     <div className="space-y-8">
@@ -92,9 +144,8 @@ export function MyJobsPanel() {
           Your bids & wins
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Track what you&apos;ve quoted, what you&apos;ve won, and what still
-          needs a decision. Revenue on Map Jobs and Build My Run uses your bids
-          only — not Shiply&apos;s scraped amounts.
+          Won jobs are your book of work. Add them to today&apos;s run on Map
+          Jobs, then mark delivered when you&apos;ve dropped.
         </p>
       </section>
 
@@ -103,7 +154,10 @@ export function MyJobsPanel() {
           <button
             key={f.id}
             type="button"
-            onClick={() => setFilter(f.id)}
+            onClick={() => {
+              setFilter(f.id);
+              setRunNote(null);
+            }}
             className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
               filter === f.id
                 ? "bg-amber text-asphalt"
@@ -118,9 +172,45 @@ export function MyJobsPanel() {
           href="/map"
           className="ml-auto rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
         >
-          Hunt more on Map Jobs →
+          Map Jobs →
         </Link>
       </div>
+
+      {filter === "won" && wonJobs.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-sm text-asphalt">
+            {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — chain
+            them into today&apos;s run on Map Jobs.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={planAllWonJobs}
+              className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
+            >
+              Plan all won → today&apos;s run
+            </button>
+            <Link
+              href="/map"
+              className="rounded-sm border border-asphalt/20 bg-white px-4 py-2 text-xs font-semibold tracking-wide uppercase"
+            >
+              Open today&apos;s run →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {runNote && (
+        <p
+          role="status"
+          className="border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm text-asphalt"
+        >
+          {runNote}{" "}
+          <Link href="/map" className="font-semibold text-amber hover:text-asphalt">
+            Open Map Jobs →
+          </Link>
+        </p>
+      )}
 
       {!hydrated ? (
         <p className="text-sm text-muted">Loading your jobs…</p>
@@ -129,15 +219,7 @@ export function MyJobsPanel() {
           <p className="font-display text-lg tracking-wide text-asphalt uppercase">
             Nothing here yet
           </p>
-          <p className="mt-2 text-sm text-muted">
-            {filter === "won"
-              ? "When Shiply accepts a bid, mark the job as won here."
-              : filter === "bidding"
-                ? "Enter your quote on jobs from Map Jobs — they appear here when you're bidding."
-                : filter === "skipped"
-                  ? "Skipped and Hidden jobs land here — restore one to bid again, or remove it for good."
-                  : "Scan Shiply on Map Jobs and add jobs to your board first."}
-          </p>
+          <p className="mt-2 text-sm text-muted">{emptyCopy}</p>
           <Link
             href="/map"
             className="mt-4 inline-block rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
@@ -150,6 +232,7 @@ export function MyJobsPanel() {
           {visible.map((job) => {
             const meta = mapStatusMeta[job.status];
             const active = job.id === selectedId;
+            const inRun = todayRunIds.includes(job.id);
             return (
               <li
                 key={job.id}
@@ -174,6 +257,7 @@ export function MyJobsPanel() {
                         {[
                           job.item,
                           job.miles != null ? `${job.miles} mi` : null,
+                          inRun && job.status === "won" ? "In today’s run" : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -187,33 +271,38 @@ export function MyJobsPanel() {
                   </div>
                 </button>
 
-                {filter !== "won" && filter !== "skipped" && (
-                  <div className="mt-3">
-                    <JobBidField
-                      value={job.myBid}
-                      miles={job.miles}
-                      onChange={(myBid) => {
-                        setMyBid(job.id, myBid);
-                        if (
-                          myBid != null &&
-                          myBid > 0 &&
-                          job.status === "hunting"
-                        ) {
-                          setStatus(job.id, "bidding");
-                        }
-                      }}
-                    />
-                  </div>
-                )}
+                {filter !== "won" &&
+                  filter !== "skipped" &&
+                  filter !== "delivered" && (
+                    <div className="mt-3">
+                      <JobBidField
+                        value={job.myBid}
+                        miles={job.miles}
+                        onChange={(myBid) => {
+                          setMyBid(job.id, myBid);
+                          if (
+                            myBid != null &&
+                            myBid > 0 &&
+                            job.status === "hunting"
+                          ) {
+                            setStatus(job.id, "bidding");
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
 
-                {filter === "won" && job.myBid != null && job.myBid > 0 && (
-                  <p className="mt-2 text-sm font-medium text-asphalt">
-                    Won at {money(job.myBid)}
-                    {job.miles != null && job.miles > 0
-                      ? ` · ${money(job.myBid / job.miles)}/mi`
-                      : ""}
-                  </p>
-                )}
+                {(filter === "won" || filter === "delivered") &&
+                  job.myBid != null &&
+                  job.myBid > 0 && (
+                    <p className="mt-2 text-sm font-medium text-asphalt">
+                      {filter === "delivered" ? "Done at" : "Won at"}{" "}
+                      {money(job.myBid)}
+                      {job.miles != null && job.miles > 0
+                        ? ` · ${money(job.myBid / job.miles)}/mi`
+                        : ""}
+                    </p>
+                  )}
 
                 {filter === "skipped" && job.myBid != null && job.myBid > 0 && (
                   <p className="mt-2 text-sm text-muted">
@@ -225,7 +314,7 @@ export function MyJobsPanel() {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {filter === "skipped" ? (
+                  {filter === "skipped" && (
                     <>
                       <button
                         type="button"
@@ -250,76 +339,149 @@ export function MyJobsPanel() {
                         Remove
                       </button>
                     </>
-                  ) : (
+                  )}
+
+                  {filter === "delivered" && (
                     <>
-                  {job.href ? (
-                    <ShiplyLink
-                      href={job.href}
-                      className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                    >
-                      Open on Shiply →
-                    </ShiplyLink>
-                  ) : null}
-                  {job.status !== "won" && job.status !== "bidding" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(job.id, "bidding")}
-                      className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                    >
-                      Mark bidding
-                    </button>
-                  )}
-                  {job.status !== "won" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(job.id, "won")}
-                      className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
-                    >
-                      I got this
-                    </button>
-                  )}
-                  {job.status === "won" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(job.id, "hunting")}
-                      className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
-                    >
-                      Back to hunt
-                    </button>
-                  )}
-                  {job.status === "bidding" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(job.id, "hunting")}
-                      className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-                    >
-                      Still considering
-                    </button>
-                  )}
-                  {job.status !== "skipped" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(job.id, "skipped")}
-                      className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-                    >
-                      Skip
-                    </button>
-                  )}
-                  <Link
-                    href="/run"
-                    className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
-                  >
-                    Build run
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => requestRemove(job.id)}
-                    className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
-                  >
-                    Remove
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "won")}
+                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                      >
+                        Back to won
+                      </button>
+                      {job.href ? (
+                        <ShiplyLink
+                          href={job.href}
+                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
+                        >
+                          Open on Shiply →
+                        </ShiplyLink>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => requestRemove(job.id)}
+                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                      >
+                        Remove
+                      </button>
                     </>
                   )}
+
+                  {filter === "won" && (
+                    <>
+                      {!inRun ? (
+                        <button
+                          type="button"
+                          onClick={() => addWonToTodayRun(job.id)}
+                          className="rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+                        >
+                          Add to today&apos;s run
+                        </button>
+                      ) : (
+                        <Link
+                          href="/map"
+                          className="rounded-sm border border-emerald-600/40 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-emerald-900 uppercase"
+                        >
+                          In today&apos;s run →
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "delivered")}
+                        className="rounded-sm bg-[#4a6f86] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+                      >
+                        Mark delivered
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatus(job.id, "hunting")}
+                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                      >
+                        Back to hunt
+                      </button>
+                      {job.href ? (
+                        <ShiplyLink
+                          href={job.href}
+                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
+                        >
+                          Open on Shiply →
+                        </ShiplyLink>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => requestRemove(job.id)}
+                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+
+                  {filter !== "won" &&
+                    filter !== "skipped" &&
+                    filter !== "delivered" && (
+                      <>
+                        {job.href ? (
+                          <ShiplyLink
+                            href={job.href}
+                            className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
+                          >
+                            Open on Shiply →
+                          </ShiplyLink>
+                        ) : null}
+                        {job.status !== "won" && job.status !== "bidding" && (
+                          <button
+                            type="button"
+                            onClick={() => setStatus(job.id, "bidding")}
+                            className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                          >
+                            Mark bidding
+                          </button>
+                        )}
+                        {job.status !== "won" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatus(job.id, "won");
+                              addWonToTodayRun(job.id);
+                            }}
+                            className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+                          >
+                            I got this
+                          </button>
+                        )}
+                        {job.status === "bidding" && (
+                          <button
+                            type="button"
+                            onClick={() => setStatus(job.id, "hunting")}
+                            className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                          >
+                            Still considering
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setStatus(job.id, "skipped")}
+                          className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                        >
+                          Skip
+                        </button>
+                        <Link
+                          href="/map"
+                          className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                        >
+                          Map Jobs
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => requestRemove(job.id)}
+                          className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
                 </div>
               </li>
             );

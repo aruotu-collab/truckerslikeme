@@ -1,6 +1,6 @@
 import { resolveUkPlace } from "@/lib/uk-places";
 
-export type MapJobStatus = "hunting" | "bidding" | "won" | "skipped";
+export type MapJobStatus = "hunting" | "bidding" | "won" | "delivered" | "skipped";
 
 export type MapJob = {
   id: string;
@@ -60,6 +60,12 @@ export const mapStatusMeta: Record<
     fill: "#2f6b4f",
     soft: "border-emerald-300 bg-emerald-50 text-emerald-950",
   },
+  delivered: {
+    label: "Delivered",
+    line: "#4a6f86",
+    fill: "#4a6f86",
+    soft: "border-sky-300 bg-sky-50 text-sky-950",
+  },
   skipped: {
     label: "Skipped",
     line: "#9a958c",
@@ -87,7 +93,14 @@ export function hasMyBid(job: MapJob): boolean {
 }
 
 function migrateStatus(raw: string | undefined): MapJobStatus {
-  if (raw === "won" || raw === "bidding" || raw === "skipped") return raw;
+  if (
+    raw === "won" ||
+    raw === "bidding" ||
+    raw === "skipped" ||
+    raw === "delivered"
+  ) {
+    return raw;
+  }
   return "hunting";
 }
 
@@ -159,26 +172,38 @@ export function filterMapJobs(jobs: MapJob[], filter: JobsMapFilter) {
     return jobs.filter((j) => j.status === "hunting" || j.status === "bidding");
   }
   if (filter === "won") return jobs.filter((j) => j.status === "won");
-  return jobs.filter((j) => j.status !== "skipped");
+  return jobs.filter((j) => j.status !== "skipped" && j.status !== "delivered");
 }
 
-/** Jobs shown on the Map Jobs hunt board (not won / skipped). */
+/** Jobs shown on the Map Jobs hunt board (not won / delivered / skipped). */
 export function huntBoardJobs(jobs: MapJob[]) {
-  return jobs.filter((j) => j.status !== "won" && j.status !== "skipped");
+  return jobs.filter(
+    (j) =>
+      j.status !== "won" &&
+      j.status !== "delivered" &&
+      j.status !== "skipped",
+  );
 }
 
-export type MyJobsFilter = "bidding" | "won" | "considering" | "skipped";
+export type MyJobsFilter =
+  | "bidding"
+  | "won"
+  | "considering"
+  | "delivered"
+  | "skipped";
 
 export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
   if (filter === "won") return jobs.filter((j) => j.status === "won");
+  if (filter === "delivered")
+    return jobs.filter((j) => j.status === "delivered");
   if (filter === "skipped") return jobs.filter((j) => j.status === "skipped");
   if (filter === "bidding") {
-    return jobs.filter(
-      (j) =>
-        j.status !== "skipped" &&
-        (j.status === "bidding" ||
-          (j.myBid != null && j.myBid > 0 && j.status !== "won")),
-    );
+    return jobs.filter((j) => {
+      if (j.status === "skipped" || j.status === "delivered" || j.status === "won") {
+        return false;
+      }
+      return j.status === "bidding" || (j.myBid != null && j.myBid > 0);
+    });
   }
   return jobs.filter(
     (j) =>
@@ -191,8 +216,32 @@ export function countMyJobs(jobs: MapJob[]) {
     bidding: filterMyJobs(jobs, "bidding").length,
     won: filterMyJobs(jobs, "won").length,
     considering: filterMyJobs(jobs, "considering").length,
+    delivered: filterMyJobs(jobs, "delivered").length,
     skipped: filterMyJobs(jobs, "skipped").length,
   };
+}
+
+/** Persist today's run order (shared by Map Jobs + My Jobs). */
+export function writeTodayRunIds(todayRunIds: string[]) {
+  const prev = readJobsMapState();
+  writeJobsMapState({ ...prev, todayRunIds });
+}
+
+export function addJobsToTodayRun(jobIds: string[]) {
+  const prev = readJobsMapState();
+  let ids = [...(prev.todayRunIds ?? [])];
+  for (const id of jobIds) {
+    if (!ids.includes(id)) ids.push(id);
+  }
+  writeJobsMapState({ ...prev, todayRunIds: ids });
+  return ids;
+}
+
+export function replaceTodayRunWithJobs(jobIds: string[]) {
+  const prev = readJobsMapState();
+  const ids = [...new Set(jobIds)];
+  writeJobsMapState({ ...prev, todayRunIds: ids });
+  return ids;
 }
 
 export type TubeStation = {

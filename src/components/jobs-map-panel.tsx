@@ -338,8 +338,23 @@ export function JobsMapPanel() {
           if (atDrop) setDriver(atDrop);
         }
       }
+      if (status === "delivered") {
+        const done = nextJobs.find((j) => j.id === id);
+        setTodayRunIds((ids) => ids.filter((x) => x !== id));
+        if (done) {
+          const atDrop = driverAtJobDrop(done);
+          if (atDrop) setDriver(atDrop);
+        }
+      }
+      if (status === "skipped") {
+        setTodayRunIds((ids) => ids.filter((x) => x !== id));
+      }
       return nextJobs;
     });
+  }
+
+  function markDelivered(id: string) {
+    setJobStatus(id, "delivered");
   }
 
   function addToTodayRun(id: string) {
@@ -492,6 +507,7 @@ export function JobsMapPanel() {
       onOpenRun={() => setMainTab("run")}
       onShowHidden={showHiddenJobs}
       onRemoveFromRun={removeFromTodayRun}
+      onMarkDelivered={markDelivered}
     />
   );
 
@@ -761,7 +777,7 @@ export function JobsMapPanel() {
                 </button>
               ))}
               <Link
-                href="/jobs"
+                href="/jobs?tab=won"
                 className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
               >
                 My Jobs →
@@ -993,6 +1009,18 @@ export function JobsMapPanel() {
 
         {mainTab === "run" && (
           <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
+              <p>
+                Suggested chains from the hunt board. Your committed work book is
+                on My Jobs → Won.
+              </p>
+              <Link
+                href="/jobs?tab=won"
+                className="rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+              >
+                My Jobs → Won
+              </Link>
+            </div>
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
               <div className="border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">

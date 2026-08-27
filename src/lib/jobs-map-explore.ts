@@ -519,7 +519,9 @@ export function findPossibleRuns(
   driver: JobsMapDriver | null,
   max = 4,
 ): PossibleRun[] {
-  const usable = geocodedJobs(jobs).filter((j) => j.status !== "skipped");
+  const usable = geocodedJobs(jobs).filter(
+    (j) => j.status !== "skipped" && j.status !== "delivered",
+  );
   if (usable.length < 2) return [];
 
   const home = placeKey(driver?.label);

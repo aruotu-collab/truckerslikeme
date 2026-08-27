@@ -215,7 +215,9 @@ export function fitIndicator(
 }
 
 function toScoredEntries(jobs: MapJob[]): ScoredEntry[] {
-  const mapped = geocodedJobs(jobs.filter((j) => j.status !== "skipped"));
+  const mapped = geocodedJobs(
+    jobs.filter((j) => j.status !== "skipped" && j.status !== "delivered"),
+  );
   return mapped.map((job, i) => {
     const pickup = resolveUkPlace(job.origin)!;
     const drop = resolveUkPlace(job.destination)!;
@@ -509,7 +511,11 @@ export function buildConnectionMatrix(
   cells: Array<Array<{ deadhead: number | null; quality: ConnectionQuality | null; fit: FitIndicator | null }>>;
 } {
   const entries = toScoredEntries(focusJobs.slice(0, 12));
-  const targets = toScoredEntries(pool.filter((j) => j.status !== "skipped").slice(0, 12));
+  const targets = toScoredEntries(
+    pool
+      .filter((j) => j.status !== "skipped" && j.status !== "delivered")
+      .slice(0, 12),
+  );
   const codes = codeMap([...entries, ...targets]);
 
   const rows = entries.map((e) => ({
