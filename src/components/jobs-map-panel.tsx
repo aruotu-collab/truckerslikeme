@@ -61,6 +61,8 @@ const SORTS: { id: SortMode; label: string }[] = [
 type MainTab = "jobs" | "run";
 type JobsLook = "list" | "map" | "lanes";
 
+const LIST_PAGE_SIZE = 12;
+
 export function JobsMapPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
@@ -98,6 +100,7 @@ export function JobsMapPanel() {
   const [scanSummary, setScanSummary] = useState<string | null>(null);
   const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
   const hiddenSectionRef = useRef<HTMLDetailsElement | null>(null);
   const hideUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,6 +145,11 @@ export function JobsMapPanel() {
   );
 
   const visible = huntBoardJobs(jobs);
+  const listShown = useMemo(
+    () => visible.slice(0, listLimit),
+    [visible, listLimit],
+  );
+  const listRemaining = Math.max(0, visible.length - listShown.length);
   const hiddenJobs = useMemo(
     () => jobs.filter((j) => j.status === "skipped"),
     [jobs],
@@ -343,13 +351,19 @@ export function JobsMapPanel() {
   }
 
   function focusBoardJob(id: string) {
-    const el = document.getElementById(`board-job-${id}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("ring-2", "ring-amber", "ring-offset-2");
+    const index = visible.findIndex((j) => j.id === id);
+    if (index >= 0 && index >= listLimit) {
+      setListLimit(index + 1);
+    }
     window.setTimeout(() => {
-      el.classList.remove("ring-2", "ring-amber", "ring-offset-2");
-    }, 1800);
+      const el = document.getElementById(`board-job-${id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-amber", "ring-offset-2");
+      window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-amber", "ring-offset-2");
+      }, 1800);
+    }, 50);
   }
 
   function resetDriverToHome() {
@@ -711,7 +725,9 @@ export function JobsMapPanel() {
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
-                  ? "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
+                  ? visible.length > listShown.length
+                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, hide, or add to today's run. Load more below.`
+                    : "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
                   : mainTab === "jobs"
                     ? "Explore the board — enter bids on List, Map, or Lanes."
                     : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
@@ -835,27 +851,54 @@ export function JobsMapPanel() {
         )}
 
         {mainTab === "jobs" && jobsLook === "list" && visible.length > 0 && (
-          <ul className="border-y border-asphalt/10">
-            {visible.map((job) => (
-              <BoardJobCard
-                key={job.id}
-                job={job}
-                driver={driver}
-                allJobs={visible}
-                todayRunJobs={todayRunJobs}
-                todayRunIds={todayRunIds}
-                runLookupJobs={jobs}
-                home={home}
-                onSetBid={(myBid) => setMyBid(job.id, myBid)}
-                onMarkWon={() => setJobStatus(job.id, "won")}
-                onHide={() => hideJob(job.id)}
-                onAddToRun={() => addToTodayRun(job.id)}
-                onRemoveFromRun={() => removeFromTodayRun(job.id)}
-                onFocusJob={focusBoardJob}
-                onAddJobToRun={addToTodayRun}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className="border-y border-asphalt/10">
+              {listShown.map((job) => (
+                <BoardJobCard
+                  key={job.id}
+                  job={job}
+                  driver={driver}
+                  allJobs={visible}
+                  todayRunJobs={todayRunJobs}
+                  todayRunIds={todayRunIds}
+                  runLookupJobs={jobs}
+                  home={home}
+                  onSetBid={(myBid) => setMyBid(job.id, myBid)}
+                  onMarkWon={() => setJobStatus(job.id, "won")}
+                  onHide={() => hideJob(job.id)}
+                  onAddToRun={() => addToTodayRun(job.id)}
+                  onRemoveFromRun={() => removeFromTodayRun(job.id)}
+                  onFocusJob={focusBoardJob}
+                  onAddJobToRun={addToTodayRun}
+                />
+              ))}
+            </ul>
+            {listRemaining > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border border-asphalt/10 bg-white px-4 py-3">
+                <p className="text-sm text-muted">
+                  {listRemaining} more on the board
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setListLimit((n) => n + LIST_PAGE_SIZE)
+                    }
+                    className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
+                  >
+                    Load more
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setListLimit(visible.length)}
+                    className="rounded-sm border border-asphalt/20 px-4 py-2 text-xs font-semibold tracking-wide uppercase"
+                  >
+                    Show all ({visible.length})
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {mainTab === "jobs" && jobsLook === "list" && hiddenJobs.length > 0 && (
