@@ -162,7 +162,7 @@ export function verdictCopy(v: JobDecision["verdict"]): {
       };
     default:
       return {
-        title: "Avoid alone",
+        title: "Don't take this job alone",
         tone: "border-red-200 bg-red-50 text-alert",
       };
   }

@@ -118,7 +118,9 @@ export function MarketingHome() {
               <dt className="text-[10px] font-semibold uppercase text-muted">
                 Verdict
               </dt>
-              <dd className="text-lg font-semibold text-alert">Pass alone</dd>
+              <dd className="text-lg font-semibold text-alert">
+                Don&apos;t take alone
+              </dd>
             </div>
           </dl>
           <TrackedLink
