@@ -11,6 +11,7 @@ import {
   scanSummaryMessage,
   writeLastScanSnapshot,
 } from "@/lib/shiply-scan-snapshot";
+import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { useMarket } from "@/lib/market-context";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
@@ -229,29 +230,7 @@ export function ShiplyConnect({
         </button>
       ) : (
         <div className="space-y-3">
-          {liveViewUrl && (
-            <div className="space-y-2">
-              <div className="overflow-hidden border border-asphalt/15 bg-concrete/20">
-                <iframe
-                  title="Shiply browser session"
-                  src={liveViewUrl}
-                  className="h-[min(78vh,820px)] min-h-[560px] w-full bg-white"
-                  allow="clipboard-read; clipboard-write"
-                />
-              </div>
-              <p className="text-xs text-muted">
-                Still hard to read?{" "}
-                <a
-                  href={liveViewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-amber hover:text-asphalt"
-                >
-                  Open browser full size →
-                </a>
-              </p>
-            </div>
-          )}
+          {liveViewUrl && <ShiplyLiveView url={liveViewUrl} />}
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
             <li>
               Log into Shiply in the window above (we open shiply.com for you;
@@ -260,7 +239,7 @@ export function ShiplyConnect({
             <li>Search near {prefs.start || "your start"} as coached.</li>
             <li>Stay on the results list, then scan.</li>
           </ol>
-          <div className="flex flex-wrap gap-2">
+          <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
             <button
               type="button"
               disabled={busy}

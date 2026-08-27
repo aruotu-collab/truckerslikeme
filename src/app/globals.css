@@ -100,6 +100,25 @@ body {
   border-radius: 4px;
 }
 
+/* Browserbase Shiply live view — touch scroll must reach the iframe on mobile */
+.shiply-live-shell {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
+}
+
+.shiply-live-frame {
+  border: 0;
+  touch-action: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .h-scroll-visible::-webkit-scrollbar-track {
   background: rgba(26, 29, 35, 0.06);
 }

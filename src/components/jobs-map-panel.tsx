@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BoardJobCard } from "@/components/board-job-card";
 import { TodayRunBar } from "@/components/today-run-bar";
+import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
@@ -589,29 +590,8 @@ export function JobsMapPanel() {
 
         {enabled && sessionId && (
           <div className="space-y-3">
-            {liveViewUrl && (
-              <div className="space-y-2">
-                <div className="overflow-hidden border border-asphalt/15 bg-concrete/20">
-                  <iframe
-                    title="Shiply browser session"
-                    src={liveViewUrl}
-                    className="h-[min(60vh,640px)] min-h-[420px] w-full bg-white"
-                    allow="clipboard-read; clipboard-write"
-                  />
-                </div>
-                <p className="text-xs text-muted">
-                  <a
-                    href={liveViewUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-amber hover:text-asphalt"
-                  >
-                    Open browser full size →
-                  </a>
-                </p>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
+            {liveViewUrl && <ShiplyLiveView url={liveViewUrl} />}
+            <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
               <button
                 type="button"
                 disabled={busy}
