@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { BoardJobCard } from "@/components/board-job-card";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
-import { JobBidField } from "@/components/job-bid-field";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
-import { ShiplyLink } from "@/components/shiply-link";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
 import { useMarket } from "@/lib/market-context";
 import {
@@ -22,7 +21,6 @@ import {
 } from "@/lib/jobs-run-builder";
 import {
   huntBoardJobs,
-  mapStatusMeta,
   mergeScannedJobs,
   placeKey,
   readJobsMapState,
@@ -722,7 +720,7 @@ export function JobsMapPanel() {
         )}
       </section>
 
-      {/* Job list — hunt view only; bids managed in My Jobs */}
+      {/* Job list — hunt board with keep/remove decision signals */}
       {mainTab === "jobs" && jobsLook === "list" && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -731,7 +729,8 @@ export function JobsMapPanel() {
                 On your board
               </h2>
               <p className="mt-1 text-sm text-muted">
-                Enter your quote on each job — or manage wins in My Jobs.
+                Enter a quote to see after-fee net and verdict — then keep,
+                bid on Shiply, or remove.
               </p>
             </div>
             <Link
@@ -741,74 +740,28 @@ export function JobsMapPanel() {
               My Jobs →
             </Link>
           </div>
+          {!startReady && visible.length > 0 && (
+            <p className="border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-asphalt">
+              Set your start location above so each job can show empty miles
+              to pickup.
+            </p>
+          )}
           {!visible.length ? (
             <p className="text-sm text-muted">
               No jobs on the board yet. Scan Shiply and add them above.
             </p>
           ) : (
-            <ul className="divide-y divide-asphalt/10 border-y border-asphalt/10">
-              {visible.map((job) => {
-                const meta = mapStatusMeta[job.status];
-                return (
-                  <li
-                    key={job.id}
-                    className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-asphalt">
-                        {shortPlace(job.origin)} → {shortPlace(job.destination)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted">
-                        {[
-                          job.item,
-                          job.miles != null ? `${job.miles} mi` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      <div className="mt-2">
-                        <JobBidField
-                          compact
-                          value={job.myBid}
-                          miles={job.miles}
-                          onChange={(myBid) => setMyBid(job.id, myBid)}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-sm border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${meta.soft}`}
-                      >
-                        {meta.label}
-                      </span>
-                      {job.status !== "won" && (
-                        <button
-                          type="button"
-                          onClick={() => setJobStatus(job.id, "won")}
-                          className="rounded-sm bg-[#2f6b4f] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase"
-                        >
-                          I got this
-                        </button>
-                      )}
-                      {job.href ? (
-                        <ShiplyLink
-                          href={job.href}
-                          className="text-[11px] font-semibold tracking-wide text-amber uppercase"
-                        >
-                          Shiply →
-                        </ShiplyLink>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeJob(job.id)}
-                        className="text-[11px] font-semibold tracking-wide text-alert uppercase"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
+            <ul className="border-y border-asphalt/10">
+              {visible.map((job) => (
+                <BoardJobCard
+                  key={job.id}
+                  job={job}
+                  driver={driver}
+                  onSetBid={(myBid) => setMyBid(job.id, myBid)}
+                  onMarkWon={() => setJobStatus(job.id, "won")}
+                  onRemove={() => removeJob(job.id)}
+                />
+              ))}
             </ul>
           )}
         </section>
