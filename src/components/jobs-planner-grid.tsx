@@ -926,6 +926,8 @@ function RunsCompareView({
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
   );
+  /** Journey panel under the selected row — tap selected row again to collapse. */
+  const [journeyOpen, setJourneyOpen] = useState(true);
   /** Jobs the driver dropped from the selected suggested run. */
   const [excludedIds, setExcludedIds] = useState<string[]>([]);
 
@@ -936,6 +938,7 @@ function RunsCompareView({
     }
     if (!selectedId || !plans.some((p) => p.id === selectedId)) {
       setSelectedId(plans[0]!.id);
+      setJourneyOpen(true);
     }
   }, [plans, selectedId]);
 
@@ -1041,8 +1044,8 @@ function RunsCompareView({
           Suggested runs
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Tap a row to open its journey underneath — jobs for that run stay
-          below.
+          Tap a row to open its journey — tap again to collapse. Jobs for the
+          selected run stay below.
         </p>
       </div>
 
@@ -1065,14 +1068,24 @@ function RunsCompareView({
               {plans.slice(0, 6).map((plan, i) => {
                 const meta = RUN_GOAL_BADGE[plan.goal];
                 const active = plan.id === basePlan.id;
+                const open = active && journeyOpen;
                 return (
                   <Fragment key={plan.id}>
                     <tr
-                      onClick={() => setSelectedId(plan.id)}
+                      onClick={() => {
+                        if (plan.id === selectedId) {
+                          setJourneyOpen((v) => !v);
+                        } else {
+                          setSelectedId(plan.id);
+                          setJourneyOpen(true);
+                        }
+                      }}
                       className={`cursor-pointer border-b border-asphalt/5 ${
-                        active
+                        open
                           ? "bg-amber/15"
-                          : "hover:bg-concrete/40"
+                          : active
+                            ? "bg-amber/8"
+                            : "hover:bg-concrete/40"
                       }`}
                     >
                       <td className="px-3 py-2.5 font-mono text-xs font-semibold text-amber">
@@ -1084,7 +1097,7 @@ function RunsCompareView({
                             className="text-[10px] text-muted"
                             aria-hidden
                           >
-                            {active ? "▼" : "▶"}
+                            {open ? "▼" : "▶"}
                           </span>
                           {meta.title}
                           {active && (
@@ -1115,7 +1128,7 @@ function RunsCompareView({
                           : "—"}
                       </td>
                     </tr>
-                    {active && (
+                    {open && (
                       <tr className="border-b border-asphalt/10 bg-amber/5">
                         <td colSpan={8} className="px-4 py-4 sm:px-5">
                           <div className="mb-3 flex h-2.5 overflow-hidden border border-asphalt/15 bg-white">
