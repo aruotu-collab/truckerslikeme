@@ -1383,7 +1383,7 @@ function RunsCompareView({
         </ul>
         {workingPlan.jobs.length > 0 && (
           <p className="mt-2 text-xs text-muted">
-            Drop from suggestion only edits this My run preview — it does not
+            Drop from suggestion only edits this Suggested preview — it does not
             delete the job from your board or Today&apos;s run.
           </p>
         )}

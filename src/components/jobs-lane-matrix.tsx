@@ -332,7 +332,7 @@ export function JobsLaneMatrix({
               onClick={() => onAddToRun(selectedCell.jobs)}
               className="mt-4 rounded-sm bg-amber px-4 py-2.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
             >
-              Add {selectedCell.count} to run builder →
+              Add {selectedCell.count} to Suggested →
             </button>
           )}
         </aside>

@@ -95,7 +95,7 @@ export function TodayRunBar({
           </div>
           <p className="mt-1 text-sm font-medium text-asphalt">
             {chain.length === 0
-              ? "No jobs in the chain yet — add from the board, My run, or My Jobs → Won."
+              ? "No jobs in the chain yet — add from the Board, Suggested, or My Jobs → Won."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -143,7 +143,7 @@ export function TodayRunBar({
             onClick={onOpenRun}
             className="rounded-sm bg-asphalt px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase"
           >
-            My run →
+            Suggested →
           </button>
         </div>
       </div>
@@ -305,7 +305,7 @@ export function TodayRunBar({
               onClick={onOpenRun}
               className="font-semibold text-amber uppercase hover:text-asphalt"
             >
-              My run →
+              Suggested →
             </button>{" "}
             or manage wins on{" "}
             <Link

@@ -19,7 +19,7 @@ const pillars = [
     title: "Map the board",
     body: "Scan Shiply, compare lanes, and build the most profitable day from where you are.",
     href: "/map",
-    cta: "Map Jobs",
+    cta: "Job Board",
   },
   {
     eyebrow: "Execute",
@@ -56,10 +56,10 @@ export function MarketingHome() {
             <TrackedLink
               href="/map"
               trackEvent="cta"
-              trackLabel="Map Jobs hero"
+              trackLabel="Job Board hero"
               className="rounded-sm bg-amber px-6 py-3.5 text-sm font-semibold tracking-wide text-asphalt uppercase transition hover:bg-amber-hot"
             >
-              Map Jobs →
+              Job Board →
             </TrackedLink>
             <TrackedLink
               href="/run"
@@ -270,16 +270,16 @@ export function MarketingHome() {
           Let the money choose the day
         </p>
         <p className="mx-auto mt-3 max-w-lg text-muted">
-          Open Map Jobs, scan what&apos;s on Shiply near you, and build the run
-          that finishes profitably — wherever that is.
+          Open the Job Board, scan what&apos;s on Shiply near you, and build the
+          run that finishes profitably — wherever that is.
         </p>
         <TrackedLink
           href="/map"
           trackEvent="cta"
-          trackLabel="Start on Map Jobs"
+          trackLabel="Start on Job Board"
           className="mt-6 inline-block rounded-sm bg-amber px-8 py-4 text-sm font-semibold tracking-wide text-asphalt uppercase"
         >
-          Start on Map Jobs →
+          Start on Job Board →
         </TrackedLink>
       </section>
     </div>

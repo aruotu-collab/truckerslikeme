@@ -15,7 +15,7 @@ export function SiteFooter() {
             Build My Run
           </Link>
           <Link href="/map" className="transition hover:text-asphalt">
-            Map Jobs
+            Job Board
           </Link>
           <Link href="/plan" className="transition hover:text-asphalt">
             Plan Route

@@ -273,7 +273,7 @@ export function JobDecisionPanel({ kind, onBack }: Props) {
               href="/map"
               className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
             >
-              Find a backload on Map Jobs →
+              Find a backload on Job Board →
             </Link>
             <Link
               href="/run"

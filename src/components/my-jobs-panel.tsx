@@ -20,11 +20,11 @@ import {
 } from "@/lib/jobs-map";
 
 const FILTERS: { id: MyJobsFilter; label: string }[] = [
+  { id: "considering", label: "On board" },
   { id: "bidding", label: "Bidding" },
   { id: "won", label: "Won" },
-  { id: "considering", label: "Considering" },
   { id: "delivered", label: "Delivered" },
-  { id: "skipped", label: "Skipped" },
+  { id: "skipped", label: "Hidden" },
 ];
 
 function isMyJobsFilter(v: string | null): v is MyJobsFilter {
@@ -107,7 +107,7 @@ export function MyJobsPanel() {
   function addWonToTodayRun(id: string) {
     const ids = addJobsToTodayRun([id]);
     setTodayRunIds(ids);
-    setRunNote("Added to today’s run on Map Jobs.");
+    setRunNote("Added to today’s run on Job Board.");
   }
 
   function planAllWonJobs() {
@@ -127,25 +127,26 @@ export function MyJobsPanel() {
     filter === "won"
       ? "When Shiply accepts a bid, mark the job as won here — then add it to today’s run."
       : filter === "bidding"
-        ? "Enter your quote on jobs from Map Jobs — they appear here when you're bidding."
+        ? "Enter your quote on the Job Board — they appear here when you're bidding."
         : filter === "skipped"
-          ? "Skipped and Hidden jobs land here — restore one to bid again, or remove it for good."
+          ? "Hidden jobs land here — restore one to bid again, or remove it for good."
           : filter === "delivered"
             ? "Mark a won job delivered when you’ve dropped it — they’ll show here."
-            : "Scan Shiply on Map Jobs and add jobs to your board first.";
+            : "Scan Shiply on the Job Board and add jobs first.";
 
   return (
     <div className="space-y-8">
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          My jobs
+          Tracker
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
-          Your bids & wins
+          My Jobs
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Won jobs are your book of work. Add them to today&apos;s run on Map
-          Jobs, then mark delivered when you&apos;ve dropped.
+          Follow each job from On board → Bidding → Won → Delivered. Add won
+          jobs to Today&apos;s run on the Job Board when you&apos;re ready to
+          work them.
         </p>
       </section>
 
@@ -172,7 +173,7 @@ export function MyJobsPanel() {
           href="/map"
           className="ml-auto rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
         >
-          Map Jobs →
+          Job Board →
         </Link>
       </div>
 
@@ -180,7 +181,7 @@ export function MyJobsPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-asphalt">
             {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — chain
-            them into today&apos;s run on Map Jobs.
+            them into today&apos;s run on Job Board.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -207,7 +208,7 @@ export function MyJobsPanel() {
         >
           {runNote}{" "}
           <Link href="/map" className="font-semibold text-amber hover:text-asphalt">
-            Open Map Jobs →
+            Open Job Board →
           </Link>
         </p>
       )}
@@ -224,7 +225,7 @@ export function MyJobsPanel() {
             href="/map"
             className="mt-4 inline-block rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
           >
-            Open Map Jobs
+            Open Job Board
           </Link>
         </div>
       ) : (
@@ -471,7 +472,7 @@ export function MyJobsPanel() {
                           href="/map"
                           className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                         >
-                          Map Jobs
+                          Job Board
                         </Link>
                         <button
                           type="button"

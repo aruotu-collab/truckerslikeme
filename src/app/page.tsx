@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "TruckersLikeMe — Shiply shows jobs. We tell you what to take.",
   description:
-    "True profit after Shiply fees, empty miles, and fuel. Map Jobs, Build My Run, Plan Route, and manage your bids.",
+    "True profit after Shiply fees, empty miles, and fuel. Job Board, Build My Run, Plan Route, and manage your bids.",
 };
 
 export default function HomePage() {

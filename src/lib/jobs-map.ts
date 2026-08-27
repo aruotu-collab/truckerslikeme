@@ -43,7 +43,7 @@ export const mapStatusMeta: Record<
   { label: string; line: string; fill: string; soft: string }
 > = {
   hunting: {
-    label: "Considering",
+    label: "On board",
     line: "#6b7280",
     fill: "#6b7280",
     soft: "border-asphalt/20 bg-concrete/50 text-asphalt",
@@ -67,7 +67,7 @@ export const mapStatusMeta: Record<
     soft: "border-sky-300 bg-sky-50 text-sky-950",
   },
   skipped: {
-    label: "Skipped",
+    label: "Hidden",
     line: "#9a958c",
     fill: "#9a958c",
     soft: "border-asphalt/15 bg-concrete/40 text-muted",

@@ -540,7 +540,7 @@ export function AdminDashboard({
                 href="/map"
                 className="rounded-sm border border-asphalt/15 px-3 py-2 text-xs font-semibold uppercase"
               >
-                Map Jobs
+                Job Board
               </Link>
             </div>
           </div>

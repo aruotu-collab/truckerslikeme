@@ -517,18 +517,20 @@ export function JobsMapPanel() {
     <div className="space-y-10">
       <header className="max-w-2xl">
         <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
-          Hunt board
+          Job board
         </p>
         <h1 className="mt-2 font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
-          Map Jobs
+          Job Board
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
-          Scan what&apos;s on Shiply near you, compare lanes, and build a run.
-          Enter bids and track wins in{" "}
+          <span className="font-medium text-asphalt">Board</span> to hunt jobs ·{" "}
+          <span className="font-medium text-asphalt">Suggested</span> for chain
+          ideas · <span className="font-medium text-asphalt">Today&apos;s run</span>{" "}
+          to bid &amp; win ·{" "}
           <Link href="/jobs" className="font-semibold text-amber hover:text-asphalt">
             My Jobs
-          </Link>
-          .
+          </Link>{" "}
+          to track bids and wins.
         </p>
       </header>
 
@@ -733,7 +735,7 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
-      {/* Simple board: Jobs (bid) | My run (earn) */}
+      {/* Board (hunt) | Suggested (chains) | My Jobs (tracker) */}
       <section className="space-y-4">
         <div className="sticky top-0 z-20 -mx-5 space-y-4 bg-background px-5 pb-4 sm:-mx-8 sm:px-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -741,7 +743,9 @@ export function JobsMapPanel() {
               <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
                 {mainTab === "jobs" && jobsLook === "list"
                   ? "On your board"
-                  : `${visible.length} jobs on board`}
+                  : mainTab === "run"
+                    ? "Suggested runs"
+                    : `${visible.length} jobs on board`}
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
@@ -750,7 +754,7 @@ export function JobsMapPanel() {
                     : "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
                   : mainTab === "jobs"
                     ? "Explore the board — enter bids on List, Map, or Lanes."
-                    : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
+                    : "Pick a chain, then Use as today's run to bid and win from the yellow bar."}
               </p>
             </div>
             <div
@@ -760,8 +764,8 @@ export function JobsMapPanel() {
             >
               {(
                 [
-                  { id: "jobs" as const, label: "Jobs" },
-                  { id: "run" as const, label: "My run" },
+                  { id: "jobs" as const, label: "Board" },
+                  { id: "run" as const, label: "Suggested" },
                 ] as const
               ).map((t) => (
                 <button
@@ -790,7 +794,7 @@ export function JobsMapPanel() {
           {mainTab === "jobs" && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                Look
+                View
               </span>
               {(
                 [
@@ -933,8 +937,11 @@ export function JobsMapPanel() {
               Hidden jobs ({hiddenJobs.length}) — tap to restore
             </summary>
             <p className="mt-2 text-xs">
-              Passed for now — restore to bid again. Same list as Skipped on{" "}
-              <Link href="/jobs" className="font-semibold text-amber hover:text-asphalt">
+              Passed for now — restore to bid again. Same list as Hidden on{" "}
+              <Link
+                href="/jobs?tab=skipped"
+                className="font-semibold text-amber hover:text-asphalt"
+              >
                 My Jobs
               </Link>
               .
@@ -1013,8 +1020,8 @@ export function JobsMapPanel() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
               <p>
-                Suggested chains from the hunt board. Your committed work book is
-                on My Jobs → Won.
+                These are suggestions only. Push one into Today&apos;s run to
+                bid, or track wins on My Jobs.
               </p>
               <Link
                 href="/jobs?tab=won"

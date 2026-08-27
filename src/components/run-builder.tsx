@@ -1139,7 +1139,7 @@ export function RunBuilder() {
                   href="/map"
                   className="rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
                 >
-                  Open Map Jobs
+                  Open Job Board
                 </Link>
                 <label className="cursor-pointer rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase">
                   {busy ? "Adding…" : "Add more job screenshots"}

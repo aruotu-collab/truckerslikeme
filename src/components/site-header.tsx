@@ -26,7 +26,7 @@ const primaryNav = [
   },
   {
     href: "/map",
-    label: "Map Jobs",
+    label: "Job Board",
     match: (pathname: string) => pathname.startsWith("/map"),
   },
   {

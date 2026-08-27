@@ -4,7 +4,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Map Jobs | TruckersLikeMe",
+  title: "Job Board | TruckersLikeMe",
   description:
     "Explore Shiply results on a lane heatmap, logistics spreadsheet, or direction map — chain jobs into bid plans.",
 };
