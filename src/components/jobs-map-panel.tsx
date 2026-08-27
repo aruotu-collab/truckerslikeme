@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BoardJobCard } from "@/components/board-job-card";
+import { TodayRunBar } from "@/components/today-run-bar";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
@@ -30,6 +31,11 @@ import {
   type MapJob,
   type MapJobStatus,
 } from "@/lib/jobs-map";
+import {
+  appendTodayRunId,
+  driverAtJobDrop,
+  orderTodayRun,
+} from "@/lib/jobs-today-run";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
@@ -57,6 +63,8 @@ export function JobsMapPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
   const [driver, setDriver] = useState<JobsMapDriver | null>(null);
+  const [home, setHome] = useState<JobsMapDriver | null>(null);
+  const [todayRunIds, setTodayRunIds] = useState<string[]>([]);
   const [startDraft, setStartDraft] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("jobs");
@@ -91,6 +99,8 @@ export function JobsMapPanel() {
     const loaded = readJobsMapState();
     setJobs(loaded.jobs);
     setDriver(loaded.driver);
+    setHome(loaded.home ?? loaded.driver);
+    setTodayRunIds(loaded.todayRunIds ?? []);
     setStartDraft(loaded.driver?.label ?? "");
     setHydrated(true);
     void fetch("/api/run/shiply/session")
@@ -103,8 +113,8 @@ export function JobsMapPanel() {
 
   useEffect(() => {
     if (!hydrated) return;
-    writeJobsMapState({ jobs, driver });
-  }, [jobs, driver, hydrated]);
+    writeJobsMapState({ jobs, driver, home, todayRunIds });
+  }, [jobs, driver, home, todayRunIds, hydrated]);
 
   const visible = huntBoardJobs(jobs);
   const startReady = Boolean(driver?.label.trim());
@@ -158,6 +168,7 @@ export function JobsMapPanel() {
     const trimmed = label.trim();
     if (!trimmed) {
       setDriver(null);
+      setHome(null);
       setStartDraft("");
       return;
     }
@@ -165,11 +176,13 @@ export function JobsMapPanel() {
       lat != null && lon != null
         ? { lat, lon }
         : resolveUkPlace(trimmed);
-    setDriver({
+    const nextDriver = {
       label: trimmed,
       lat: resolved?.lat ?? lat,
       lon: resolved?.lon ?? lon,
-    });
+    };
+    setHome(nextDriver);
+    setDriver(nextDriver);
     setStartDraft(trimmed);
   }
 
@@ -223,13 +236,34 @@ export function JobsMapPanel() {
   }
 
   function setJobStatus(id: string, status: MapJobStatus) {
-    setJobs((prev) =>
-      prev.map((j) =>
+    setJobs((prev) => {
+      const nextJobs = prev.map((j) =>
         j.id === id
           ? { ...j, status, updatedAt: new Date().toISOString() }
           : j,
-      ),
-    );
+      );
+      if (status === "won") {
+        const won = nextJobs.find((j) => j.id === id);
+        if (won) {
+          setTodayRunIds((ids) => appendTodayRunId(ids, id));
+          const atDrop = driverAtJobDrop(won);
+          if (atDrop) setDriver(atDrop);
+        }
+      }
+      return nextJobs;
+    });
+  }
+
+  function addToTodayRun(id: string) {
+    setTodayRunIds((ids) => appendTodayRunId(ids, id));
+  }
+
+  function removeFromTodayRun(id: string) {
+    setTodayRunIds((ids) => ids.filter((x) => x !== id));
+  }
+
+  function resetDriverToHome() {
+    if (home) setDriver({ ...home });
   }
 
   async function startSession() {
@@ -581,6 +615,16 @@ export function JobsMapPanel() {
         {error && <p className="text-sm text-alert">{error}</p>}
       </section>
 
+      <TodayRunBar
+        jobs={jobs}
+        todayRunIds={todayRunIds}
+        home={home}
+        driver={driver}
+        onResetToHome={resetDriverToHome}
+        onOpenRun={() => setMainTab("run")}
+        onRemoveFromRun={removeFromTodayRun}
+      />
+
       {/* Simple board: Jobs (bid) | My run (earn) */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -757,9 +801,13 @@ export function JobsMapPanel() {
                   key={job.id}
                   job={job}
                   driver={driver}
+                  allJobs={visible}
+                  todayRunJobs={orderTodayRun(todayRunIds, jobs)}
+                  home={home}
                   onSetBid={(myBid) => setMyBid(job.id, myBid)}
                   onMarkWon={() => setJobStatus(job.id, "won")}
                   onRemove={() => removeJob(job.id)}
+                  onAddToRun={() => addToTodayRun(job.id)}
                 />
               ))}
             </ul>

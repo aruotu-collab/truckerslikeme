@@ -27,7 +27,12 @@ export type JobsMapDriver = {
 
 export type JobsMapState = {
   jobs: MapJob[];
+  /** Current position for empty-mile calcs (moves after wins). */
   driver: JobsMapDriver | null;
+  /** Day start / home base — set when the driver chooses start. */
+  home: JobsMapDriver | null;
+  /** Ordered job ids in today's run chain. */
+  todayRunIds: string[];
 };
 
 const STORAGE_KEY = "tlm_jobs_map_v1";
@@ -87,13 +92,15 @@ function migrateStatus(raw: string | undefined): MapJobStatus {
 }
 
 export function readJobsMapState(): JobsMapState {
-  if (typeof window === "undefined") return { jobs: [], driver: null };
+  if (typeof window === "undefined") return { jobs: [], driver: null, home: null, todayRunIds: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { jobs: [], driver: null };
+    if (!raw) return { jobs: [], driver: null, home: null, todayRunIds: [] };
     const parsed = JSON.parse(raw) as {
       jobs?: Array<MapJob & { status?: string }>;
       driver?: JobsMapDriver | null;
+      home?: JobsMapDriver | null;
+      todayRunIds?: string[];
       start?: string;
     };
     const jobs = (Array.isArray(parsed.jobs) ? parsed.jobs : []).map((j) => ({
@@ -111,9 +118,14 @@ export function readJobsMapState(): JobsMapState {
     if (!driver && typeof parsed.start === "string" && parsed.start.trim()) {
       driver = { label: parsed.start.trim(), lat: null, lon: null };
     }
-    return { jobs, driver };
+    let home = parsed.home ?? null;
+    if (!home && driver) home = { ...driver };
+    const todayRunIds = Array.isArray(parsed.todayRunIds)
+      ? parsed.todayRunIds.filter((id) => typeof id === "string")
+      : [];
+    return { jobs, driver, home, todayRunIds };
   } catch {
-    return { jobs: [], driver: null };
+    return { jobs: [], driver: null, home: null, todayRunIds: [] };
   }
 }
 
@@ -129,6 +141,8 @@ export function writeJobsMapState(state: JobsMapState) {
     JSON.stringify({
       jobs: state.jobs,
       driver: state.driver,
+      home: state.home ?? null,
+      todayRunIds: state.todayRunIds ?? [],
       savedAt: new Date().toISOString(),
     }),
   );

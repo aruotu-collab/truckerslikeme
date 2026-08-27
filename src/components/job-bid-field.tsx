@@ -23,7 +23,7 @@ export function JobBidField({
       onClick={(e) => e.stopPropagation()}
     >
       <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-        Your bid £
+        Your quote £
       </span>
       <input
         type="number"
@@ -46,7 +46,14 @@ export function JobBidField({
         }`}
       />
       {value != null && value > 0 && miles != null && miles > 0 && (
-        <span className="text-xs text-muted">{money(value / miles)}/mi</span>
+        <>
+          <span className="text-xs text-muted">
+            {money(value / miles)}/loaded mi
+          </span>
+          <span className="w-full text-[10px] text-muted">
+            Quote ÷ loaded miles only — not trip profit.
+          </span>
+        </>
       )}
     </label>
   );

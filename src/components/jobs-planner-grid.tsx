@@ -27,8 +27,10 @@ import {
   buildRunSequence,
   RUN_GOAL_BADGE,
 } from "@/lib/jobs-run-sequence";
+import { evaluateRunChain } from "@/lib/jobs-today-run";
 import { DIRECTION_LABELS, type DirectionId } from "@/lib/jobs-map-explore";
 import { shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import { useMarket } from "@/lib/market-context";
 
 type Props = {
   jobs: MapJob[];
@@ -931,6 +933,7 @@ function RunsCompareView({
   onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
 }) {
+  const { market } = useMarket();
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
   );
@@ -998,6 +1001,14 @@ function RunsCompareView({
   const sequence = useMemo(
     () => (workingPlan ? buildRunSequence(workingPlan, driver) : null),
     [workingPlan, driver],
+  );
+
+  const runNet = useMemo(
+    () =>
+      workingPlan && workingPlan.jobs.length
+        ? evaluateRunChain(workingPlan.jobs, driver, market)
+        : null,
+    [workingPlan, driver, market],
   );
 
   if (!plans.length || !basePlan || !workingPlan || !sequence) {
@@ -1153,8 +1164,15 @@ function RunsCompareView({
                             Loaded {workingPlan.loadedMiles} mi · Deadhead{" "}
                             {workingPlan.emptyMiles} mi
                             {workingPlan.revenue > 0
-                              ? ` · ${formatMoney(workingPlan.revenue)}`
+                              ? ` · ${formatMoney(workingPlan.revenue)} revenue`
                               : ""}
+                            {runNet
+                              ? ` · Est. net ${formatMoney(runNet.estimatedNet)} (${formatMoney(runNet.netPerMile)}/mi after fee & costs)`
+                              : ""}
+                          </p>
+                          <p className="mb-3 text-[11px] text-muted">
+                            Chain net is for this whole run — not a single-job
+                            rate.
                           </p>
                           <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
                             Journey
