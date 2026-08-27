@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
   buildLaneMatrix,
@@ -19,6 +20,7 @@ type Props = {
   driver: JobsMapDriver | null;
   formatMoney: (n: number) => string;
   onAddToRun?: (jobs: MapJob[]) => void;
+  onSetBid?: (jobId: string, myBid: number | null) => void;
 };
 
 export function JobsLaneMatrix({
@@ -26,10 +28,11 @@ export function JobsLaneMatrix({
   driver,
   formatMoney,
   onAddToRun,
+  onSetBid,
 }: Props) {
   const [filterPickup, setFilterPickup] = useState<string | null>(null);
   const [filterDrop, setFilterDrop] = useState<string | null>(null);
-  const [selectedCell, setSelectedCell] = useState<LaneCell | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const fullMatrix = useMemo(
     () => buildLaneMatrix(jobs, driver),
@@ -42,6 +45,11 @@ export function JobsLaneMatrix({
     if (filterDrop) m = filterMatrixByDrop(m, filterDrop);
     return m;
   }, [fullMatrix, filterPickup, filterDrop]);
+
+  const selectedCell = useMemo(() => {
+    if (!selectedKey) return null;
+    return matrix.cells.get(selectedKey) ?? null;
+  }, [matrix, selectedKey]);
 
   const activeFilterLabel = useMemo(() => {
     if (filterPickup && filterDrop) {
@@ -85,7 +93,7 @@ export function JobsLaneMatrix({
             onClick={() => {
               setFilterPickup(null);
               setFilterDrop(null);
-              setSelectedCell(null);
+              setSelectedKey(null);
             }}
             className="text-xs font-semibold text-amber uppercase hover:text-asphalt"
           >
@@ -109,7 +117,7 @@ export function JobsLaneMatrix({
             <button
               key={laneCellKey(lane.pickupKey, lane.dropKey)}
               type="button"
-              onClick={() => setSelectedCell(lane)}
+              onClick={() => setSelectedKey(laneCellKey(lane.pickupKey, lane.dropKey))}
               className="rounded-sm border border-asphalt/15 bg-white px-2.5 py-1 text-xs font-medium text-asphalt hover:border-amber/50"
             >
               {lane.pickupLabel} → {lane.dropLabel}{" "}
@@ -143,7 +151,7 @@ export function JobsLaneMatrix({
                     }`}
                     onClick={() => {
                       setFilterDrop(filterDrop === drop.key ? null : drop.key);
-                      setSelectedCell(null);
+                      setSelectedKey(null);
                     }}
                     title={`${drop.label} — ${drop.total} incoming jobs`}
                   >
@@ -177,7 +185,7 @@ export function JobsLaneMatrix({
                       setFilterPickup(
                         filterPickup === pickup.key ? null : pickup.key,
                       );
-                      setSelectedCell(null);
+                      setSelectedKey(null);
                     }}
                     title={`${pickup.label} — ${pickup.total} outgoing jobs`}
                   >
@@ -202,7 +210,7 @@ export function JobsLaneMatrix({
                         } ${isSelected ? "ring-2 ring-asphalt" : ""}`}
                         style={laneHeatStyle(count, matrix.maxCount)}
                         onClick={() => {
-                          if (cell) setSelectedCell(cell);
+                          if (cell) setSelectedKey(laneCellKey(cell.pickupKey, cell.dropKey));
                         }}
                         title={
                           count > 0
@@ -265,7 +273,7 @@ export function JobsLaneMatrix({
             </div>
             <button
               type="button"
-              onClick={() => setSelectedCell(null)}
+              onClick={() => setSelectedKey(null)}
               className="text-xs font-semibold text-muted uppercase hover:text-asphalt"
             >
               Close
@@ -278,9 +286,9 @@ export function JobsLaneMatrix({
               return (
                 <li
                   key={job.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 px-4 py-3"
+                  className="flex flex-col gap-2 border border-asphalt/10 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium text-asphalt">
                       {job.item || "Job"}
                     </p>
@@ -289,13 +297,19 @@ export function JobsLaneMatrix({
                       {job.miles != null ? ` · ~${job.miles} mi` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {job.myBid != null && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {onSetBid ? (
+                      <JobBidField
+                        compact
+                        value={job.myBid}
+                        miles={job.miles}
+                        onChange={(myBid) => onSetBid(job.id, myBid)}
+                      />
+                    ) : job.myBid != null ? (
                       <span className="font-semibold tabular-nums">
                         {formatMoney(job.myBid)}
                       </span>
-                    )}
-                    {job.myBid == null && (
+                    ) : (
                       <span className="text-xs text-slate-500">No bid yet</span>
                     )}
                     {job.href && (

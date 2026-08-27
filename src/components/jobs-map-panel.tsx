@@ -592,8 +592,8 @@ export function JobsMapPanel() {
             </h2>
             <p className="mt-1 text-sm text-muted">
               {mainTab === "jobs"
-                ? "Explore the board — then open My run for suggested chains."
-                : "Suggested chains from your board. Revenue uses your bids from My Jobs."}
+                ? "Explore the board — enter bids on List, Map, or Lanes."
+                : "Suggested chains from your board. Enter or edit bids on jobs below — revenue updates live."}
             </p>
           </div>
           <div
@@ -670,6 +670,7 @@ export function JobsMapPanel() {
             jobs={visible}
             driver={driver}
             formatMoney={money}
+            onSetBid={setMyBid}
             onAddToRun={(laneJobs) => {
               setRunChainIds(laneJobs.map((j) => j.id));
               setMainTab("run");
@@ -680,11 +681,8 @@ export function JobsMapPanel() {
         {mainTab === "jobs" && jobsLook === "map" && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Direction clusters on your board — tap to drill in. Manage bids in{" "}
-              <Link href="/jobs" className="font-semibold text-amber">
-                My Jobs
-              </Link>
-              .
+              Direction clusters on your board — tap a route, then enter your
+              bid on each job.
             </p>
             <JobsExploreMap
               jobs={exploreJobs}
@@ -696,6 +694,7 @@ export function JobsMapPanel() {
               onSelectCity={setSelectedCityKey}
               onSelectRoute={setSelectedRouteId}
               formatMoney={money}
+              onSetBid={setMyBid}
             />
           </div>
         )}
@@ -705,11 +704,8 @@ export function JobsMapPanel() {
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
               <div className="border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
-                No bids yet — enter quotes in{" "}
-                <Link href="/jobs" className="font-semibold text-amber underline">
-                  My Jobs
-                </Link>{" "}
-                so My run can show earnings.
+                No bids yet — enter quotes on the jobs in a suggested run below
+                (or on List / Map / Lanes) so revenue and £/mi make sense.
               </div>
             )}
             <JobsPlannerGrid
@@ -719,6 +715,8 @@ export function JobsMapPanel() {
               runPrefs={runPrefs}
               initialChainIds={runChainIds}
               runOnly
+              onSetBid={setMyBid}
+              onMarkWon={(id) => setJobStatus(id, "won")}
             />
           </div>
         )}

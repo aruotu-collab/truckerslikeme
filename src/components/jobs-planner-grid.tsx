@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
   buildConnectionMatrix,
@@ -40,6 +41,7 @@ type Props = {
   /** Skip nested tabs — only show suggested run compare. */
   runOnly?: boolean;
   onMarkWon?: (jobId: string) => void;
+  onSetBid?: (jobId: string, myBid: number | null) => void;
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -114,6 +116,7 @@ export function JobsPlannerGrid({
   onOpenDistances,
   runOnly = false,
   onMarkWon,
+  onSetBid,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
@@ -184,6 +187,7 @@ export function JobsPlannerGrid({
         totalJobCount={jobs.length}
         mappedJobCount={runBuilder.totalJobs}
         onMarkWon={onMarkWon}
+        onSetBid={onSetBid}
       />
     );
   }
@@ -902,6 +906,8 @@ export function JobsPlannerGrid({
           formatMoney={formatMoney}
           totalJobCount={jobs.length}
           mappedJobCount={runBuilder.totalJobs}
+          onMarkWon={onMarkWon}
+          onSetBid={onSetBid}
         />
       )}
     </div>
@@ -915,6 +921,7 @@ function RunsCompareView({
   totalJobCount,
   mappedJobCount,
   onMarkWon,
+  onSetBid,
 }: {
   plans: BidPlan[];
   driver: JobsMapDriver | null;
@@ -922,6 +929,7 @@ function RunsCompareView({
   totalJobCount: number;
   mappedJobCount: number;
   onMarkWon?: (jobId: string) => void;
+  onSetBid?: (jobId: string, myBid: number | null) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
@@ -1248,7 +1256,7 @@ function RunsCompareView({
           {workingPlan.jobs.map((job, i) => (
             <li
               key={job.id}
-              className="flex flex-wrap items-center gap-3 px-3 py-3"
+              className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center"
             >
               <span className="flex size-7 shrink-0 items-center justify-center bg-asphalt font-mono text-[11px] font-bold text-white">
                 {i + 1}
@@ -1259,11 +1267,24 @@ function RunsCompareView({
                 </p>
                 <p className="text-xs text-muted">
                   {job.miles != null ? `${job.miles} mi` : "Miles unknown"}
-                  {job.myBid != null && job.myBid > 0
-                    ? ` · ${formatMoney(job.myBid)}`
-                    : " · set bid on Jobs tab"}
                   {job.status === "won" ? " · Won" : ""}
                 </p>
+                {onSetBid ? (
+                  <div className="mt-2">
+                    <JobBidField
+                      compact
+                      value={job.myBid}
+                      miles={job.miles}
+                      onChange={(myBid) => onSetBid(job.id, myBid)}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted">
+                    {job.myBid != null && job.myBid > 0
+                      ? formatMoney(job.myBid)
+                      : "No bid yet"}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {job.href && (

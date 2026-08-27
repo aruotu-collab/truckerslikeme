@@ -1,5 +1,6 @@
 "use client";
 
+import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
   layoutExploreMap,
@@ -17,6 +18,7 @@ type Props = {
   onSelectCity: (key: string | null) => void;
   onSelectRoute: (id: string | null) => void;
   formatMoney: (n: number) => string;
+  onSetBid?: (jobId: string, myBid: number | null) => void;
 };
 
 export function JobsExploreMap({
@@ -29,6 +31,7 @@ export function JobsExploreMap({
   onSelectCity,
   onSelectRoute,
   formatMoney,
+  onSetBid,
 }: Props) {
   const layout = layoutExploreMap({
     jobs,
@@ -274,23 +277,37 @@ export function JobsExploreMap({
             {activeLine.jobCount} job{activeLine.jobCount === 1 ? "" : "s"} ·{" "}
             {formatMoney(activeLine.totalPay)}
           </p>
-          <ul className="mt-2 space-y-1.5">
+          <ul className="mt-2 space-y-2">
             {activeLine.jobs.map((j) => (
               <li
                 key={j.id}
-                className="flex flex-wrap items-center gap-2 text-sm"
+                className="flex flex-col gap-2 border border-asphalt/10 px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center"
               >
-                <span className="text-asphalt">
-                  {j.item || "Job"}
-                  {j.myBid != null
-                    ? ` · ${formatMoney(j.myBid)}`
-                    : " · No bid"}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-asphalt">{j.item || "Job"}</p>
+                  <p className="text-xs text-muted">
+                    {j.miles != null ? `~${j.miles} mi` : "Miles unknown"}
+                  </p>
+                </div>
                 <span
-                  className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${mapStatusMeta[j.status].soft}`}
+                  className={`w-fit rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${mapStatusMeta[j.status].soft}`}
                 >
                   {mapStatusMeta[j.status].label}
                 </span>
+                {onSetBid ? (
+                  <JobBidField
+                    compact
+                    value={j.myBid}
+                    miles={j.miles}
+                    onChange={(myBid) => onSetBid(j.id, myBid)}
+                  />
+                ) : (
+                  <span className="text-xs text-muted">
+                    {j.myBid != null
+                      ? formatMoney(j.myBid)
+                      : "No bid"}
+                  </span>
+                )}
                 {j.href && (
                   <ShiplyLink
                     href={j.href}
