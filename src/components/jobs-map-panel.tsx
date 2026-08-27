@@ -101,6 +101,7 @@ export function JobsMapPanel() {
   const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
+  const [setupOpen, setSetupOpen] = useState(true);
   const hiddenSectionRef = useRef<HTMLDetailsElement | null>(null);
   const hideUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -124,6 +125,15 @@ export function JobsMapPanel() {
     if (!hydrated) return;
     writeJobsMapState({ jobs, driver, home, todayRunIds });
   }, [jobs, driver, home, todayRunIds, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (sessionId || scanned.length > 0) {
+      setSetupOpen(true);
+      return;
+    }
+    if (driver?.label?.trim()) setSetupOpen(false);
+  }, [hydrated, sessionId, scanned.length, driver?.label]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -514,225 +524,257 @@ export function JobsMapPanel() {
   );
 
   return (
-    <div className="space-y-10">
-      <header className="max-w-2xl">
-        <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
-          Job board
-        </p>
-        <h1 className="mt-2 font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
-          Job Board
-        </h1>
-        <p className="mt-3 text-base text-muted sm:text-lg">
-          <span className="font-medium text-asphalt">Board</span> to hunt jobs ·{" "}
-          <span className="font-medium text-asphalt">Suggested</span> for chain
-          ideas · <span className="font-medium text-asphalt">Today&apos;s run</span>{" "}
-          to bid &amp; win ·{" "}
-          <Link href="/jobs" className="font-semibold text-amber hover:text-asphalt">
-            My Jobs
-          </Link>{" "}
-          to track bids and wins.
-        </p>
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl tracking-wide text-asphalt uppercase sm:text-3xl">
+            Job Board
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Board · Suggested · Today&apos;s run ·{" "}
+            <Link
+              href="/jobs"
+              className="font-semibold text-amber hover:text-asphalt"
+            >
+              My Jobs
+            </Link>
+          </p>
+        </div>
       </header>
 
-      {/* Start location */}
-      <section className="space-y-3 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
-        <div>
-          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-            Where are you starting?
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-          Required — we plan empty miles from here to your first pickup.
-        </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            value={startDraft}
-            onChange={(e) => setStartDraft(e.target.value)}
-            onBlur={() => applyStart(startDraft, null, null)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                applyStart(startDraft, null, null);
-              }
-            }}
-            placeholder="e.g. Manchester, Catford, Bristol…"
-            className="w-full flex-1 border border-asphalt/15 bg-concrete/20 px-3 py-2.5 text-sm text-asphalt outline-none focus:border-amber"
-          />
-          <button
-            type="button"
-            disabled={geoBusy}
-            onClick={() => void useMyLocation()}
-            className="shrink-0 rounded-sm border border-asphalt/20 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
-          >
-            {geoBusy ? "Locating…" : "Use my location"}
-          </button>
-          <button
-            type="button"
-            onClick={() => applyStart(startDraft, null, null)}
-            className="shrink-0 rounded-sm bg-asphalt px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
-          >
-            Set start
-          </button>
-        </div>
-        {startReady ? (
-          <p className="text-sm text-asphalt">
-            On the map as{" "}
-            <span className="font-semibold">{driver!.label}</span>
-            {driver?.lat != null && driver?.lon != null
-              ? " (placed)"
-              : " (name set — place approx if we know the town)"}
-          </p>
-        ) : (
-          <p className="text-sm text-alert">
-            Set a start location before connecting Shiply or adding jobs.
-          </p>
-        )}
-      </section>
-
-      {/* Connect */}
-      <section className="space-y-4 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
-        <div>
-          <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-            Scan from Shiply
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Connect, search results in the live browser, scan, then add jobs to
-            this map. Separate from Build My Run.
-          </p>
-        </div>
-
-        {enabled === false && (
-          <p className="border border-dashed border-asphalt/20 bg-concrete/30 px-4 py-3 text-sm text-muted">
-            Browserbase is not configured on this environment. Add{" "}
-            <code className="text-xs">BROWSERBASE_API_KEY</code> and{" "}
-            <code className="text-xs">BROWSERBASE_PROJECT_ID</code> to enable
-            Connect Shiply.
-          </p>
-        )}
-
-        {enabled && !sessionId && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void startSession()}
-            className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase disabled:opacity-60"
-          >
-            {busy ? "Opening browser…" : "Connect Shiply →"}
-          </button>
-        )}
-
-        {enabled && sessionId && (
-          <div className="space-y-3">
-            {liveViewUrl && (
-              <ShiplyLiveView url={liveViewUrl} collapseSignal={scanSummary} />
+      {/* Compact start + Shiply — collapsed when ready so the board stays above the fold */}
+      <section className="border border-asphalt/10 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4">
+          <div className="min-w-0 flex-1 text-sm text-asphalt">
+            <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              Start
+            </span>{" "}
+            {startReady ? (
+              <span className="font-medium">{driver!.label}</span>
+            ) : (
+              <span className="text-alert">Not set — required</span>
             )}
-            <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+            {sessionId ? (
+              <span className="ml-2 text-xs text-amber">· Shiply connected</span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {enabled && !sessionId && !setupOpen ? (
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => void scanVisible()}
-                className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
+                disabled={busy || !startReady}
+                onClick={() => {
+                  setSetupOpen(true);
+                  void startSession();
+                }}
+                className="rounded-sm bg-asphalt px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase disabled:opacity-50"
               >
-                {busy ? "Scanning…" : "Scan visible jobs"}
+                Connect Shiply →
               </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void startSession()}
-                className="rounded-sm border border-asphalt/20 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
-              >
-                New session
-              </button>
-            </div>
-            {lastScanAt && !scanSummary && (
-              <p className="text-sm text-muted">
-                Last scan {formatLastScan(lastScanAt)}
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setSetupOpen((v) => !v)}
+              className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
+              aria-expanded={setupOpen}
+            >
+              {setupOpen ? "Hide setup ▲" : "Setup ▼"}
+            </button>
+          </div>
+        </div>
+
+        {setupOpen ? (
+          <div className="space-y-4 border-t border-asphalt/10 px-3 py-4 sm:px-4">
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                Where are you starting?
               </p>
-            )}
-          </div>
-        )}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="text"
+                  value={startDraft}
+                  onChange={(e) => setStartDraft(e.target.value)}
+                  onBlur={() => applyStart(startDraft, null, null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyStart(startDraft, null, null);
+                    }
+                  }}
+                  placeholder="e.g. Manchester, Catford, Bristol…"
+                  className="w-full flex-1 border border-asphalt/15 bg-concrete/20 px-3 py-2 text-sm text-asphalt outline-none focus:border-amber"
+                />
+                <button
+                  type="button"
+                  disabled={geoBusy}
+                  onClick={() => void useMyLocation()}
+                  className="shrink-0 rounded-sm border border-asphalt/20 px-3 py-2 text-[10px] font-semibold tracking-wide uppercase disabled:opacity-60"
+                >
+                  {geoBusy ? "Locating…" : "GPS"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyStart(startDraft, null, null)}
+                  className="shrink-0 rounded-sm bg-asphalt px-3 py-2 text-[10px] font-semibold tracking-wide text-white uppercase"
+                >
+                  Set start
+                </button>
+              </div>
+            </div>
 
-        {scanSummary && (
-          <p
-            className={`text-sm ${
-              newScanFingerprints.size > 0
-                ? "border-l-4 border-amber bg-amber/10 px-4 py-3 font-medium text-asphalt"
-                : "text-muted"
-            }`}
-          >
-            {scanSummary}
-          </p>
-        )}
+            <div className="space-y-3 border-t border-asphalt/10 pt-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                    Scan from Shiply
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Connect → scan → add to board
+                  </p>
+                </div>
+                {enabled && !sessionId ? (
+                  <button
+                    type="button"
+                    disabled={busy || !startReady}
+                    onClick={() => void startSession()}
+                    className="rounded-sm bg-asphalt px-4 py-2 text-[11px] font-semibold tracking-wide text-white uppercase disabled:opacity-60"
+                  >
+                    {busy ? "Opening…" : "Connect Shiply →"}
+                  </button>
+                ) : null}
+              </div>
 
-        {coach && <p className="text-sm text-asphalt">{coach}</p>}
+              {enabled === false && (
+                <p className="border border-dashed border-asphalt/20 bg-concrete/30 px-3 py-2 text-xs text-muted">
+                  Browserbase not configured — add{" "}
+                  <code className="text-[10px]">BROWSERBASE_API_KEY</code> /{" "}
+                  <code className="text-[10px]">BROWSERBASE_PROJECT_ID</code>.
+                </p>
+              )}
 
-        {scanned.length > 0 && (
-          <div className="space-y-3 border-t border-asphalt/10 pt-4">
-            <p className="text-xs font-semibold tracking-wide text-asphalt uppercase">
-              Add to map (
-              {Object.values(selectedScan).filter(Boolean).length} selected)
-            </p>
-            <ul className="max-h-56 space-y-2 overflow-y-auto">
-              {scanned.map((job) => {
-                const isNew = newScanFingerprints.has(jobFingerprint(job));
-                return (
-                <li key={job.id}>
-                  <label className="flex cursor-pointer gap-3 border border-asphalt/10 px-3 py-2.5 hover:bg-concrete/30">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={Boolean(selectedScan[job.id])}
-                      onChange={(e) =>
-                        setSelectedScan((s) => ({
-                          ...s,
-                          [job.id]: e.target.checked,
-                        }))
-                      }
+              {enabled && sessionId && (
+                <div className="space-y-3">
+                  {liveViewUrl && (
+                    <ShiplyLiveView
+                      url={liveViewUrl}
+                      collapseSignal={scanSummary}
                     />
-                    <span className="min-w-0 flex-1 text-sm">
-                      <span className="font-medium text-asphalt">
-                        {shortPlace(job.origin)} → {shortPlace(job.destination)}
-                        {isNew && (
-                          <span className="ml-2 rounded-sm bg-amber px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
-                            New
-                          </span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted">
-                        {[
-                          job.item,
-                          job.miles != null ? `${job.miles} mi` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </span>
-                  </label>
-                </li>
-              );
-              })}
-            </ul>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => addScannedToMap(true)}
-                className="rounded-sm bg-amber px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase"
-              >
-                Add all {scanned.length} to map →
-              </button>
-              <button
-                type="button"
-                onClick={() => addScannedToMap(false)}
-                className="rounded-sm border border-asphalt/20 px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
-              >
-                Add selected only
-              </button>
+                  )}
+                  <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void scanVisible()}
+                      className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
+                    >
+                      {busy ? "Scanning…" : "Scan visible jobs"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void startSession()}
+                      className="rounded-sm border border-asphalt/20 px-4 py-2 text-[11px] font-semibold tracking-wide uppercase disabled:opacity-60"
+                    >
+                      New session
+                    </button>
+                  </div>
+                  {lastScanAt && !scanSummary && (
+                    <p className="text-xs text-muted">
+                      Last scan {formatLastScan(lastScanAt)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {scanSummary && (
+                <p
+                  className={`text-sm ${
+                    newScanFingerprints.size > 0
+                      ? "border-l-4 border-amber bg-amber/10 px-3 py-2 font-medium text-asphalt"
+                      : "text-muted"
+                  }`}
+                >
+                  {scanSummary}
+                </p>
+              )}
+
+              {coach && <p className="text-sm text-asphalt">{coach}</p>}
+
+              {scanned.length > 0 && (
+                <div className="space-y-3 border-t border-asphalt/10 pt-3">
+                  <p className="text-[10px] font-semibold tracking-wide text-asphalt uppercase">
+                    Add to map (
+                    {Object.values(selectedScan).filter(Boolean).length}{" "}
+                    selected)
+                  </p>
+                  <ul className="max-h-40 space-y-2 overflow-y-auto">
+                    {scanned.map((job) => {
+                      const isNew = newScanFingerprints.has(
+                        jobFingerprint(job),
+                      );
+                      return (
+                        <li key={job.id}>
+                          <label className="flex cursor-pointer gap-3 border border-asphalt/10 px-3 py-2 hover:bg-concrete/30">
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              checked={Boolean(selectedScan[job.id])}
+                              onChange={(e) =>
+                                setSelectedScan((s) => ({
+                                  ...s,
+                                  [job.id]: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span className="min-w-0 flex-1 text-sm">
+                              <span className="font-medium text-asphalt">
+                                {shortPlace(job.origin)} →{" "}
+                                {shortPlace(job.destination)}
+                                {isNew && (
+                                  <span className="ml-2 rounded-sm bg-amber px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
+                                    New
+                                  </span>
+                                )}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-muted">
+                                {[
+                                  job.item,
+                                  job.miles != null
+                                    ? `${job.miles} mi`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addScannedToMap(true)}
+                      className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                    >
+                      Add all {scanned.length} to map →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addScannedToMap(false)}
+                      className="rounded-sm border border-asphalt/20 px-4 py-2 text-[11px] font-semibold tracking-wide uppercase"
+                    >
+                      Add selected only
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-sm text-alert">{error}</p>}
             </div>
           </div>
-        )}
-
-        {error && <p className="text-sm text-alert">{error}</p>}
+        ) : null}
       </section>
 
       {/* Board (hunt) | Suggested (chains) | My Jobs (tracker) */}

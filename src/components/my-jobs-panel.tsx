@@ -396,10 +396,17 @@ export function MyJobsPanel() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setStatus(job.id, "bidding")}
+                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                      >
+                        Back to bidding
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setStatus(job.id, "hunting")}
                         className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                       >
-                        Back to hunt
+                        Back to board
                       </button>
                       {job.href ? (
                         <ShiplyLink
@@ -431,7 +438,16 @@ export function MyJobsPanel() {
                             Open on Shiply →
                           </ShiplyLink>
                         ) : null}
-                        {job.status !== "won" && job.status !== "bidding" && (
+                        {job.status === "bidding" && (
+                          <button
+                            type="button"
+                            onClick={() => setStatus(job.id, "hunting")}
+                            className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                          >
+                            Back to board
+                          </button>
+                        )}
+                        {job.status === "hunting" && (
                           <button
                             type="button"
                             onClick={() => setStatus(job.id, "bidding")}
@@ -450,15 +466,6 @@ export function MyJobsPanel() {
                             className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
                           >
                             I got this
-                          </button>
-                        )}
-                        {job.status === "bidding" && (
-                          <button
-                            type="button"
-                            onClick={() => setStatus(job.id, "hunting")}
-                            className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-                          >
-                            Still considering
                           </button>
                         )}
                         <button

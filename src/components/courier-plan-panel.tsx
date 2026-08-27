@@ -58,6 +58,12 @@ function statusTone(status: CourierStopStatus) {
   }
 }
 
+function shortDrop(address: string) {
+  const first = address.split(",")[0]?.trim() || address.trim();
+  if (first.length <= 26) return first;
+  return `${first.slice(0, 24)}…`;
+}
+
 export function CourierPlanPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [plan, setPlan] = useState<CourierPlanState>(emptyCourierPlan);
@@ -541,6 +547,47 @@ export function CourierPlanPanel() {
           </div>
         ) : (
           <div className="space-y-4">
+            {pendingStops.length > 0 ? (
+              <div className="border border-amber/40 bg-[#fff8e8] px-4 py-3">
+                <p className="text-[10px] font-semibold tracking-wide text-amber uppercase">
+                  Delivery chain ·{" "}
+                  {viewFrom === "here" ? "from where you are" : "from depot"}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-asphalt">
+                  <span className="rounded-sm bg-asphalt px-2 py-1 text-[10px] font-semibold tracking-wide text-white uppercase">
+                    {viewFrom === "here"
+                      ? shortDrop(plan.hereLabel || "Here")
+                      : shortDrop(plan.depot || "Depot")}
+                  </span>
+                  {pendingStops.map((stop, i) => (
+                    <span key={stop.id} className="inline-flex items-center gap-1.5">
+                      <span className="font-display text-amber" aria-hidden>
+                        →
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-sm border border-asphalt/15 bg-white px-2 py-1">
+                        <span className="font-mono text-[10px] font-bold text-amber">
+                          {i + 1}
+                        </span>
+                        <span className="font-medium">
+                          {shortDrop(stop.address)}
+                        </span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Deliver in this order — 1 first, then 2, and so on. Use{" "}
+                  <span className="font-semibold text-asphalt">
+                    Reorder remaining
+                  </span>{" "}
+                  after you move or finish a drop.
+                </p>
+              </div>
+            ) : (
+              <p className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                No pending drops left in the chain — all done or parked below.
+              </p>
+            )}
             <ol className="space-y-2">
               {pendingStops.map((stop, i) => (
                 <li

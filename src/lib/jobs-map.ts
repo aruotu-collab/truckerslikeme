@@ -198,17 +198,10 @@ export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
     return jobs.filter((j) => j.status === "delivered");
   if (filter === "skipped") return jobs.filter((j) => j.status === "skipped");
   if (filter === "bidding") {
-    return jobs.filter((j) => {
-      if (j.status === "skipped" || j.status === "delivered" || j.status === "won") {
-        return false;
-      }
-      return j.status === "bidding" || (j.myBid != null && j.myBid > 0);
-    });
+    return jobs.filter((j) => j.status === "bidding");
   }
-  return jobs.filter(
-    (j) =>
-      j.status === "hunting" && (j.myBid == null || j.myBid <= 0),
-  );
+  // On board (considering) — status hunting only (quote may still be set)
+  return jobs.filter((j) => j.status === "hunting");
 }
 
 export function countMyJobs(jobs: MapJob[]) {

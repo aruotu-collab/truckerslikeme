@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Locks the visual viewport so iOS/Android can't rubber-band the page sideways.
- * Vertical scroll stays normal.
+ * Vertical scroll stays normal. Does not intercept touches inside Shiply live view.
  */
 export function LockHorizontalPan() {
   useEffect(() => {
@@ -12,12 +12,25 @@ export function LockHorizontalPan() {
     const prev = root.style.overflowX;
     root.style.overflowX = "clip";
     document.body.style.overflowX = "clip";
-    document.body.style.touchAction = "pan-y";
+    // Prefer CSS; avoid forcing pan-y on body (breaks iframe taps on iOS)
+    if (!document.body.style.touchAction) {
+      document.body.style.touchAction = "pan-y";
+    }
 
     let startX = 0;
     let startY = 0;
 
+    function isShiplyTouch(target: EventTarget | null) {
+      if (!(target instanceof Element)) return false;
+      return Boolean(
+        target.closest(
+          ".shiply-live-shell, .shiply-live-frame, [data-shiply-live], iframe.shiply-live-frame",
+        ),
+      );
+    }
+
     const onTouchStart = (e: TouchEvent) => {
+      if (isShiplyTouch(e.target)) return;
       const t = e.touches[0];
       if (!t) return;
       startX = t.clientX;
@@ -25,6 +38,7 @@ export function LockHorizontalPan() {
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (isShiplyTouch(e.target)) return;
       const t = e.touches[0];
       if (!t) return;
       const dx = Math.abs(t.clientX - startX);

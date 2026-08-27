@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
@@ -16,7 +16,6 @@ type SiteHeaderProps = {
 const primaryNav: {
   href: string;
   label: string;
-  labelNode?: ReactNode;
   match: (pathname: string, need: string | null) => boolean;
 }[] = [
   {
@@ -36,15 +35,7 @@ const primaryNav: {
   },
   {
     href: "/plan",
-    label: "Plan Route",
-    labelNode: (
-      <>
-        Plan Route
-        <sup className="ml-0.5 text-[9px] font-medium normal-case tracking-normal text-amber-hot/90">
-          couriers
-        </sup>
-      </>
-    ),
+    label: "Plan Route · Couriers",
     match: (pathname) => pathname.startsWith("/plan"),
   },
   {
@@ -76,6 +67,8 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
         aria-label="Main"
         role="navigation"
         hint=""
+        controls
+        showScrollbar
         className="px-0"
       >
         {primaryNav.map((item) => {
@@ -86,13 +79,13 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
               href={item.href}
               trackEvent="nav"
               trackLabel={item.label}
-              className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
+              className={`shrink-0 rounded-sm px-2.5 py-2 text-[11px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
                 active
-                  ? "bg-amber text-asphalt"
+                  ? "bg-white text-asphalt ring-2 ring-amber"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
               }`}
             >
-              {item.labelNode ?? item.label}
+              {item.label}
             </TrackedLink>
           );
         })}
@@ -101,9 +94,9 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
             href="/admin"
             trackEvent="nav"
             trackLabel="Admin"
-            className={`shrink-0 rounded-sm px-3.5 py-2.5 text-xs font-semibold tracking-wide uppercase transition sm:px-4 sm:text-sm ${
+            className={`shrink-0 rounded-sm px-2.5 py-2 text-[11px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
               pathname.startsWith("/admin")
-                ? "bg-amber text-asphalt"
+                ? "bg-white text-asphalt ring-2 ring-amber"
                 : "text-white/80 hover:bg-white/10 hover:text-white"
             }`}
           >
@@ -204,7 +197,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
 
       {/* Sliding section menu under the logo — same on mobile and desktop */}
       <div className="border-t border-white/10">
-        <div className="mx-auto w-full min-w-0 max-w-6xl px-3 py-2 sm:px-8">
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-2 py-2 sm:px-8">
           <Suspense fallback={<NavScrollFallback />}>
             <NavScroll isAdmin={isAdmin} />
           </Suspense>

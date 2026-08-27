@@ -100,7 +100,7 @@ body {
   border-radius: 4px;
 }
 
-/* Browserbase Shiply live view — touch scroll must reach the iframe on mobile */
+/* Browserbase Shiply live view — let touches reach the iframe on mobile */
 .shiply-live-shell {
   position: relative;
   width: 100%;
@@ -110,12 +110,14 @@ body {
   isolation: isolate;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: manipulation;
+  touch-action: auto !important;
+  pointer-events: auto;
 }
 
 .shiply-live-frame {
   border: 0;
-  touch-action: auto;
+  touch-action: auto !important;
+  pointer-events: auto !important;
   -webkit-overflow-scrolling: touch;
 }
 
