@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BoardJobCard } from "@/components/board-job-card";
 import { TodayRunBar } from "@/components/today-run-bar";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
@@ -95,6 +95,10 @@ export function JobsMapPanel() {
     () => new Set(),
   );
   const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const hiddenSectionRef = useRef<HTMLDetailsElement | null>(null);
+  const hideUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const loaded = readJobsMapState();
@@ -141,7 +145,16 @@ export function JobsMapPanel() {
     () => jobs.filter((j) => j.status === "skipped"),
     [jobs],
   );
+  const justHiddenJob = justHiddenId
+    ? hiddenJobs.find((j) => j.id === justHiddenId) ?? null
+    : null;
   const startReady = Boolean(driver?.label.trim());
+
+  useEffect(() => {
+    return () => {
+      if (hideUndoTimer.current) clearTimeout(hideUndoTimer.current);
+    };
+  }, []);
 
   const corridorGroups = useMemo(
     () => classifyJobsByCorridor(visible, driver, headingToward),
@@ -238,6 +251,14 @@ export function JobsMapPanel() {
     }
   }
 
+  function clearHideUndo() {
+    if (hideUndoTimer.current) {
+      clearTimeout(hideUndoTimer.current);
+      hideUndoTimer.current = null;
+    }
+    setJustHiddenId(null);
+  }
+
   function hideJob(id: string) {
     setJobs((prev) =>
       prev.map((j) =>
@@ -251,10 +272,38 @@ export function JobsMapPanel() {
       ),
     );
     setTodayRunIds((ids) => ids.filter((x) => x !== id));
+    setJustHiddenId(id);
+    setHiddenOpen(true);
+    setMainTab("jobs");
+    setJobsLook("list");
+    if (hideUndoTimer.current) clearTimeout(hideUndoTimer.current);
+    hideUndoTimer.current = setTimeout(() => {
+      setJustHiddenId(null);
+      hideUndoTimer.current = null;
+    }, 8000);
+    window.setTimeout(() => {
+      hiddenSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }, 50);
   }
 
   function restoreJob(id: string) {
     setJobStatus(id, "hunting");
+    if (justHiddenId === id) clearHideUndo();
+  }
+
+  function showHiddenJobs() {
+    setMainTab("jobs");
+    setJobsLook("list");
+    setHiddenOpen(true);
+    window.setTimeout(() => {
+      hiddenSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 50);
   }
 
   function setMyBid(id: string, myBid: number | null) {
@@ -753,11 +802,52 @@ export function JobsMapPanel() {
                   {v.label}
                 </button>
               ))}
+              {hiddenJobs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={showHiddenJobs}
+                  className="ml-auto rounded-sm border border-asphalt/20 bg-white px-2.5 py-1 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                >
+                  Hidden ({hiddenJobs.length})
+                </button>
+              )}
             </div>
           )}
 
           {todayRunBar}
         </div>
+
+        {mainTab === "jobs" && jobsLook === "list" && justHiddenJob && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/15 bg-white px-3 py-2.5 text-sm text-asphalt"
+          >
+            <p>
+              Hidden{" "}
+              <span className="font-medium">
+                {shortPlace(justHiddenJob.origin)} →{" "}
+                {shortPlace(justHiddenJob.destination)}
+              </span>
+              . Find it under Hidden jobs below.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => restoreJob(justHiddenJob.id)}
+                className="rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={showHiddenJobs}
+                className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+              >
+                View hidden
+              </button>
+            </div>
+          </div>
+        )}
 
         {mainTab === "jobs" && jobsLook === "list" && !startReady && visible.length > 0 && (
           <p className="border border-amber/30 bg-amber/10 px-3 py-2 text-sm text-asphalt">
@@ -804,9 +894,15 @@ export function JobsMapPanel() {
         )}
 
         {mainTab === "jobs" && jobsLook === "list" && hiddenJobs.length > 0 && (
-          <details className="text-sm text-muted">
+          <details
+            ref={hiddenSectionRef}
+            id="hidden-jobs"
+            className="scroll-mt-40 border border-asphalt/10 bg-white px-4 py-3 text-sm text-muted"
+            open={hiddenOpen}
+            onToggle={(e) => setHiddenOpen(e.currentTarget.open)}
+          >
             <summary className="cursor-pointer font-medium text-asphalt">
-              Hidden jobs ({hiddenJobs.length})
+              Hidden jobs ({hiddenJobs.length}) — tap to restore
             </summary>
             <p className="mt-2 text-xs">
               Passed for now — restore to bid again. Same list as Skipped on{" "}
@@ -819,7 +915,11 @@ export function JobsMapPanel() {
               {hiddenJobs.map((j) => (
                 <li
                   key={j.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-3 py-2"
+                  className={`flex flex-wrap items-center justify-between gap-2 border px-3 py-2 ${
+                    j.id === justHiddenId
+                      ? "border-amber/50 bg-amber/10"
+                      : "border-asphalt/10 bg-white"
+                  }`}
                 >
                   <span className="text-asphalt">
                     {shortPlace(j.origin)} → {shortPlace(j.destination)}
