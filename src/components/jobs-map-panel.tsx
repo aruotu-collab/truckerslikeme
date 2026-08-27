@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
+import { JobBidField } from "@/components/job-bid-field";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
 import { useMarket } from "@/lib/market-context";
@@ -28,6 +29,7 @@ import {
   writeJobsMapState,
   type JobsMapDriver,
   type MapJob,
+  type MapJobStatus,
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
@@ -202,6 +204,33 @@ export function JobsMapPanel() {
 
   function removeJob(id: string) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
+  }
+
+  function setMyBid(id: string, myBid: number | null) {
+    setJobs((prev) =>
+      prev.map((j) => {
+        if (j.id !== id) return j;
+        const next: MapJob = {
+          ...j,
+          myBid,
+          updatedAt: new Date().toISOString(),
+        };
+        if (myBid != null && myBid > 0 && j.status === "hunting") {
+          next.status = "bidding";
+        }
+        return next;
+      }),
+    );
+  }
+
+  function setJobStatus(id: string, status: MapJobStatus) {
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, status, updatedAt: new Date().toISOString() }
+          : j,
+      ),
+    );
   }
 
   async function startSession() {
@@ -703,8 +732,7 @@ export function JobsMapPanel() {
                 On your board
               </h2>
               <p className="mt-1 text-sm text-muted">
-                Jobs you&apos;ve added from Shiply. Enter bids and mark wins in
-                My Jobs.
+                Enter your quote on each job — or manage wins in My Jobs.
               </p>
             </div>
             <Link
@@ -725,9 +753,9 @@ export function JobsMapPanel() {
                 return (
                   <li
                     key={job.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3"
+                    className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium text-asphalt">
                         {shortPlace(job.origin)} → {shortPlace(job.destination)}
                       </p>
@@ -735,13 +763,18 @@ export function JobsMapPanel() {
                         {[
                           job.item,
                           job.miles != null ? `${job.miles} mi` : null,
-                          job.myBid != null && job.myBid > 0
-                            ? `Bid ${money(job.myBid)}`
-                            : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
+                      <div className="mt-2">
+                        <JobBidField
+                          compact
+                          value={job.myBid}
+                          miles={job.miles}
+                          onChange={(myBid) => setMyBid(job.id, myBid)}
+                        />
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span
@@ -749,6 +782,15 @@ export function JobsMapPanel() {
                       >
                         {meta.label}
                       </span>
+                      {job.status !== "won" && (
+                        <button
+                          type="button"
+                          onClick={() => setJobStatus(job.id, "won")}
+                          className="rounded-sm bg-[#2f6b4f] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase"
+                        >
+                          I got this
+                        </button>
+                      )}
                       {job.href ? (
                         <a
                           href={job.href}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { JobBidField } from "@/components/job-bid-field";
 import { useMarket } from "@/lib/market-context";
 import {
   countMyJobs,
@@ -171,41 +172,22 @@ export function MyJobsPanel() {
                 </button>
 
                 {filter !== "won" && (
-                  <label className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                      Your bid £
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      inputMode="decimal"
-                      placeholder="Enter quote"
-                      value={job.myBid ?? ""}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        if (!raw) {
-                          setMyBid(job.id, null);
-                          return;
-                        }
-                        const n = Number(raw);
-                        setMyBid(
-                          job.id,
-                          Number.isFinite(n) && n > 0 ? n : null,
-                        );
-                        if (Number.isFinite(n) && n > 0 && job.status === "hunting") {
+                  <div className="mt-3">
+                    <JobBidField
+                      value={job.myBid}
+                      miles={job.miles}
+                      onChange={(myBid) => {
+                        setMyBid(job.id, myBid);
+                        if (
+                          myBid != null &&
+                          myBid > 0 &&
+                          job.status === "hunting"
+                        ) {
                           setStatus(job.id, "bidding");
                         }
                       }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-28 border border-asphalt/15 bg-white px-2 py-1.5 text-sm tabular-nums outline-none focus:border-amber"
                     />
-                    {job.myBid != null && job.miles != null && job.miles > 0 && (
-                      <span className="text-xs text-muted">
-                        {money(job.myBid / job.miles)}/mi
-                      </span>
-                    )}
-                  </label>
+                  </div>
                 )}
 
                 {filter === "won" && job.myBid != null && job.myBid > 0 && (
