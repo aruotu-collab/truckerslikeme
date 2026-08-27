@@ -64,6 +64,8 @@ export function CourierPlanPanel() {
   const [hydrated, setHydrated] = useState(false);
   const [viewFrom, setViewFrom] = useState<ViewFrom>("depot");
   const [manualAddress, setManualAddress] = useState("");
+  const [manualRecipient, setManualRecipient] = useState("");
+  const [manualRef, setManualRef] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -176,6 +178,8 @@ export function CourierPlanPanel() {
     };
     setPlan((prev) => ({ ...prev, stops: [...prev.stops, stop] }));
     setManualAddress("");
+    setManualRecipient("");
+    setManualRef("");
     setNote(`Added stop · ${stop.address}`);
     setBusy(null);
   }
@@ -366,61 +370,104 @@ export function CourierPlanPanel() {
         </div>
       </section>
 
-      <section className="space-y-3 border border-asphalt/10 bg-white p-4 sm:p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">
-              Add parcels
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Snap labels as you load the van, or type an address.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onSnapFile(f);
-              }}
-            />
-            <button
-              type="button"
-              disabled={Boolean(busy)}
-              onClick={() => fileRef.current?.click()}
-              className="rounded-sm bg-amber px-4 py-2.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
-            >
-              {busy === "snap" ? "Reading label…" : "Snap label"}
-            </button>
-          </div>
+      <section className="space-y-4 border border-asphalt/10 bg-white p-4 sm:p-5">
+        <div>
+          <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">
+            Add parcels
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Two ways in: snap a label, or enter the drop by hand.
+          </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+
+        <div className="flex flex-wrap gap-2">
           <input
-            type="text"
-            value={manualAddress}
-            onChange={(e) => setManualAddress(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void addStopFromAddress(manualAddress);
-              }
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onSnapFile(f);
             }}
-            placeholder="Or type delivery address / postcode"
-            className="w-full border border-asphalt/15 px-3 py-2.5 text-sm outline-none focus:border-amber"
           />
           <button
             type="button"
-            disabled={busy === "add"}
-            onClick={() => void addStopFromAddress(manualAddress)}
-            className="rounded-sm border border-asphalt/20 px-4 py-2.5 text-[11px] font-semibold tracking-wide uppercase"
+            disabled={Boolean(busy)}
+            onClick={() => fileRef.current?.click()}
+            className="rounded-sm bg-amber px-4 py-2.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
           >
-            Add stop
+            {busy === "snap" ? "Reading label…" : "Snap label"}
           </button>
         </div>
+
+        <div className="space-y-3 border-t border-asphalt/10 pt-4">
+          <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+            Or add manually
+          </p>
+          <label className="block">
+            <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              Delivery address *
+            </span>
+            <input
+              type="text"
+              value={manualAddress}
+              onChange={(e) => setManualAddress(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void addStopFromAddress(manualAddress, {
+                    recipient: manualRecipient.trim() || null,
+                    parcelRef: manualRef.trim() || null,
+                  });
+                }
+              }}
+              placeholder="Street, town, postcode"
+              className="mt-1.5 w-full border border-asphalt/15 px-3 py-2.5 text-sm outline-none focus:border-amber"
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                Recipient (optional)
+              </span>
+              <input
+                type="text"
+                value={manualRecipient}
+                onChange={(e) => setManualRecipient(e.target.value)}
+                placeholder="Name on the parcel"
+                className="mt-1.5 w-full border border-asphalt/15 px-3 py-2.5 text-sm outline-none focus:border-amber"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                Parcel / tracking ref (optional)
+              </span>
+              <input
+                type="text"
+                value={manualRef}
+                onChange={(e) => setManualRef(e.target.value)}
+                placeholder="Barcode or consignment id"
+                className="mt-1.5 w-full border border-asphalt/15 px-3 py-2.5 text-sm outline-none focus:border-amber"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            disabled={busy === "add" || !manualAddress.trim()}
+            onClick={() =>
+              void addStopFromAddress(manualAddress, {
+                recipient: manualRecipient.trim() || null,
+                parcelRef: manualRef.trim() || null,
+              })
+            }
+            className="rounded-sm bg-asphalt px-4 py-2.5 text-[11px] font-semibold tracking-wide text-white uppercase disabled:opacity-50"
+          >
+            {busy === "add" ? "Adding…" : "Add parcel"}
+          </button>
+        </div>
+
         {error ? <p className="text-sm text-alert">{error}</p> : null}
         {note ? (
           <p role="status" className="text-sm text-asphalt">
