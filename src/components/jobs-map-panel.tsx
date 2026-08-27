@@ -604,7 +604,9 @@ export function JobsMapPanel() {
 
         {enabled && sessionId && (
           <div className="space-y-3">
-            {liveViewUrl && <ShiplyLiveView url={liveViewUrl} />}
+            {liveViewUrl && (
+              <ShiplyLiveView url={liveViewUrl} collapseSignal={scanSummary} />
+            )}
             <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
               <button
                 type="button"

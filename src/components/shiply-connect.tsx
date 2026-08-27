@@ -230,7 +230,9 @@ export function ShiplyConnect({
         </button>
       ) : (
         <div className="space-y-3">
-          {liveViewUrl && <ShiplyLiveView url={liveViewUrl} />}
+          {liveViewUrl && (
+            <ShiplyLiveView url={liveViewUrl} collapseSignal={scanSummary} />
+          )}
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
             <li>
               Log into Shiply in the window above (we open shiply.com for you;
