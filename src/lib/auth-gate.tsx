@@ -47,6 +47,10 @@ const ACTION_COPY: Record<AuthGateAction, { title: string; body: string }> = {
     title: "Join the community",
     body: "Create a free account to post, follow stops, and talk with drivers on your corridor.",
   },
+  "shiply-connect": {
+    title: "Connect Shiply",
+    body: "Free account — log into your Shiply in our secure browser and scan jobs. Manual entry and screenshots still work without signing in.",
+  },
 };
 
 export function getAuthGateCopy(action: AuthGateAction) {

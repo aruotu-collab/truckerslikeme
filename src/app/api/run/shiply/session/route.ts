@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { shiplyConnectConfigured } from "@/lib/shiply-connect-config";
+import { requireSignedInForShiply } from "@/lib/shiply-api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,6 +13,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireSignedInForShiply();
+  if (auth instanceof NextResponse) return auth;
+
   if (!shiplyConnectConfigured()) {
     return NextResponse.json(
       {

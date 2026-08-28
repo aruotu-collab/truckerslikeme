@@ -228,7 +228,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
               }}
               className="rounded-sm border border-white/25 px-3 py-2 text-xs font-semibold tracking-normal text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:px-3 sm:text-sm sm:tracking-wide"
             >
-              Sign in
+              Sign in free
             </button>
           )}
         </div>

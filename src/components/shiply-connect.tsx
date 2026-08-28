@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RunJob, RunPrefs } from "@/lib/run-builder";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
@@ -13,7 +13,13 @@ import {
 } from "@/lib/shiply-scan-snapshot";
 import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { useMarket } from "@/lib/market-context";
+import { useAuthGate } from "@/lib/auth-gate";
 import type { ShiplyTabDraft } from "@/lib/run-builder-draft";
+import {
+  handleShiplyApiAuth,
+  openShiplyAuthGate,
+  shiplyApiErrorMessage,
+} from "@/lib/shiply-client-auth";
 import { outlineBtnClass } from "@/lib/ui-buttons";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
@@ -44,6 +50,8 @@ export function ShiplyConnect({
   onStartAgain,
 }: Props) {
   const { money } = useMarket();
+  const { isSignedIn, openGate } = useAuthGate();
+  const awaitingConnect = useRef(false);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(
     initialDraft?.sessionId ?? null,
@@ -106,7 +114,19 @@ export function ShiplyConnect({
       .catch(() => setEnabled(false));
   }, []);
 
+  useEffect(() => {
+    if (!isSignedIn || !awaitingConnect.current) return;
+    awaitingConnect.current = false;
+    void startSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resume once after sign-in
+  }, [isSignedIn]);
+
   async function startSession() {
+    if (!isSignedIn) {
+      awaitingConnect.current = true;
+      openShiplyAuthGate(openGate);
+      return;
+    }
     setError(null);
     setBusy(true);
     setScanned([]);
@@ -128,9 +148,11 @@ export function ShiplyConnect({
         contextId?: string;
         error?: string;
         tip?: string;
+        requiresAuth?: boolean;
       };
       if (!res.ok) {
-        setError(data.error || "Could not start Shiply browser.");
+        if (handleShiplyApiAuth(data, openGate)) return;
+        setError(shiplyApiErrorMessage(data, "Could not start Shiply browser."));
         return;
       }
       if (data.contextId) {
@@ -149,6 +171,10 @@ export function ShiplyConnect({
 
   async function scanVisible() {
     if (!sessionId) return;
+    if (!isSignedIn) {
+      openShiplyAuthGate(openGate);
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -168,9 +194,11 @@ export function ShiplyConnect({
         jobs?: VisibleShiplyJob[];
         coach?: string;
         error?: string;
+        requiresAuth?: boolean;
       };
       if (!res.ok) {
-        setError(data.error || "Could not scan the Shiply page.");
+        if (handleShiplyApiAuth(data, openGate)) return;
+        setError(shiplyApiErrorMessage(data, "Could not scan the Shiply page."));
         return;
       }
       const jobs = data.jobs ?? [];
@@ -197,6 +225,10 @@ export function ShiplyConnect({
 
   async function analyseSelected() {
     if (!sessionId) return;
+    if (!isSignedIn) {
+      openShiplyAuthGate(openGate);
+      return;
+    }
     const picked = scanned.filter((j) => selected[j.id]);
     if (!picked.length) {
       setError("Tick at least one job to analyse.");
@@ -213,9 +245,11 @@ export function ShiplyConnect({
       const data = (await res.json()) as {
         jobs?: RunJob[];
         error?: string;
+        requiresAuth?: boolean;
       };
       if (!res.ok) {
-        setError(data.error || "Could not import selected jobs.");
+        if (handleShiplyApiAuth(data, openGate)) return;
+        setError(shiplyApiErrorMessage(data, "Could not import selected jobs."));
         return;
       }
       onImported(data.jobs ?? [], coach, {
@@ -276,7 +310,14 @@ export function ShiplyConnect({
       </div>
 
       {!sessionId ? (
-        <button
+        <div className="space-y-2">
+          {!isSignedIn ? (
+            <p className="text-sm text-muted">
+              Free account required to connect Shiply. Manual entry and
+              screenshots work without signing in.
+            </p>
+          ) : null}
+          <button
           type="button"
           disabled={busy}
           onClick={() => void startSession()}
@@ -284,6 +325,7 @@ export function ShiplyConnect({
         >
           {busy ? "Opening browser…" : "Connect Shiply →"}
         </button>
+        </div>
       ) : (
         <div className="space-y-3">
           {liveViewUrl && (

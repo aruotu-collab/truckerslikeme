@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { JobIngestPreview } from "@/components/job-ingest-preview";
 import {
   appendManualJobs,
   JobManualEntryForm,
 } from "@/components/job-manual-entry-form";
+import { useAuthGate } from "@/lib/auth-gate";
 import {
   draftsToVisible,
   fileToDataUrl,
@@ -17,6 +18,11 @@ import {
   visibleToIngestDraft,
   type IngestJobDraft,
 } from "@/lib/job-ingest";
+import {
+  handleShiplyApiAuth,
+  openShiplyAuthGate,
+  shiplyApiErrorMessage,
+} from "@/lib/shiply-client-auth";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
   diffAgainstLastScan,
@@ -47,6 +53,8 @@ type JobBoardIngestProps = {
 };
 
 export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIngestProps) {
+  const { isSignedIn, openGate } = useAuthGate();
+  const awaitingConnect = useRef(false);
   const [tab, setTab] = useState<IngestTab>("screenshot");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +90,13 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       for (const s of shots) URL.revokeObjectURL(s.preview);
     };
   }, [shots]);
+
+  useEffect(() => {
+    if (!isSignedIn || !awaitingConnect.current) return;
+    awaitingConnect.current = false;
+    void startSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resume once after sign-in
+  }, [isSignedIn]);
 
   function loadPending(
     jobs: IngestJobDraft[],
@@ -134,6 +149,11 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       setError("Set your starting location first.");
       return;
     }
+    if (!isSignedIn) {
+      awaitingConnect.current = true;
+      openShiplyAuthGate(openGate);
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -152,9 +172,11 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
         contextId?: string;
         error?: string;
         tip?: string;
+        requiresAuth?: boolean;
       };
       if (!res.ok) {
-        setError(data.error || "Could not start Shiply browser.");
+        if (handleShiplyApiAuth(data, openGate)) return;
+        setError(shiplyApiErrorMessage(data, "Could not start Shiply browser."));
         return;
       }
       if (data.contextId) localStorage.setItem(CONTEXT_KEY, data.contextId);
@@ -172,6 +194,10 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
     if (!sessionId) return;
     if (!startReady) {
       setError("Set your starting location first.");
+      return;
+    }
+    if (!isSignedIn) {
+      openShiplyAuthGate(openGate);
       return;
     }
     setBusy(true);
@@ -192,9 +218,11 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
         jobs?: VisibleShiplyJob[];
         coach?: string;
         error?: string;
+        requiresAuth?: boolean;
       };
       if (!res.ok) {
-        setError(data.error || "Could not scan the Shiply page.");
+        if (handleShiplyApiAuth(data, openGate)) return;
+        setError(shiplyApiErrorMessage(data, "Could not scan the Shiply page."));
         return;
       }
       const list = data.jobs ?? [];
@@ -362,14 +390,22 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
           )}
 
           {enabled && !sessionId ? (
-            <button
-              type="button"
-              disabled={busy || !startReady}
-              onClick={() => void startSession()}
-              className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase disabled:opacity-60"
-            >
-              {busy ? "Opening…" : "Connect Shiply →"}
-            </button>
+            <div className="space-y-2">
+              {!isSignedIn ? (
+                <p className="text-xs leading-relaxed text-muted">
+                  Free account required to connect Shiply. Screenshots and
+                  manual entry work without signing in.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy || !startReady}
+                onClick={() => void startSession()}
+                className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase disabled:opacity-60"
+              >
+                {busy ? "Opening…" : "Connect Shiply →"}
+              </button>
+            </div>
           ) : null}
 
           {enabled && sessionId ? (

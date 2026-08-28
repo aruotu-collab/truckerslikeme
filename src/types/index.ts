@@ -67,4 +67,5 @@ export type AuthGateAction =
   | "save-route"
   | "report-alert"
   | "ask-ai"
-  | "join-community";
+  | "join-community"
+  | "shiply-connect";

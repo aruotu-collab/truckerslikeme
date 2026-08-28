@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { shiplyConnectConfigured } from "@/lib/shiply-connect-config";
+import { requireSignedInForShiply } from "@/lib/shiply-api-auth";
 import type { RunJob } from "@/lib/run-builder";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,9 @@ type SelectedJob = {
 };
 
 export async function POST(request: Request) {
+  const auth = await requireSignedInForShiply();
+  if (auth instanceof NextResponse) return auth;
+
   if (!shiplyConnectConfigured()) {
     return NextResponse.json(
       { error: "Shiply connect is not configured." },
