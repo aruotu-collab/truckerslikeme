@@ -297,6 +297,12 @@ export function JobsMapPanel() {
 
   function startBidding(id: string) {
     setJobStatus(id, "bidding");
+    const job = jobs.find((j) => j.id === id);
+    if (job) {
+      setCoach(
+        `Tracking ${shortPlace(job.origin)} → ${shortPlace(job.destination)} in My Jobs → Bidding.`,
+      );
+    }
   }
 
   function setJobStatus(id: string, status: MapJobStatus) {
@@ -674,11 +680,11 @@ export function JobsMapPanel() {
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
                   ? visible.length > listShown.length
-                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, Start bidding (→ My Jobs), hide, or add to today's run.`
-                    : "Enter a quote, then Start bidding to track in My Jobs — or hide / add to today's run."
+                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, then Start bidding (→ My Jobs) or hide.`
+                    : "Enter a quote, then Start bidding to track in My Jobs — or hide."
                   : mainTab === "jobs"
                     ? "Considering jobs only — bidding jobs live in My Jobs."
-                    : "Pick a chain — add it to today's run or replace the queue if you're replanning."}
+                    : "Compare chains — enter quotes and Start bidding here (same jobs as Hunt)."}
               </p>
             </div>
             <div
@@ -933,12 +939,13 @@ export function JobsMapPanel() {
         {mainTab === "run" && (
           <div className="space-y-3">
             <p className="border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
-              Suggested chains are for comparison only — bid on Hunt, track wins
+              Same jobs as Hunt — enter quotes below and tap{" "}
+              <strong className="font-semibold">Start bidding</strong> to track
               in{" "}
-              <Link href="/jobs" className="font-semibold text-amber">
+              <Link href="/jobs?tab=bidding" className="font-semibold text-amber">
                 My Jobs
               </Link>
-              , and they land in Today&apos;s run automatically.
+              . Wins land in Today&apos;s run automatically.
             </p>
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
@@ -955,6 +962,7 @@ export function JobsMapPanel() {
               initialChainIds={runChainIds}
               runOnly
               onSetBid={setMyBid}
+              onStartBidding={startBidding}
             />
           </div>
         )}

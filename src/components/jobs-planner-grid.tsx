@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
@@ -29,7 +30,7 @@ import {
 } from "@/lib/jobs-run-sequence";
 import { evaluateRunChain } from "@/lib/jobs-today-run";
 import { DIRECTION_LABELS, type DirectionId } from "@/lib/jobs-map-explore";
-import { shortPlace, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import { shortPlace, hasMyBid, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
 import { useMarket } from "@/lib/market-context";
 
 type Props = {
@@ -43,6 +44,8 @@ type Props = {
   /** Skip nested tabs — only show suggested run compare. */
   runOnly?: boolean;
   onSetBid?: (jobId: string, myBid: number | null) => void;
+  /** Move a considering job to My Jobs → Bidding (same action as Hunt). */
+  onStartBidding?: (jobId: string) => void;
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -117,6 +120,7 @@ export function JobsPlannerGrid({
   onOpenDistances,
   runOnly = false,
   onSetBid,
+  onStartBidding,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
@@ -187,6 +191,7 @@ export function JobsPlannerGrid({
         totalJobCount={jobs.length}
         mappedJobCount={runBuilder.totalJobs}
         onSetBid={onSetBid}
+        onStartBidding={onStartBidding}
       />
     );
   }
@@ -906,6 +911,7 @@ export function JobsPlannerGrid({
           totalJobCount={jobs.length}
           mappedJobCount={runBuilder.totalJobs}
           onSetBid={onSetBid}
+          onStartBidding={onStartBidding}
         />
       )}
     </div>
@@ -919,6 +925,7 @@ function RunsCompareView({
   totalJobCount,
   mappedJobCount,
   onSetBid,
+  onStartBidding,
 }: {
   plans: BidPlan[];
   driver: JobsMapDriver | null;
@@ -926,6 +933,7 @@ function RunsCompareView({
   totalJobCount: number;
   mappedJobCount: number;
   onSetBid?: (jobId: string, myBid: number | null) => void;
+  onStartBidding?: (jobId: string) => void;
 }) {
   const { market } = useMarket();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -1036,6 +1044,16 @@ function RunsCompareView({
     workingPlan.totalMiles > 0
       ? Math.round((workingPlan.loadedMiles / workingPlan.totalMiles) * 100)
       : 0;
+
+  const readyToBid = workingPlan.jobs.filter(
+    (j) => j.status === "hunting" && hasMyBid(j),
+  );
+  const alreadyBidding = workingPlan.jobs.filter((j) => j.status === "bidding");
+
+  function startBiddingOnChain() {
+    if (!onStartBidding) return;
+    for (const job of readyToBid) onStartBidding(job.id);
+  }
 
   function dropFromRun(jobId: string) {
     setExcludedIds((prev) =>
@@ -1261,13 +1279,37 @@ function RunsCompareView({
       )}
 
       <div className="border-t border-asphalt/10 px-4 py-4 sm:px-5">
-        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-          Jobs in this suggestion ({workingPlan.jobs.length})
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          Compare chains here — when you win a job, mark it won in My Jobs and
-          it lands in Today&apos;s run automatically.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              Jobs in this suggestion ({workingPlan.jobs.length})
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Same jobs as Hunt — enter a quote, then{" "}
+              <strong className="font-normal text-asphalt">Start bidding</strong>{" "}
+              to track in My Jobs without leaving this tab.
+            </p>
+          </div>
+          {onStartBidding && readyToBid.length > 0 ? (
+            <button
+              type="button"
+              onClick={startBiddingOnChain}
+              className="shrink-0 rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+            >
+              Start bidding on {readyToBid.length} job
+              {readyToBid.length === 1 ? "" : "s"} →
+            </button>
+          ) : null}
+        </div>
+        {alreadyBidding.length > 0 ? (
+          <p className="mt-2 text-xs text-emerald-800">
+            {alreadyBidding.length} in this chain already in{" "}
+            <Link href="/jobs?tab=bidding" className="font-semibold underline">
+              My Jobs → Bidding
+            </Link>
+            .
+          </p>
+        ) : null}
         <ul className="mt-3 divide-y divide-asphalt/10 border border-asphalt/10">
           {workingPlan.jobs.map((job, i) => (
             <li
@@ -1284,6 +1326,7 @@ function RunsCompareView({
                 <p className="text-xs text-muted">
                   {job.miles != null ? `${job.miles} mi` : "Miles unknown"}
                   {job.status === "won" ? " · Won" : ""}
+                  {job.status === "bidding" ? " · Bidding in My Jobs" : ""}
                 </p>
                 {onSetBid ? (
                   <div className="mt-2">
@@ -1302,7 +1345,34 @@ function RunsCompareView({
                   </p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {job.status === "bidding" ? (
+                  <Link
+                    href="/jobs?tab=bidding"
+                    className="shrink-0 rounded-sm border border-emerald-600/30 bg-emerald-50 px-3 py-2 text-[11px] font-bold tracking-wide text-emerald-900 uppercase"
+                  >
+                    In My Jobs →
+                  </Link>
+                ) : job.status === "won" ? (
+                  <Link
+                    href="/jobs?tab=won"
+                    className="shrink-0 rounded-sm border border-emerald-600/30 bg-emerald-50 px-3 py-2 text-[11px] font-bold tracking-wide text-emerald-900 uppercase"
+                  >
+                    Won — My Jobs →
+                  </Link>
+                ) : onStartBidding && hasMyBid(job) ? (
+                  <button
+                    type="button"
+                    onClick={() => onStartBidding(job.id)}
+                    className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
+                  >
+                    Start bidding →
+                  </button>
+                ) : job.status === "hunting" ? (
+                  <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                    Enter quote first
+                  </span>
+                ) : null}
                 {job.href && (
                   <ShiplyLink
                     href={job.href}
@@ -1324,8 +1394,8 @@ function RunsCompareView({
         </ul>
         {workingPlan.jobs.length > 0 && (
           <p className="mt-2 text-xs text-muted">
-            Drop from suggestion only edits this preview — it does not delete
-            the job from your board or My Jobs.
+            Drop from suggestion only edits this preview. Start bidding sends the
+            job to My Jobs — same as Hunt.
           </p>
         )}
       </div>
