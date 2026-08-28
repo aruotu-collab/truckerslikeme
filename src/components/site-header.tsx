@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
 import { trackClick } from "@/lib/track-click";
+import { RUN_BUILDER_HOME_EVENT } from "@/lib/run-builder-draft";
 import { HScroll } from "@/components/h-scroll";
 import { TrackedLink } from "@/components/tracked-link";
 
@@ -86,6 +87,11 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
             title={item.title}
             trackEvent="nav"
             trackLabel={item.label}
+            onClick={() => {
+              if (item.href === "/run" && pathname.startsWith("/run")) {
+                window.dispatchEvent(new Event(RUN_BUILDER_HOME_EVENT));
+              }
+            }}
             className={`shrink-0 rounded-sm px-3 py-2.5 text-xs font-semibold tracking-normal uppercase transition sm:px-4 sm:py-2.5 sm:text-sm sm:tracking-wide ${
               active
                 ? "bg-white text-asphalt ring-1 ring-amber"

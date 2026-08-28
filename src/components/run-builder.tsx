@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMarket } from "@/lib/market-context";
 import { formatMoney } from "@/lib/market";
@@ -37,9 +37,16 @@ import {
 } from "@/lib/job-ingest";
 import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
 import { outlineBtnClass } from "@/lib/ui-buttons";
+import {
+  EMPTY_SHIPLY_DRAFT,
+  readRunBuilderDraft,
+  RUN_BUILDER_HOME_EVENT,
+  writeRunBuilderDraft,
+  type HuntPath,
+  type ShiplyTabDraft,
+} from "@/lib/run-builder-draft";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build" | "decision";
-type HuntPath = "shiply" | "screenshots" | "manual";
 
 const FOLLOW_UPS: RunFollowUp[] = [
   "best",
@@ -108,7 +115,19 @@ function imagesFromPaste(e: React.ClipboardEvent): File[] {
 
 const MAX_RESULTS_SHOTS = 4;
 
-type PendingShot = { id: string; file: File; preview: string };
+type PendingShot = { id: string; preview: string; dataUrl: string };
+
+function TabStartAgainButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={outlineBtnClass("muted", "sm")}
+    >
+      Start again
+    </button>
+  );
+}
 
 export function RunBuilder() {
   const { market, money } = useMarket();
@@ -131,6 +150,12 @@ export function RunBuilder() {
     {},
   );
   const [manualCoach, setManualCoach] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [shiplyDraft, setShiplyDraft] = useState<ShiplyTabDraft>(
+    EMPTY_SHIPLY_DRAFT,
+  );
+  const [shiplyTabKey, setShiplyTabKey] = useState(0);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -140,6 +165,102 @@ export function RunBuilder() {
   }, [combos, followUp, prefs]);
 
   const shownBest = rankedCombos[0] ?? best;
+
+  const handleShiplyDraftChange = useCallback((draft: ShiplyTabDraft) => {
+    setShiplyDraft(draft);
+  }, []);
+
+  useEffect(() => {
+    const saved = readRunBuilderDraft();
+    if (saved) {
+      setPrefs(saved.prefs);
+      setHuntPath(saved.huntPath);
+      setShiplyDraft(saved.shiply);
+      setPendingResults(
+        saved.screenshots.shots.map((s) => ({
+          id: s.id,
+          preview: s.dataUrl,
+          dataUrl: s.dataUrl,
+        })),
+      );
+      setManualPending(saved.manual.pending);
+      setManualSelected(saved.manual.selected);
+      setManualCoach(saved.manual.coach);
+      setJobs(saved.jobs);
+      setShiplySessionId(saved.shiplySessionId);
+      setCoach(saved.coach);
+      setFollowUp(saved.followUp);
+    }
+    setDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    const goHome = () => setStep("mode");
+    window.addEventListener(RUN_BUILDER_HOME_EVENT, goHome);
+    return () => window.removeEventListener(RUN_BUILDER_HOME_EVENT, goHome);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      writeRunBuilderDraft({
+        prefs,
+        huntPath,
+        shiply: shiplyDraft,
+        screenshots: {
+          shots: pendingResults.map((s) => ({
+            id: s.id,
+            dataUrl: s.dataUrl,
+          })),
+        },
+        manual: {
+          pending: manualPending,
+          selected: manualSelected,
+          coach: manualCoach,
+        },
+        jobs,
+        shiplySessionId,
+        coach,
+        followUp,
+      });
+    }, 400);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [
+    draftReady,
+    prefs,
+    huntPath,
+    shiplyDraft,
+    pendingResults,
+    manualPending,
+    manualSelected,
+    manualCoach,
+    jobs,
+    shiplySessionId,
+    coach,
+    followUp,
+  ]);
+
+  function clearShiplyTab() {
+    setShiplyDraft(EMPTY_SHIPLY_DRAFT());
+    setShiplySessionId(null);
+    setShiplyTabKey((k) => k + 1);
+    setError(null);
+  }
+
+  function clearScreenshotsTab() {
+    setPendingResults([]);
+    setError(null);
+  }
+
+  function clearManualTab() {
+    setManualPending([]);
+    setManualSelected({});
+    setManualCoach(null);
+    setError(null);
+  }
 
   function pickMode(mode: RunMode) {
     setPrefs((p) => ({ ...p, mode }));
@@ -184,13 +305,10 @@ export function RunBuilder() {
   }
 
   function clearPendingResults() {
-    setPendingResults((prev) => {
-      for (const shot of prev) URL.revokeObjectURL(shot.preview);
-      return [];
-    });
+    setPendingResults([]);
   }
 
-  function queueResultsScreenshots(files: File[] | FileList | null) {
+  async function queueResultsScreenshots(files: File[] | FileList | null) {
     const list = (Array.isArray(files) ? files : filesFromList(files)).filter(
       (f) => f.type.startsWith("image/"),
     );
@@ -207,20 +325,20 @@ export function RunBuilder() {
       setError(null);
     }
 
-    const next = list.slice(0, room).map((file) => ({
-      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const next: PendingShot[] = [];
+    for (const file of list.slice(0, room)) {
+      const dataUrl = await fileToDataUrl(file);
+      next.push({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+        preview: dataUrl,
+        dataUrl,
+      });
+    }
     setPendingResults((prev) => [...prev, ...next].slice(0, MAX_RESULTS_SHOTS));
   }
 
   function removePendingResult(id: string) {
-    setPendingResults((prev) => {
-      const shot = prev.find((s) => s.id === id);
-      if (shot) URL.revokeObjectURL(shot.preview);
-      return prev.filter((s) => s.id !== id);
-    });
+    setPendingResults((prev) => prev.filter((s) => s.id !== id));
   }
 
   function goHunt() {
@@ -256,7 +374,7 @@ export function RunBuilder() {
     try {
       const images: string[] = [];
       for (const shot of pendingResults.slice(0, MAX_RESULTS_SHOTS)) {
-        images.push(await fileToDataUrl(shot.file));
+        images.push(shot.dataUrl);
       }
       const res = await fetch("/api/run/shortlist", {
         method: "POST",
@@ -794,16 +912,22 @@ export function RunBuilder() {
 
       {step === "hunt" && (
         <section className="space-y-6">
-          <button
-            type="button"
-            onClick={() => {
-              clearPendingResults();
-              setStep("setup");
-            }}
-            className="text-sm font-medium text-amber transition hover:text-asphalt"
-          >
-            ← Edit setup
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setStep("mode")}
+              className="text-sm font-medium text-amber transition hover:text-asphalt"
+            >
+              ← All goals
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep("setup")}
+              className="text-sm font-medium text-muted transition hover:text-asphalt"
+            >
+              Edit setup
+            </button>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -843,9 +967,13 @@ export function RunBuilder() {
 
           {huntPath === "shiply" ? (
             <ShiplyConnect
+              key={shiplyTabKey}
               prefs={prefs}
               busy={busy}
               setBusy={setBusy}
+              initialDraft={shiplyDraft}
+              onDraftChange={handleShiplyDraftChange}
+              onStartAgain={clearShiplyTab}
               onSession={(id) => setShiplySessionId(id)}
               onImported={(imported, tip, meta) => {
                 setJobs(imported);
@@ -860,18 +988,21 @@ export function RunBuilder() {
             />
           ) : huntPath === "manual" ? (
             <div className="space-y-4 border border-asphalt/10 bg-white px-5 py-6 sm:px-6">
-              <div>
-                <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-                  Phase 3 · Manual entry
-                </p>
-                <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
-                  Type or paste your jobs
-                </h2>
-                <p className="mt-2 max-w-xl text-sm text-muted">
-                  Add jobs one at a time or paste a list from Shiply, WhatsApp,
-                  or your notes. Same fields as the Job Board — no AI or Shiply
-                  login required.
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+                    Phase 3 · Manual entry
+                  </p>
+                  <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
+                    Type or paste your jobs
+                  </h2>
+                  <p className="mt-2 max-w-xl text-sm text-muted">
+                    Add jobs one at a time or paste a list from Shiply, WhatsApp,
+                    or your notes. Same fields as the Job Board — no AI or Shiply
+                    login required.
+                  </p>
+                </div>
+                <TabStartAgainButton onClick={clearManualTab} />
               </div>
 
               <JobManualEntryForm
@@ -935,12 +1066,15 @@ export function RunBuilder() {
               const imgs = imagesFromPaste(e);
               if (!imgs.length) return;
               e.preventDefault();
-              queueResultsScreenshots(imgs);
+              void queueResultsScreenshots(imgs);
             }}
           >
-            <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-              Phase 2 · Search Shiply like this
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+                Phase 2 · Search Shiply like this
+              </p>
+              <TabStartAgainButton onClick={clearScreenshotsTab} />
+            </div>
             <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
               {brief.headline}
             </h2>
@@ -963,7 +1097,7 @@ export function RunBuilder() {
                   className="hidden"
                   disabled={busy || pendingResults.length >= MAX_RESULTS_SHOTS}
                   onChange={(e) => {
-                    queueResultsScreenshots(e.target.files);
+                    void queueResultsScreenshots(e.target.files);
                     e.target.value = "";
                   }}
                 />

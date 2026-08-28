@@ -13,6 +13,8 @@ import {
 } from "@/lib/shiply-scan-snapshot";
 import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { useMarket } from "@/lib/market-context";
+import type { ShiplyTabDraft } from "@/lib/run-builder-draft";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 
 const CONTEXT_KEY = "tlm_shiply_bb_context";
 
@@ -20,34 +22,77 @@ type Props = {
   prefs: RunPrefs;
   busy: boolean;
   setBusy: (v: boolean) => void;
+  initialDraft?: ShiplyTabDraft | null;
+  onDraftChange?: (draft: ShiplyTabDraft) => void;
   onSession?: (sessionId: string | null) => void;
   onImported: (
     jobs: RunJob[],
     coach: string | null,
     meta?: { sessionId: string; detailsLoaded: boolean },
   ) => void;
+  onStartAgain?: () => void;
 };
 
 export function ShiplyConnect({
   prefs,
   busy,
   setBusy,
+  initialDraft,
+  onDraftChange,
   onImported,
   onSession,
+  onStartAgain,
 }: Props) {
   const { money } = useMarket();
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [liveViewUrl, setLiveViewUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [coach, setCoach] = useState<string | null>(null);
-  const [scanned, setScanned] = useState<VisibleShiplyJob[]>([]);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
-  const [newScanFingerprints, setNewScanFingerprints] = useState<Set<string>>(
-    () => new Set(),
+  const [sessionId, setSessionId] = useState<string | null>(
+    initialDraft?.sessionId ?? null,
   );
-  const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const [liveViewUrl, setLiveViewUrl] = useState<string | null>(
+    initialDraft?.liveViewUrl ?? null,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [coach, setCoach] = useState<string | null>(
+    initialDraft?.coach ?? null,
+  );
+  const [scanned, setScanned] = useState<VisibleShiplyJob[]>(
+    initialDraft?.scanned ?? [],
+  );
+  const [selected, setSelected] = useState<Record<string, boolean>>(
+    initialDraft?.selected ?? {},
+  );
+  const [lastScanAt, setLastScanAt] = useState<string | null>(
+    initialDraft?.lastScanAt ?? null,
+  );
+  const [newScanFingerprints, setNewScanFingerprints] = useState<Set<string>>(
+    () => new Set(initialDraft?.newScanFingerprints ?? []),
+  );
+  const [scanSummary, setScanSummary] = useState<string | null>(
+    initialDraft?.scanSummary ?? null,
+  );
+
+  useEffect(() => {
+    onDraftChange?.({
+      sessionId,
+      liveViewUrl,
+      coach,
+      scanned,
+      selected,
+      scanSummary,
+      lastScanAt,
+      newScanFingerprints: [...newScanFingerprints],
+    });
+  }, [
+    sessionId,
+    liveViewUrl,
+    coach,
+    scanned,
+    selected,
+    scanSummary,
+    lastScanAt,
+    newScanFingerprints,
+    onDraftChange,
+  ]);
 
   useEffect(() => {
     const prev = readLastScanSnapshot();
@@ -205,18 +250,29 @@ export function ShiplyConnect({
 
   return (
     <div className="space-y-4 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
-      <div>
-        <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-          Phase 1 · Connect Shiply
-        </p>
-        <h3 className="mt-1 font-display text-xl tracking-wide text-asphalt uppercase">
-          Your account, your control
-        </h3>
-        <p className="mt-2 text-sm text-muted">
-          We open a cloud browser. You log into Shiply yourself, run the search,
-          then tick which jobs we may analyse — we don’t crawl your account in
-          the background.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+            Phase 1 · Connect Shiply
+          </p>
+          <h3 className="mt-1 font-display text-xl tracking-wide text-asphalt uppercase">
+            Your account, your control
+          </h3>
+          <p className="mt-2 text-sm text-muted">
+            We open a cloud browser. You log into Shiply yourself, run the search,
+            then tick which jobs we may analyse — we don’t crawl your account in
+            the background.
+          </p>
+        </div>
+        {onStartAgain ? (
+          <button
+            type="button"
+            onClick={onStartAgain}
+            className={outlineBtnClass("muted", "sm")}
+          >
+            Start again
+          </button>
+        ) : null}
       </div>
 
       {!sessionId ? (
