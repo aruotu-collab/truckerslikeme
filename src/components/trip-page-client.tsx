@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { LiveActivity } from "@/components/live-activity";
 import { PlanRoutePanel } from "@/components/plan-route-panel";
+import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
 
 type Tab = "assist" | "live" | "plan";
 
@@ -34,13 +35,13 @@ export function TripPageClient() {
   return (
     <main className="flex-1">
       <div className="mx-auto w-full max-w-6xl px-5 pt-8 sm:px-8">
-        <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+        <p className={typeEyebrow}>
           Trip
         </p>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+        <h1 className={`mt-2 ${typePageTitle}`}>
           Run the haul
         </h1>
-        <p className="mt-3 max-w-2xl text-lg text-muted">
+        <p className={typePageLead}>
           After you check a load, use Trip for corridor intel, route stops, and
           parking tips along the way.
         </p>

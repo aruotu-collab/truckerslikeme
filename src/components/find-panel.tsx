@@ -13,6 +13,12 @@ import {
   type PlaceKind,
   type PlaceResult,
 } from "@/lib/places";
+import {
+  typeEyebrow,
+  typePageLead,
+  typePageTitle,
+  typeLabel,
+} from "@/lib/typography";
 
 type FindSurface = PlaceKind | "along";
 
@@ -313,20 +319,20 @@ export function FindPanel() {
       <ResumeCheckBanner />
       {kind !== "along" ? (
         <section>
-          <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+          <p className={typeEyebrow}>
             {copy.eyebrow}
           </p>
-          <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+          <h1 className={`mt-2 ${typePageTitle}`}>
             {copy.title}
           </h1>
-          <p className="mt-3 max-w-2xl text-lg text-muted">{copy.body}</p>
+          <p className={typePageLead}>{copy.body}</p>
         </section>
       ) : null}
 
       <section className="space-y-5">
         <div className="page-sticky-bar -mx-5 space-y-4 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
           <div>
-            <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+            <p className={typeLabel}>
               Looking for
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -345,7 +351,7 @@ export function FindPanel() {
           {kind !== "along" && (
             <>
               <div>
-                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                <p className={typeLabel}>
                   For my
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -362,7 +368,7 @@ export function FindPanel() {
               </div>
 
               <div>
-                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                <p className={typeLabel}>
                   When
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -379,7 +385,7 @@ export function FindPanel() {
               </div>
 
               <div>
-                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                <p className={typeLabel}>
                   What matters most
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">

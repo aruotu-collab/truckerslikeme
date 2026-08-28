@@ -209,3 +209,69 @@ body {
   background-size: 120px 4px;
   animation: highway-drift 4s linear infinite;
 }
+
+/*
+ * Mobile readability — native-app scale on phones; desktop density unchanged.
+ * Floors micro type, eases letter-spacing, and sizes heroes for narrow screens.
+ */
+@media (max-width: 639px) {
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  :where([class*="text-[9px]"]) {
+    font-size: 0.6875rem !important; /* 11px floor */
+    letter-spacing: 0.02em !important;
+  }
+
+  :where([class*="text-[10px]"]) {
+    font-size: 0.75rem !important; /* 12px */
+    letter-spacing: 0.02em !important;
+  }
+
+  :where([class*="text-[11px]"]) {
+    font-size: 0.8125rem !important; /* 13px */
+    letter-spacing: 0.02em !important;
+  }
+
+  :where([class*="tracking-[0.2em]"]),
+  :where([class*="tracking-[0.22em]"]),
+  :where([class*="tracking-[0.18em]"]),
+  :where([class*="tracking-[0.16em]"]),
+  :where([class*="tracking-[0.14em]"]) {
+    letter-spacing: 0.06em !important;
+  }
+
+  :where([class*="tracking-wide"][class*="uppercase"]) {
+    letter-spacing: 0.04em !important;
+  }
+
+  :where(h1.font-display.text-4xl) {
+    font-size: 1.75rem !important;
+    line-height: 1.12 !important;
+  }
+
+  :where(h1.font-display.text-3xl) {
+    font-size: 1.5rem !important;
+    line-height: 1.15 !important;
+  }
+
+  :where(h2.font-display.text-xl) {
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+  }
+
+  :where(p.text-lg) {
+    font-size: 1rem !important;
+    line-height: 1.55 !important;
+  }
+
+  :where(nav a, nav button, [role="toolbar"] button, [role="navigation"] a) {
+    min-height: 2.75rem;
+  }
+}

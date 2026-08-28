@@ -38,16 +38,16 @@ export function MarketingHome() {
       {/* Hero */}
       <section className="relative overflow-hidden border border-asphalt/10 bg-asphalt px-6 py-14 text-white sm:px-10 sm:py-20">
         <div className="relative z-10 max-w-3xl">
-          <p className="font-display text-sm tracking-[0.22em] text-amber uppercase">
+          <p className="font-display text-[13px] tracking-[0.06em] text-amber uppercase sm:text-sm sm:tracking-[0.22em]">
             Built for Shiply drivers
           </p>
-          <h1 className="mt-4 font-display text-4xl leading-[1.05] tracking-wide uppercase sm:text-5xl lg:text-6xl">
+          <h1 className="mt-4 font-display text-[1.75rem] leading-[1.12] tracking-wide uppercase sm:text-5xl sm:leading-[1.05] lg:text-6xl">
             Shiply shows what&apos;s listed.
             <span className="mt-2 block text-amber">
               We tell you what to take.
             </span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
             Stop bidding blind. See true profit after Shiply&apos;s cut, empty
             miles, and fuel — then hunt, chain, and plan the haul that actually
             pays.

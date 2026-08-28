@@ -24,6 +24,7 @@ import {
 import { ShiplyConnect } from "@/components/shiply-connect";
 import { RunCorridorStrip } from "@/components/run-corridor-strip";
 import { JobDecisionPanel } from "@/components/job-decision-panel";
+import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build" | "decision";
 type HuntPath = "screenshots" | "shiply";
@@ -416,13 +417,13 @@ export function RunBuilder() {
   return (
     <div className="space-y-10">
       <section>
-        <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+        <p className={typeEyebrow}>
           Build Run
         </p>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+        <h1 className={`mt-2 ${typePageTitle}`}>
           Let the money choose the day
         </h1>
-        <p className="mt-3 max-w-2xl text-lg text-muted">
+        <p className={typePageLead}>
           Shiply shows what&apos;s on the board. Pick a goal — we&apos;ll
           shortlist what to open, fill gaps around booked work, or check whether
           a quote is actually worth it. For live Shiply scans, use{" "}

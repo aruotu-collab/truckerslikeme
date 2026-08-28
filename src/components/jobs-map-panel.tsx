@@ -684,7 +684,7 @@ export function JobsMapPanel() {
                     ? "Chains"
                     : `${visible.length} to review`}
               </h2>
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-1 text-base leading-relaxed text-muted sm:text-sm">
                 {mainTab === "jobs" && jobsLook === "list"
                   ? visible.length > listShown.length
                     ? `Showing ${listShown.length} of ${visible.length} — enter a quote, then Start bidding (→ My Jobs) or hide.`
@@ -710,7 +710,7 @@ export function JobsMapPanel() {
                   type="button"
                   aria-pressed={mainTab === t.id}
                   onClick={() => setMainTab(t.id)}
-                  className={`px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-5 sm:text-xs ${
+                  className={`px-3 py-2.5 text-xs font-semibold tracking-normal uppercase sm:px-5 sm:py-2 sm:text-xs sm:tracking-wide ${
                     mainTab === t.id
                       ? "bg-amber text-asphalt"
                       : "text-asphalt/70 hover:bg-concrete/50"
@@ -724,7 +724,7 @@ export function JobsMapPanel() {
 
           {mainTab === "jobs" && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+              <span className="text-xs font-semibold tracking-normal text-muted uppercase sm:text-[10px] sm:tracking-wide">
                 View
               </span>
               {(

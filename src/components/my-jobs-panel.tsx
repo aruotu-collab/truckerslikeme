@@ -25,6 +25,11 @@ import {
   driverAtJobDrop,
   pruneTodayRunIds,
 } from "@/lib/jobs-today-run";
+import {
+  typeEyebrow,
+  typePageLead,
+  typePageTitle,
+} from "@/lib/typography";
 
 type MyJobsNavTab = MyJobsFilter | "run";
 
@@ -78,7 +83,7 @@ function MyJobsStickyNav({
       aria-label="My Jobs pipeline"
       className="page-sticky-bar -mx-5 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase sm:text-[11px]">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-semibold tracking-normal uppercase sm:text-[11px] sm:tracking-wide">
         {pipeline.map((step, index) => (
           <Fragment key={step.key}>
             {index > 0 ? (
@@ -310,13 +315,13 @@ export function MyJobsPanel() {
   return (
     <div className="space-y-8">
       <section>
-        <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
+        <p className={typeEyebrow}>
           Tracker
         </p>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
+        <h1 className={`mt-2 ${typePageTitle}`}>
           My Jobs
         </h1>
-        <p className="mt-3 max-w-2xl text-lg text-muted">
+        <p className={typePageLead}>
           Your pipeline after you start bidding: Bidding → Won → Today&apos;s
           run → Delivered. New scans stay on{" "}
           <a href="/map" className="font-semibold text-asphalt hover:text-amber">

@@ -1,6 +1,7 @@
 "use client";
 
 import { outlineBtnAlertClass } from "@/lib/ui-buttons";
+import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -303,13 +304,13 @@ export function CourierPlanPanel() {
   return (
     <div className="space-y-8">
       <header className="max-w-2xl">
-        <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
+        <p className={typeEyebrow}>
           Couriers
         </p>
-        <h1 className="mt-2 font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
+        <h1 className={`mt-2 ${typePageTitle}`}>
           Multi-drop day
         </h1>
-        <p className="mt-3 text-base text-muted sm:text-lg">
+        <p className={typePageLead}>
           Snap parcel labels at the depot, build the drop order, then work the
           list from the depot or from where you are now. Mark each drop when
           it&apos;s done — the remaining plan stays live.

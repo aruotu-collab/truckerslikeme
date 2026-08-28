@@ -86,7 +86,7 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
             title={item.title}
             trackEvent="nav"
             trackLabel={item.label}
-            className={`shrink-0 rounded-sm px-2.5 py-2 text-[10px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
+            className={`shrink-0 rounded-sm px-3 py-2.5 text-xs font-semibold tracking-normal uppercase transition sm:px-4 sm:py-2.5 sm:text-sm sm:tracking-wide ${
               active
                 ? "bg-white text-asphalt ring-1 ring-amber"
                 : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -101,7 +101,7 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
           href="/admin"
           trackEvent="nav"
           trackLabel="Admin"
-          className={`shrink-0 rounded-sm px-2.5 py-2 text-[10px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
+          className={`shrink-0 rounded-sm px-3 py-2.5 text-xs font-semibold tracking-normal uppercase transition sm:px-4 sm:py-2.5 sm:text-sm sm:tracking-wide ${
             pathname.startsWith("/admin")
               ? "bg-white text-asphalt ring-1 ring-amber"
               : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -209,7 +209,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             <button
               type="button"
               onClick={() => void signOut()}
-              className="rounded-sm px-2 py-1.5 text-[11px] font-semibold tracking-wide text-white/70 uppercase transition hover:text-white sm:px-2.5 sm:text-sm"
+              className="rounded-sm px-3 py-2 text-xs font-semibold tracking-normal text-white/70 uppercase transition hover:text-white sm:px-2.5 sm:text-sm sm:tracking-wide"
             >
               Sign out
             </button>
@@ -220,7 +220,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
                 trackClick("auth", "Sign in");
                 openGate("join-community");
               }}
-              className="rounded-sm border border-white/25 px-2.5 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:px-3 sm:text-sm"
+              className="rounded-sm border border-white/25 px-3 py-2 text-xs font-semibold tracking-normal text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:px-3 sm:text-sm sm:tracking-wide"
             >
               Sign in
             </button>

@@ -22,7 +22,7 @@ export function JobBidField({
       className={`flex flex-wrap items-center gap-2 ${compact ? "text-xs" : "text-sm"}`}
       onClick={(e) => e.stopPropagation()}
     >
-      <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+      <span className="text-xs font-semibold tracking-normal text-muted uppercase sm:text-[10px] sm:tracking-wide">
         Your quote £
       </span>
       <input
