@@ -12,6 +12,7 @@ import {
   mapStatusMeta,
   readJobsMapState,
   shortPlace,
+  sortJobsByRecent,
   writeJobsMapState,
   type JobsMapDriver,
   type MapJob,
@@ -159,8 +160,14 @@ export function MyJobsPanel() {
   }, [jobs, hydrated]);
 
   const counts = countMyJobs(jobs);
-  const visible = filterMyJobs(jobs, filter);
-  const wonJobs = useMemo(() => filterMyJobs(jobs, "won"), [jobs]);
+  const visible = useMemo(
+    () => sortJobsByRecent(filterMyJobs(jobs, filter)),
+    [jobs, filter],
+  );
+  const wonJobs = useMemo(
+    () => sortJobsByRecent(filterMyJobs(jobs, "won")),
+    [jobs],
+  );
 
   function setStatus(id: string, status: MapJobStatus) {
     const job = jobs.find((j) => j.id === id);

@@ -200,6 +200,17 @@ export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
   return jobs.filter((j) => j.status === "hunting");
 }
 
+/** Most recently touched first (start bidding, quote edit, status change). */
+export function sortJobsByRecent(jobs: MapJob[]): MapJob[] {
+  return [...jobs].sort((a, b) => {
+    const ta = Date.parse(a.updatedAt);
+    const tb = Date.parse(b.updatedAt);
+    const aTime = Number.isFinite(ta) ? ta : 0;
+    const bTime = Number.isFinite(tb) ? tb : 0;
+    return bTime - aTime;
+  });
+}
+
 export function countMyJobs(jobs: MapJob[]) {
   return {
     bidding: filterMyJobs(jobs, "bidding").length,
