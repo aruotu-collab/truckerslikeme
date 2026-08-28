@@ -10,7 +10,6 @@ import {
   filterMyJobs,
   mapStatusMeta,
   readJobsMapState,
-  replaceTodayRunWithJobs,
   shortPlace,
   writeJobsMapState,
   type MapJob,
@@ -111,10 +110,14 @@ export function MyJobsPanel() {
 
   function planAllWonJobs() {
     if (!wonJobs.length) return;
-    const ids = replaceTodayRunWithJobs(wonJobs.map((j) => j.id));
+    const before = todayRunIds.length;
+    const ids = addJobsToTodayRun(wonJobs.map((j) => j.id));
     setTodayRunIds(ids);
+    const added = ids.length - before;
     setRunNote(
-      `Today’s run set to ${ids.length} won job${ids.length === 1 ? "" : "s"}.`,
+      added > 0
+        ? `Added ${added} won job${added === 1 ? "" : "s"} to today's run (${ids.length} total).`
+        : `All won jobs were already in today's run (${ids.length} total).`,
     );
   }
 
@@ -124,7 +127,7 @@ export function MyJobsPanel() {
 
   const emptyCopy =
     filter === "won"
-      ? "When Shiply accepts a bid, mark the job won here — then add it to today's run."
+      ? "When Shiply accepts a bid, mark it won here — then add it to today's run (appends to the queue)."
       : filter === "bidding"
         ? "Jobs land here when you tap Start bidding on the Job Board Hunt tab."
         : filter === "skipped"
@@ -174,14 +177,14 @@ export function MyJobsPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-asphalt">
             {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — add to
-            today&apos;s run when you&apos;re ready to work them.
+            today&apos;s run (appends to any chain you already queued).
           </p>
           <button
             type="button"
             onClick={planAllWonJobs}
             className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
           >
-            Plan all won → today&apos;s run
+            Add all won to run
           </button>
         </div>
       )}

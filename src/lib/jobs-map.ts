@@ -1,3 +1,4 @@
+import { mergeTodayRunIds, replaceTodayRunIds } from "@/lib/jobs-today-run";
 import { resolveUkPlace } from "@/lib/uk-places";
 
 export type MapJobStatus = "hunting" | "bidding" | "won" | "delivered" | "skipped";
@@ -217,17 +218,14 @@ export function writeTodayRunIds(todayRunIds: string[]) {
 
 export function addJobsToTodayRun(jobIds: string[]) {
   const prev = readJobsMapState();
-  let ids = [...(prev.todayRunIds ?? [])];
-  for (const id of jobIds) {
-    if (!ids.includes(id)) ids.push(id);
-  }
+  const ids = mergeTodayRunIds(prev.todayRunIds ?? [], jobIds);
   writeJobsMapState({ ...prev, todayRunIds: ids });
   return ids;
 }
 
 export function replaceTodayRunWithJobs(jobIds: string[]) {
   const prev = readJobsMapState();
-  const ids = [...new Set(jobIds)];
+  const ids = replaceTodayRunIds(jobIds);
   writeJobsMapState({ ...prev, todayRunIds: ids });
   return ids;
 }

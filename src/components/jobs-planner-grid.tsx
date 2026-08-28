@@ -44,7 +44,10 @@ type Props = {
   runOnly?: boolean;
   onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
-  onCommitToTodayRun?: (jobIds: string[]) => void;
+  /** Append a suggested chain to the end of today's run. */
+  onMergeTodayRun?: (jobIds: string[]) => void;
+  /** Replace the entire today's run queue (caller should confirm if non-empty). */
+  onReplaceTodayRun?: (jobIds: string[]) => void;
   onAddJobToTodayRun?: (jobId: string) => void;
   todayRunIds?: string[];
 };
@@ -122,7 +125,8 @@ export function JobsPlannerGrid({
   runOnly = false,
   onMarkWon,
   onSetBid,
-  onCommitToTodayRun,
+  onMergeTodayRun,
+  onReplaceTodayRun,
   onAddJobToTodayRun,
   todayRunIds = [],
 }: Props) {
@@ -196,7 +200,8 @@ export function JobsPlannerGrid({
         mappedJobCount={runBuilder.totalJobs}
         onMarkWon={onMarkWon}
         onSetBid={onSetBid}
-        onCommitToTodayRun={onCommitToTodayRun}
+        onMergeTodayRun={onMergeTodayRun}
+        onReplaceTodayRun={onReplaceTodayRun}
         onAddJobToTodayRun={onAddJobToTodayRun}
         todayRunIds={todayRunIds}
       />
@@ -919,7 +924,8 @@ export function JobsPlannerGrid({
           mappedJobCount={runBuilder.totalJobs}
           onMarkWon={onMarkWon}
           onSetBid={onSetBid}
-          onCommitToTodayRun={onCommitToTodayRun}
+          onMergeTodayRun={onMergeTodayRun}
+          onReplaceTodayRun={onReplaceTodayRun}
           onAddJobToTodayRun={onAddJobToTodayRun}
           todayRunIds={todayRunIds}
         />
@@ -936,7 +942,8 @@ function RunsCompareView({
   mappedJobCount,
   onMarkWon,
   onSetBid,
-  onCommitToTodayRun,
+  onMergeTodayRun,
+  onReplaceTodayRun,
   onAddJobToTodayRun,
   todayRunIds = [],
 }: {
@@ -947,7 +954,8 @@ function RunsCompareView({
   mappedJobCount: number;
   onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
-  onCommitToTodayRun?: (jobIds: string[]) => void;
+  onMergeTodayRun?: (jobIds: string[]) => void;
+  onReplaceTodayRun?: (jobIds: string[]) => void;
   onAddJobToTodayRun?: (jobId: string) => void;
   todayRunIds?: string[];
 }) {
@@ -1289,21 +1297,49 @@ function RunsCompareView({
           <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
             Jobs in this run ({workingPlan.jobs.length})
           </p>
-          {onCommitToTodayRun && workingPlan.jobs.length > 0 && (
-            <button
-              type="button"
-              onClick={() =>
-                onCommitToTodayRun(workingPlan.jobs.map((j) => j.id))
-              }
-              className="rounded-sm bg-asphalt px-4 py-2 text-[11px] font-semibold tracking-wide text-white uppercase"
-            >
-              Use as today&apos;s run
-            </button>
-          )}
+          {workingPlan.jobs.length > 0 &&
+          (onMergeTodayRun || onReplaceTodayRun) ? (
+            <div className="flex flex-wrap gap-2">
+              {todayRunIds.length === 0 && onReplaceTodayRun ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onReplaceTodayRun(workingPlan.jobs.map((j) => j.id))
+                  }
+                  className="rounded-sm bg-asphalt px-4 py-2 text-[11px] font-semibold tracking-wide text-white uppercase"
+                >
+                  Use as today&apos;s run
+                </button>
+              ) : null}
+              {todayRunIds.length > 0 && onMergeTodayRun ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onMergeTodayRun(workingPlan.jobs.map((j) => j.id))
+                  }
+                  className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
+                >
+                  Add chain to run
+                </button>
+              ) : null}
+              {todayRunIds.length > 0 && onReplaceTodayRun ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onReplaceTodayRun(workingPlan.jobs.map((j) => j.id))
+                  }
+                  className="rounded-sm border border-asphalt/20 bg-white px-4 py-2 text-[11px] font-semibold tracking-wide uppercase"
+                >
+                  Replace today&apos;s run
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <p className="mt-1 text-xs text-muted">
-          Enter quotes, bid on Shiply, mark wins — or push this whole chain into
-          Today&apos;s run to manage the day there.
+          {todayRunIds.length > 0
+            ? "Add this chain to the end of today's run, or replace the whole queue. Jobs stay in My Jobs either way."
+            : "Set this chain as today's run queue — add won jobs from My Jobs later without losing them."}
         </p>
         <ul className="mt-3 divide-y divide-asphalt/10 border border-asphalt/10">
           {workingPlan.jobs.map((job, i) => {

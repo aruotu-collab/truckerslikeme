@@ -35,8 +35,10 @@ import {
 import {
   appendTodayRunId,
   driverAtJobDrop,
+  mergeTodayRunIds,
   orderTodayRun,
   pruneTodayRunIds,
+  replaceTodayRunIds,
 } from "@/lib/jobs-today-run";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
@@ -360,6 +362,20 @@ export function JobsMapPanel() {
 
   function removeFromTodayRun(id: string) {
     setTodayRunIds((ids) => ids.filter((x) => x !== id));
+  }
+
+  function mergeChainToTodayRun(ids: string[]) {
+    setTodayRunIds((prev) => mergeTodayRunIds(prev, ids));
+  }
+
+  function replaceTodayRun(ids: string[]) {
+    if (todayRunIds.length > 0) {
+      const ok = window.confirm(
+        `Replace today's run (${todayRunIds.length} job${todayRunIds.length === 1 ? "" : "s"}) with this ${ids.length}-job chain?\n\nJobs already in the queue will leave today's run but stay in My Jobs.`,
+      );
+      if (!ok) return;
+    }
+    setTodayRunIds(replaceTodayRunIds(ids));
   }
 
   function focusBoardJob(id: string) {
@@ -752,7 +768,7 @@ export function JobsMapPanel() {
                     : "Enter a quote, then Start bidding to track in My Jobs — or hide / add to today's run."
                   : mainTab === "jobs"
                     ? "Considering jobs only — bidding jobs live in My Jobs."
-                    : "Pick a chain, then Use as today's run to bid and win from the yellow bar."}
+                    : "Pick a chain — add it to today's run or replace the queue if you're replanning."}
               </p>
             </div>
             <div
@@ -1011,8 +1027,10 @@ export function JobsMapPanel() {
         {mainTab === "run" && (
           <div className="space-y-3">
             <p className="border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
-              These are suggestions only. Push one into Today&apos;s run to work
-              your bid/win queue.
+              Suggested chains are a plan only.{" "}
+              <strong className="font-semibold">Add chain to run</strong> appends
+              to today&apos;s queue; won jobs from My Jobs are kept unless you
+              choose Replace.
             </p>
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
@@ -1031,11 +1049,8 @@ export function JobsMapPanel() {
               onSetBid={setMyBid}
               todayRunIds={todayRunIds}
               onAddJobToTodayRun={addToTodayRun}
-              onCommitToTodayRun={(ids) => {
-                setTodayRunIds(ids);
-                setMainTab("jobs");
-                setJobsLook("list");
-              }}
+              onMergeTodayRun={mergeChainToTodayRun}
+              onReplaceTodayRun={replaceTodayRun}
             />
           </div>
         )}

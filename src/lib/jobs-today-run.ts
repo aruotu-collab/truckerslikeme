@@ -82,6 +82,24 @@ export function appendTodayRunId(ids: string[], jobId: string): string[] {
   return [...ids, jobId];
 }
 
+/** Append new ids to the end — keeps existing queue order. */
+export function mergeTodayRunIds(existing: string[], incoming: string[]): string[] {
+  const seen = new Set(existing);
+  const merged = [...existing];
+  for (const id of incoming) {
+    if (!seen.has(id)) {
+      merged.push(id);
+      seen.add(id);
+    }
+  }
+  return merged;
+}
+
+/** Replace the whole queue with a new ordered list. */
+export function replaceTodayRunIds(incoming: string[]): string[] {
+  return [...new Set(incoming)];
+}
+
 /** Same origin/destination as a job already in today's run (duplicate Shiply listings). */
 export function jobRouteKey(job: Pick<MapJob, "origin" | "destination">): string {
   const o = placeKey(job.origin);

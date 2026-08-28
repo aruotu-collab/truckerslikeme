@@ -100,7 +100,7 @@ export function TodayRunBar({
             title={chain.length > 0 ? pathLabel : undefined}
           >
             {chain.length === 0
-              ? "No jobs in the chain yet — add from Hunt, Suggested, or Won in My Jobs."
+              ? "No jobs queued yet — add from Hunt, Suggested (add chain), or My Jobs → Won."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -309,8 +309,12 @@ export function TodayRunBar({
           )}
 
           <p className="mt-2 text-[11px] text-muted">
-            Today&apos;s run is your bid/win queue for the day. Add jobs from Hunt
-            or Suggested, mark wins here, or move won jobs from My Jobs.
+            One ordered queue for the day. Hunt and My Jobs won{" "}
+            <strong className="font-normal text-asphalt">add</strong> jobs;
+            Suggested can{" "}
+            <strong className="font-normal text-asphalt">add a chain</strong> or{" "}
+            <strong className="font-normal text-asphalt">replace</strong> the
+            whole queue if you replan.
           </p>
         </>
       )}
