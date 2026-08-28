@@ -194,7 +194,7 @@ export function BoardJobCard({
             {next.job.href ? (
               <ShiplyLink
                 href={next.job.href}
-                className="text-[10px] font-semibold tracking-wide text-amber uppercase"
+                className="rounded-sm border border-asphalt/20 bg-white px-2.5 py-1 text-[10px] font-semibold tracking-wide text-amber uppercase hover:border-amber/50 hover:bg-amber/5"
               >
                 Shiply →
               </ShiplyLink>
@@ -216,7 +216,7 @@ export function BoardJobCard({
         {job.href ? (
           <ShiplyLink
             href={job.href}
-            className="text-[11px] font-semibold tracking-wide text-amber uppercase"
+            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide text-amber uppercase hover:border-amber/50 hover:bg-amber/5"
           >
             Shiply →
           </ShiplyLink>
@@ -225,7 +225,7 @@ export function BoardJobCard({
           <button
             type="button"
             onClick={onHide}
-            className="text-[11px] font-semibold tracking-wide text-muted uppercase hover:text-asphalt"
+            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide text-muted uppercase hover:border-asphalt/40 hover:text-asphalt"
           >
             Hide
           </button>
