@@ -57,7 +57,7 @@ type JobBoardIngestProps = {
 export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIngestProps) {
   const { isSignedIn, openGate, loading: authLoading } = useAuthGate();
   const awaitingConnect = useRef(false);
-  const [tab, setTab] = useState<IngestTab>("screenshot");
+  const [tab, setTab] = useState<IngestTab>("scan");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coach, setCoach] = useState<string | null>(null);
@@ -409,9 +409,9 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       >
         {(
           [
+            { id: "scan" as const, label: "Live scan" },
             { id: "screenshot" as const, label: "Screenshots" },
             { id: "manual" as const, label: "Manual" },
-            { id: "scan" as const, label: "Live scan" },
           ] as const
         ).map((t) => (
           <button
