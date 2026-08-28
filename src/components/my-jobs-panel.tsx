@@ -25,88 +25,111 @@ import {
   pruneTodayRunIds,
 } from "@/lib/jobs-today-run";
 
-const FILTERS: { id: MyJobsFilter; label: string }[] = [
-  { id: "bidding", label: "Bidding" },
-  { id: "won", label: "Won" },
-  { id: "delivered", label: "Delivered" },
-  { id: "skipped", label: "Hidden" },
-];
+type MyJobsNavTab = MyJobsFilter | "run";
 
-function isMyJobsFilter(v: string | null): v is MyJobsFilter {
+function isMyJobsNavTab(v: string | null): v is MyJobsNavTab {
   return (
     v === "bidding" ||
     v === "won" ||
-    v === "considering" ||
     v === "delivered" ||
-    v === "skipped"
+    v === "skipped" ||
+    v === "run"
   );
 }
 
-function JobPipelineStrip({
+function MyJobsStickyNav({
   counts,
   todayRunCount,
-  onSelectFilter,
+  activeTab,
+  onSelectTab,
   onScrollToRun,
 }: {
   counts: ReturnType<typeof countMyJobs>;
   todayRunCount: number;
-  onSelectFilter: (f: MyJobsFilter) => void;
+  activeTab: MyJobsNavTab;
+  onSelectTab: (tab: MyJobsFilter) => void;
   onScrollToRun: () => void;
 }) {
-  const steps: {
+  const pipeline: {
     key: MyJobsFilter | "run" | "board";
     label: string;
     count: number;
   }[] = [
-    { key: "board", label: "On Job Board", count: counts.considering },
+    { key: "board", label: "Job Board", count: counts.considering },
     { key: "bidding", label: "Bidding", count: counts.bidding },
     { key: "won", label: "Won", count: counts.won },
     { key: "run", label: "Today's run", count: todayRunCount },
     { key: "delivered", label: "Delivered", count: counts.delivered },
   ];
 
+  function tabClass(active: boolean, run = false) {
+    if (active && run) {
+      return "border-amber bg-amber/15 text-asphalt ring-1 ring-amber/40";
+    }
+    if (active) {
+      return "bg-amber text-asphalt ring-1 ring-amber/40";
+    }
+    return "border border-asphalt/15 bg-white text-asphalt hover:border-amber";
+  }
+
   return (
-    <div
-      className="flex flex-wrap items-center gap-1.5 border border-asphalt/10 bg-white px-4 py-3 text-[10px] font-semibold tracking-wide uppercase"
-      aria-label="Job pipeline"
+    <nav
+      aria-label="My Jobs pipeline"
+      className="page-sticky-bar -mx-5 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8"
     >
-      {steps.map((step, index) => (
-        <Fragment key={step.key}>
-          {index > 0 ? (
-            <span className="text-muted" aria-hidden>
-              →
-            </span>
-          ) : null}
-          {step.key === "run" ? (
-            <button
-              type="button"
-              onClick={onScrollToRun}
-              className="rounded-sm border border-amber/40 bg-amber/10 px-2.5 py-1 text-asphalt hover:border-amber"
-            >
-              {step.label}
-              <span className="ml-1 opacity-70">{step.count}</span>
-            </button>
-          ) : step.key === "board" ? (
-            <a
-              href="/map"
-              className="rounded-sm border border-asphalt/10 px-2.5 py-1 text-asphalt hover:border-amber/50"
-            >
-              {step.label}
-              <span className="ml-1 opacity-70">{step.count}</span>
-            </a>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onSelectFilter(step.key as MyJobsFilter)}
-              className="rounded-sm border border-asphalt/10 px-2.5 py-1 text-asphalt hover:border-amber/50"
-            >
-              {step.label}
-              <span className="ml-1 opacity-70">{step.count}</span>
-            </button>
-          )}
-        </Fragment>
-      ))}
-    </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase sm:text-[11px]">
+        {pipeline.map((step, index) => (
+          <Fragment key={step.key}>
+            {index > 0 ? (
+              <span className="text-muted" aria-hidden>
+                →
+              </span>
+            ) : null}
+            {step.key === "board" ? (
+              <a
+                href="/map"
+                className={`shrink-0 rounded-sm px-2.5 py-2 sm:px-3 ${tabClass(false)}`}
+              >
+                {step.label}
+                <span className="ml-1 opacity-70">{step.count}</span>
+              </a>
+            ) : step.key === "run" ? (
+              <button
+                type="button"
+                onClick={onScrollToRun}
+                aria-current={activeTab === "run" ? "page" : undefined}
+                className={`shrink-0 rounded-sm px-2.5 py-2 sm:px-3 ${tabClass(activeTab === "run", true)}`}
+              >
+                {step.label}
+                <span className="ml-1 opacity-70">{step.count}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onSelectTab(step.key as MyJobsFilter)}
+                aria-current={activeTab === step.key ? "page" : undefined}
+                className={`shrink-0 rounded-sm px-2.5 py-2 sm:px-3 ${tabClass(activeTab === step.key)}`}
+              >
+                {step.label}
+                <span className="ml-1 opacity-70">{step.count}</span>
+              </button>
+            )}
+          </Fragment>
+        ))}
+        <span className="mx-0.5 text-muted" aria-hidden>
+          ·
+        </span>
+        <button
+          type="button"
+          onClick={() => onSelectTab("skipped")}
+          aria-current={activeTab === "skipped" ? "page" : undefined}
+          className={`shrink-0 rounded-sm px-2.5 py-2 sm:px-3 ${tabClass(activeTab === "skipped")}`}
+        >
+          Hidden
+          <span className="ml-1 opacity-70">{counts.skipped}</span>
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -116,7 +139,7 @@ export function MyJobsPanel() {
   const [todayRunIds, setTodayRunIds] = useState<string[]>([]);
   const [home, setHome] = useState<JobsMapDriver | null>(null);
   const [driver, setDriver] = useState<JobsMapDriver | null>(null);
-  const [filter, setFilter] = useState<MyJobsFilter>("bidding");
+  const [navTab, setNavTab] = useState<MyJobsNavTab>("bidding");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [runNote, setRunNote] = useState<string | null>(null);
@@ -134,7 +157,7 @@ export function MyJobsPanel() {
         window.location.replace("/map");
         return;
       }
-      if (isMyJobsFilter(tab)) setFilter(tab);
+      if (isMyJobsNavTab(tab)) setNavTab(tab);
     }
     setHydrated(true);
   }, []);
@@ -160,9 +183,13 @@ export function MyJobsPanel() {
   }, [jobs, hydrated]);
 
   const counts = countMyJobs(jobs);
+  const listTab = navTab === "run" ? null : navTab;
   const visible = useMemo(
-    () => sortJobsByRecent(filterMyJobs(jobs, filter)),
-    [jobs, filter],
+    () =>
+      listTab
+        ? sortJobsByRecent(filterMyJobs(jobs, listTab))
+        : [],
+    [jobs, listTab],
   );
   const wonJobs = useMemo(
     () => sortJobsByRecent(filterMyJobs(jobs, "won")),
@@ -245,9 +272,18 @@ export function MyJobsPanel() {
   }
 
   function scrollToTodayRun() {
-    document
-      .getElementById("today-run-bar")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setNavTab("run");
+    setRunNote(null);
+    window.setTimeout(() => {
+      document
+        .getElementById("today-run-bar")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
+  function selectListTab(tab: MyJobsFilter) {
+    setNavTab(tab);
+    setRunNote(null);
   }
 
   const pendingRemoveJob = pendingRemoveId
@@ -255,13 +291,13 @@ export function MyJobsPanel() {
     : null;
 
   const emptyCopy =
-    filter === "won"
+    listTab === "won"
       ? "When Shiply accepts a bid, mark it won here — it lands in Today's run automatically."
-      : filter === "bidding"
+      : listTab === "bidding"
         ? "Jobs land here when you tap Start bidding on Job Board (Hunt or Chains)."
-        : filter === "skipped"
+        : listTab === "skipped"
           ? "Hidden jobs land here — restore one to bid again, or remove it for good."
-          : filter === "delivered"
+          : listTab === "delivered"
             ? "Mark a won job delivered when you've dropped it — they'll show here."
             : "Nothing in this tab.";
 
@@ -286,13 +322,11 @@ export function MyJobsPanel() {
 
       {hydrated ? (
         <>
-          <JobPipelineStrip
+          <MyJobsStickyNav
             counts={counts}
             todayRunCount={todayRunIds.length}
-            onSelectFilter={(f) => {
-              setFilter(f);
-              setRunNote(null);
-            }}
+            activeTab={navTab}
+            onSelectTab={selectListTab}
             onScrollToRun={scrollToTodayRun}
           />
 
@@ -314,28 +348,7 @@ export function MyJobsPanel() {
         </>
       ) : null}
 
-      <div className="page-sticky-bar -mx-5 flex min-w-0 flex-wrap gap-2 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => {
-              setFilter(f.id);
-              setRunNote(null);
-            }}
-            className={`rounded-sm px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-4 sm:py-2.5 sm:text-xs ${
-              filter === f.id
-                ? "bg-amber text-asphalt"
-                : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
-            }`}
-          >
-            {f.label}
-            <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
-          </button>
-        ))}
-      </div>
-
-      {filter === "won" && wonJobs.length > 0 && (
+      {listTab === "won" && wonJobs.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-asphalt">
             {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — new wins
@@ -363,7 +376,7 @@ export function MyJobsPanel() {
 
       {!hydrated ? (
         <p className="text-sm text-muted">Loading your jobs…</p>
-      ) : !visible.length ? (
+      ) : navTab === "run" ? null : !visible.length ? (
         <div className="border border-asphalt/10 bg-white px-5 py-8 text-center">
           <p className="font-display text-lg tracking-wide text-asphalt uppercase">
             Nothing here yet
@@ -414,9 +427,9 @@ export function MyJobsPanel() {
                   </div>
                 </button>
 
-                {filter !== "won" &&
-                  filter !== "skipped" &&
-                  filter !== "delivered" && (
+                {listTab !== "won" &&
+                  listTab !== "skipped" &&
+                  listTab !== "delivered" && (
                     <div className="mt-3">
                       <JobBidField
                         value={job.myBid}
@@ -426,11 +439,11 @@ export function MyJobsPanel() {
                     </div>
                   )}
 
-                {(filter === "won" || filter === "delivered") &&
+                {(listTab === "won" || listTab === "delivered") &&
                   job.myBid != null &&
                   job.myBid > 0 && (
                     <p className="mt-2 text-sm font-medium text-asphalt">
-                      {filter === "delivered" ? "Done at" : "Won at"}{" "}
+                      {listTab === "delivered" ? "Done at" : "Won at"}{" "}
                       {money(job.myBid)}
                       {job.miles != null && job.miles > 0
                         ? ` · ${money(job.myBid / job.miles)}/mi`
@@ -438,7 +451,7 @@ export function MyJobsPanel() {
                     </p>
                   )}
 
-                {filter === "skipped" && job.myBid != null && job.myBid > 0 && (
+                {listTab === "skipped" && job.myBid != null && job.myBid > 0 && (
                   <p className="mt-2 text-sm text-muted">
                     Last quote {money(job.myBid)}
                     {job.miles != null && job.miles > 0
@@ -448,7 +461,7 @@ export function MyJobsPanel() {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {filter === "skipped" && (
+                  {listTab === "skipped" && (
                     <>
                       <button
                         type="button"
@@ -475,7 +488,7 @@ export function MyJobsPanel() {
                     </>
                   )}
 
-                  {filter === "delivered" && (
+                  {listTab === "delivered" && (
                     <>
                       <button
                         type="button"
@@ -502,7 +515,7 @@ export function MyJobsPanel() {
                     </>
                   )}
 
-                  {filter === "won" && (
+                  {listTab === "won" && (
                     <>
                       {!inRun ? (
                         <button
@@ -556,9 +569,9 @@ export function MyJobsPanel() {
                     </>
                   )}
 
-                  {filter !== "won" &&
-                    filter !== "skipped" &&
-                    filter !== "delivered" && (
+                  {listTab !== "won" &&
+                    listTab !== "skipped" &&
+                    listTab !== "delivered" && (
                       <>
                         {job.href ? (
                           <ShiplyLink

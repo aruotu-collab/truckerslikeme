@@ -79,7 +79,7 @@ export function TodayRunBar({
   return (
     <section
       id="today-run-bar"
-      className="min-w-0 border border-amber/50 bg-[#fff8e8] px-3 py-3 sm:px-5"
+      className="scroll-mt-[calc(var(--site-header-h)+3.5rem)] min-w-0 border border-amber/50 bg-[#fff8e8] px-3 py-3 sm:px-5"
     >
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
