@@ -1,5 +1,7 @@
 "use client";
 
+import { postAnalyticsBeacon } from "@/lib/analytics-beacon";
+
 function readCountryCookie(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)tlm_ip_country=([A-Z]{2})/);
@@ -20,17 +22,12 @@ export function trackClick(
       ? document.referrer.slice(0, 500)
       : null;
 
-  void fetch("/api/clicks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      event: eventName,
-      label,
-      path,
-      country,
-      referrer,
-      userId: opts?.userId ?? null,
-    }),
-    keepalive: true,
+  void postAnalyticsBeacon("/api/clicks", {
+    event: eventName,
+    label,
+    path,
+    country,
+    referrer,
+    userId: opts?.userId ?? null,
   });
 }

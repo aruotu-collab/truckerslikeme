@@ -210,11 +210,16 @@ export function AdminDashboard({
       </div>
 
       {(data.errors?.visits || data.errors?.analytics) && (
-        <p className="mt-4 text-sm text-muted">
-          Analytics need{" "}
-          <code className="text-asphalt">schema-analytics.sql</code> run in
-          Supabase. Until then, visit counts may work but top pages / clicks /
-          countries need the migration.
+        <p className="mt-4 border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
+          First-party analytics need{" "}
+          <code className="text-asphalt">supabase/schema-analytics.sql</code>{" "}
+          run in the Supabase SQL editor (top pages, countries, clicks, member vs
+          guest split). Visit totals still work without it, but{" "}
+          {data.errors?.analytics
+            ? "those breakdowns are empty until the migration runs."
+            : "check Vercel has SUPABASE_SERVICE_ROLE_KEY if new visits stay at 0."}{" "}
+          Google Analytics is separate — it counts more traffic (bots, no-JS) than
+          this dashboard.
         </p>
       )}
 

@@ -30,9 +30,12 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    if (!admin) return NextResponse.json({ ok: true });
+    if (!admin) {
+      console.error("[clicks] SUPABASE_SERVICE_ROLE_KEY missing — click not recorded");
+      return NextResponse.json({ ok: false, reason: "no_admin_client" }, { status: 503 });
+    }
 
-    await admin.from("click_events").insert({
+    const { error: insertError } = await admin.from("click_events").insert({
       event_name: eventName,
       label,
       path,
@@ -42,8 +45,14 @@ export async function POST(request: Request) {
       ip_hash: meta.ipHash,
     });
 
+    if (insertError) {
+      console.error("[clicks] insert failed:", insertError.message);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[clicks] unexpected error:", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

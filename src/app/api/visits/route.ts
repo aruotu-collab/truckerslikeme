@@ -26,9 +26,12 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    if (!admin) return NextResponse.json({ ok: true });
+    if (!admin) {
+      console.error("[visits] SUPABASE_SERVICE_ROLE_KEY missing — visit not recorded");
+      return NextResponse.json({ ok: false, reason: "no_admin_client" }, { status: 503 });
+    }
 
-    await admin.from("page_visits").insert({
+    const { error: insertError } = await admin.from("page_visits").insert({
       path,
       country,
       user_id: userId,
@@ -36,15 +39,30 @@ export async function POST(request: Request) {
       ip_hash: meta.ipHash,
     });
 
+    if (insertError) {
+      // Older DBs may only have path + visited_at until schema-analytics.sql runs.
+      const { error: fallbackError } = await admin
+        .from("page_visits")
+        .insert({ path });
+      if (fallbackError) {
+        console.error("[visits] insert failed:", insertError.message, fallbackError.message);
+        return NextResponse.json({ ok: false }, { status: 500 });
+      }
+    }
+
     if (userId) {
-      await admin
+      const { error: profileError } = await admin
         .from("profiles")
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", userId);
+      if (profileError) {
+        console.warn("[visits] last_seen_at update failed:", profileError.message);
+      }
     }
 
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[visits] unexpected error:", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

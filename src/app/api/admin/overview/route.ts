@@ -178,6 +178,7 @@ export async function GET() {
         topPagesRes.error?.message ??
         topCountriesRes.error?.message ??
         topClicksRes.error?.message ??
+        visitSplitRes.error?.message ??
         null,
     },
   });

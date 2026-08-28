@@ -1,30 +1,46 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { useAuthGate } from "@/lib/auth-gate";
+import { postAnalyticsBeacon } from "@/lib/analytics-beacon";
 
 function readCountryCookie(): string | null {
   const match = document.cookie.match(/(?:^|;\s*)tlm_ip_country=([A-Z]{2})/);
   return match?.[1] ?? null;
 }
 
-/** Page visit beacon for admin traffic stats. */
+function visitDedupeKey(pathname: string): string {
+  return `tlm-visit:${pathname}:${new Date().toDateString()}`;
+}
+
+function wasVisitRecorded(key: string): boolean {
+  try {
+    return sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markVisitRecorded(key: string): void {
+  try {
+    sessionStorage.setItem(key, "1");
+  } catch {
+    // private mode / storage blocked — skip dedupe persistence
+  }
+}
+
+/** Page visit beacon for admin traffic stats (desktop + mobile). */
 export function VisitBeacon() {
   const pathname = usePathname();
-  const { user } = useAuthGate();
+  const inflight = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!pathname) return;
-    if (pathname.startsWith("/api")) return;
+    if (!pathname || pathname.startsWith("/api")) return;
 
-    const key = `tlm-visit:${pathname}:${new Date().toDateString()}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {
-      // ignore
-    }
+    const key = visitDedupeKey(pathname);
+    if (wasVisitRecorded(key)) return;
+    if (inflight.current === key) return;
+    inflight.current = key;
 
     const country = readCountryCookie();
     const referrer =
@@ -32,18 +48,37 @@ export function VisitBeacon() {
         ? document.referrer.slice(0, 500)
         : null;
 
-    void fetch("/api/visits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: pathname,
-        country,
-        referrer,
-        userId: user?.id ?? null,
-      }),
-      keepalive: true,
-    });
-  }, [pathname, user?.id]);
+    const payload = { path: pathname, country, referrer };
+
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    async function record(attempt: number) {
+      const ok = await postAnalyticsBeacon("/api/visits", payload);
+      if (cancelled) return;
+
+      if (ok) {
+        markVisitRecorded(key);
+        inflight.current = null;
+        return;
+      }
+
+      // Mobile networks / background tabs — retry once before giving up.
+      if (attempt < 1) {
+        retryTimer = setTimeout(() => void record(attempt + 1), 2000);
+        return;
+      }
+
+      inflight.current = null;
+    }
+
+    void record(0);
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [pathname]);
 
   return null;
 }
