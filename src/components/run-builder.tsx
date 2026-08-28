@@ -25,6 +25,7 @@ import { ShiplyConnect } from "@/components/shiply-connect";
 import { RunCorridorStrip } from "@/components/run-corridor-strip";
 import { JobDecisionPanel } from "@/components/job-decision-panel";
 import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build" | "decision";
 type HuntPath = "screenshots" | "shiply";
@@ -112,6 +113,7 @@ export function RunBuilder() {
   const [shiplySessionId, setShiplySessionId] = useState<string | null>(null);
   const [detailsFromShiply, setDetailsFromShiply] = useState(false);
   const [followUp, setFollowUp] = useState<RunFollowUp>("best");
+  const [geoBusy, setGeoBusy] = useState(false);
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -134,6 +136,34 @@ export function RunBuilder() {
 
   function update<K extends keyof RunPrefs>(key: K, value: RunPrefs[K]) {
     setPrefs((p) => ({ ...p, [key]: value }));
+  }
+
+  async function useCurrentLocation() {
+    setError(null);
+    if (!navigator.geolocation) {
+      setError("Location isn’t available in this browser.");
+      return;
+    }
+    setGeoBusy(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15_000,
+          maximumAge: 60_000,
+        });
+      });
+      const { reverseGeocodePlace } = await import("@/lib/reverse-geocode");
+      const place = await reverseGeocodePlace(
+        pos.coords.latitude,
+        pos.coords.longitude,
+      );
+      update("start", place.label);
+    } catch {
+      setError("Couldn’t read your location. Type a town instead.");
+    } finally {
+      setGeoBusy(false);
+    }
   }
 
   function clearPendingResults() {
@@ -486,17 +516,28 @@ export function RunBuilder() {
             {modeCopy(prefs.mode).body}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
+            <div className="block">
               <span className="text-xs tracking-wide text-muted uppercase">
                 Starting from
               </span>
-              <input
-                value={prefs.start}
-                onChange={(e) => update("start", e.target.value)}
-                placeholder="Birmingham"
-                className="mt-1 w-full rounded-sm border border-asphalt/15 px-3 py-2.5"
-              />
-            </label>
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={prefs.start}
+                  onChange={(e) => update("start", e.target.value)}
+                  placeholder="Birmingham"
+                  className="w-full flex-1 rounded-sm border border-asphalt/15 px-3 py-2.5"
+                />
+                <button
+                  type="button"
+                  disabled={geoBusy}
+                  onClick={() => void useCurrentLocation()}
+                  title="Use current location"
+                  className={`${outlineBtnClass("amber")} shrink-0 disabled:opacity-60`}
+                >
+                  {geoBusy ? "Locating…" : "Use my location"}
+                </button>
+              </div>
+            </div>
             <label className="block">
               <span className="text-xs tracking-wide text-muted uppercase">
                 Available from
