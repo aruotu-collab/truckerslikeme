@@ -101,7 +101,6 @@ export function JobsMapPanel() {
   const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
-  const [setupOpen, setSetupOpen] = useState(true);
   const hiddenSectionRef = useRef<HTMLDetailsElement | null>(null);
   const hideUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -125,15 +124,6 @@ export function JobsMapPanel() {
     if (!hydrated) return;
     writeJobsMapState({ jobs, driver, home, todayRunIds });
   }, [jobs, driver, home, todayRunIds, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (sessionId || scanned.length > 0) {
-      setSetupOpen(true);
-      return;
-    }
-    if (driver?.label?.trim()) setSetupOpen(false);
-  }, [hydrated, sessionId, scanned.length, driver?.label]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -536,7 +526,7 @@ export function JobsMapPanel() {
         </div>
       </header>
 
-      {/* Compact start + Shiply — collapsed when ready so the board stays above the fold */}
+      {/* Start location + Shiply — always open */}
       <section className="border border-asphalt/10 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4">
           <div className="min-w-0 flex-1 text-sm text-asphalt">
@@ -552,33 +542,9 @@ export function JobsMapPanel() {
               <span className="ml-2 text-xs text-amber">· Shiply connected</span>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {enabled && !sessionId && !setupOpen ? (
-              <button
-                type="button"
-                disabled={busy || !startReady}
-                onClick={() => {
-                  setSetupOpen(true);
-                  void startSession();
-                }}
-                className="rounded-sm bg-asphalt px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase disabled:opacity-50"
-              >
-                Connect Shiply →
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setSetupOpen((v) => !v)}
-              className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
-              aria-expanded={setupOpen}
-            >
-              {setupOpen ? "Hide setup ▲" : "Setup ▼"}
-            </button>
-          </div>
         </div>
 
-        {setupOpen ? (
-          <div className="space-y-4 border-t border-asphalt/10 px-3 py-4 sm:px-4">
+        <div className="space-y-4 border-t border-asphalt/10 px-3 py-4 sm:px-4">
             <div className="space-y-2">
               <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
                 Where are you starting?
@@ -767,8 +733,7 @@ export function JobsMapPanel() {
 
               {error && <p className="text-sm text-alert">{error}</p>}
             </div>
-          </div>
-        ) : null}
+        </div>
       </section>
 
       {/* Hunt | Suggested — sticky under site header */}
