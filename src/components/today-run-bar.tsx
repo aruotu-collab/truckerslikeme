@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
@@ -101,7 +100,7 @@ export function TodayRunBar({
             title={chain.length > 0 ? pathLabel : undefined}
           >
             {chain.length === 0
-              ? "No jobs in the chain yet — add from Hunt, Suggested, or My Jobs → Won."
+              ? "No jobs in the chain yet — add from Hunt, Suggested, or Won in My Jobs."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -138,12 +137,6 @@ export function TodayRunBar({
               Reset to home
             </button>
           )}
-          <Link
-            href="/jobs?tab=won"
-            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
-          >
-            My Jobs →
-          </Link>
           <button
             type="button"
             onClick={onOpenRun}
@@ -316,22 +309,8 @@ export function TodayRunBar({
           )}
 
           <p className="mt-2 text-[11px] text-muted">
-            Today&apos;s run is your bid/win queue. Push a chain from{" "}
-            <button
-              type="button"
-              onClick={onOpenRun}
-              className="font-semibold text-amber uppercase hover:text-asphalt"
-            >
-              Suggested →
-            </button>{" "}
-            or manage wins on{" "}
-            <Link
-              href="/jobs?tab=won"
-              className="font-semibold text-amber hover:text-asphalt"
-            >
-              My Jobs → Won
-            </Link>
-            .
+            Today&apos;s run is your bid/win queue for the day. Add jobs from Hunt
+            or Suggested, mark wins here, or move won jobs from My Jobs.
           </p>
         </>
       )}

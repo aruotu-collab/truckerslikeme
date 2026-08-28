@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
@@ -107,7 +106,7 @@ export function MyJobsPanel() {
   function addWonToTodayRun(id: string) {
     const ids = addJobsToTodayRun([id]);
     setTodayRunIds(ids);
-    setRunNote("Added to today’s run on Job Board.");
+    setRunNote("Added to today's run.");
   }
 
   function planAllWonJobs() {
@@ -125,14 +124,14 @@ export function MyJobsPanel() {
 
   const emptyCopy =
     filter === "won"
-      ? "When Shiply accepts a bid, mark the job as won here — then add it to today’s run."
+      ? "When Shiply accepts a bid, mark the job won here — then add it to today's run."
       : filter === "bidding"
-        ? "Enter your quote on the Job Board — they appear here when you're bidding."
+        ? "Jobs land here when you tap Start bidding on the Job Board Hunt tab."
         : filter === "skipped"
           ? "Hidden jobs land here — restore one to bid again, or remove it for good."
           : filter === "delivered"
-            ? "Mark a won job delivered when you’ve dropped it — they’ll show here."
-            : "Scan Shiply on the Job Board and add jobs first.";
+            ? "Mark a won job delivered when you've dropped it — they'll show here."
+            : "New scans appear here as Considering — evaluate on Job Board Hunt first.";
 
   return (
     <div className="space-y-8">
@@ -144,62 +143,46 @@ export function MyJobsPanel() {
           My Jobs
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Follow each job from Considering → Bidding → Won → Delivered. Add won
-          jobs to Today&apos;s run on the Job Board when you&apos;re ready to
-          work them.
+          Track each job: Considering → Bidding → Won → Delivered. Use Job Board
+          Hunt to evaluate new scans; start bidding here when you&apos;re ready
+          to chase a quote on Shiply.
         </p>
       </section>
 
-      <div className="page-sticky-bar -mx-5 flex min-w-0 flex-col gap-2 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:flex-row sm:flex-wrap sm:items-center sm:px-8">
-        <div className="flex min-w-0 flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => {
-                setFilter(f.id);
-                setRunNote(null);
-              }}
-              className={`rounded-sm px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-4 sm:py-2.5 sm:text-xs ${
-                filter === f.id
-                  ? "bg-amber text-asphalt"
-                  : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
-              }`}
-            >
-              {f.label}
-              <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
-            </button>
-          ))}
-        </div>
-        <Link
-          href="/map"
-          className="w-full rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-center text-[11px] font-semibold tracking-wide text-asphalt uppercase hover:border-amber sm:ml-auto sm:w-auto sm:text-xs"
-        >
-          Open Job Board →
-        </Link>
+      <div className="page-sticky-bar -mx-5 flex min-w-0 flex-wrap gap-2 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => {
+              setFilter(f.id);
+              setRunNote(null);
+            }}
+            className={`rounded-sm px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-4 sm:py-2.5 sm:text-xs ${
+              filter === f.id
+                ? "bg-amber text-asphalt"
+                : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
+            }`}
+          >
+            {f.label}
+            <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
+          </button>
+        ))}
       </div>
 
       {filter === "won" && wonJobs.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-asphalt">
-            {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — chain
-            them into today&apos;s run on Job Board.
+            {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — add to
+            today&apos;s run when you&apos;re ready to work them.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={planAllWonJobs}
-              className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
-            >
-              Plan all won → today&apos;s run
-            </button>
-            <Link
-              href="/map"
-              className="rounded-sm border border-asphalt/20 bg-white px-4 py-2 text-xs font-semibold tracking-wide uppercase"
-            >
-              Open today&apos;s run →
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={planAllWonJobs}
+            className="rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
+          >
+            Plan all won → today&apos;s run
+          </button>
         </div>
       )}
 
@@ -208,10 +191,7 @@ export function MyJobsPanel() {
           role="status"
           className="border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm text-asphalt"
         >
-          {runNote}{" "}
-          <Link href="/map" className="font-semibold text-amber hover:text-asphalt">
-            Open Job Board →
-          </Link>
+          {runNote}
         </p>
       )}
 
@@ -223,12 +203,6 @@ export function MyJobsPanel() {
             Nothing here yet
           </p>
           <p className="mt-2 text-sm text-muted">{emptyCopy}</p>
-          <Link
-            href="/map"
-            className="mt-4 inline-block rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase"
-          >
-            Open Job Board
-          </Link>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -281,16 +255,7 @@ export function MyJobsPanel() {
                       <JobBidField
                         value={job.myBid}
                         miles={job.miles}
-                        onChange={(myBid) => {
-                          setMyBid(job.id, myBid);
-                          if (
-                            myBid != null &&
-                            myBid > 0 &&
-                            job.status === "hunting"
-                          ) {
-                            setStatus(job.id, "bidding");
-                          }
-                        }}
+                        onChange={(myBid) => setMyBid(job.id, myBid)}
                       />
                     </div>
                   )}
@@ -382,12 +347,9 @@ export function MyJobsPanel() {
                           Add to today&apos;s run
                         </button>
                       ) : (
-                        <Link
-                          href="/map"
-                          className="rounded-sm border border-emerald-600/40 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-emerald-900 uppercase"
-                        >
-                          In today&apos;s run →
-                        </Link>
+                        <span className="rounded-sm border border-emerald-600/40 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-emerald-900 uppercase">
+                          In today&apos;s run
+                        </span>
                       )}
                       <button
                         type="button"
@@ -477,12 +439,6 @@ export function MyJobsPanel() {
                         >
                           Skip
                         </button>
-                        <Link
-                          href="/map"
-                          className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
-                        >
-                          Open Job Board →
-                        </Link>
                         <button
                           type="button"
                           onClick={() => requestRemove(job.id)}

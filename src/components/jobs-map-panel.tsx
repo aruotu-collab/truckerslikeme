@@ -308,19 +308,16 @@ export function JobsMapPanel() {
 
   function setMyBid(id: string, myBid: number | null) {
     setJobs((prev) =>
-      prev.map((j) => {
-        if (j.id !== id) return j;
-        const next: MapJob = {
-          ...j,
-          myBid,
-          updatedAt: new Date().toISOString(),
-        };
-        if (myBid != null && myBid > 0 && j.status === "hunting") {
-          next.status = "bidding";
-        }
-        return next;
-      }),
+      prev.map((j) =>
+        j.id === id
+          ? { ...j, myBid, updatedAt: new Date().toISOString() }
+          : j,
+      ),
     );
+  }
+
+  function startBidding(id: string) {
+    setJobStatus(id, "bidding");
   }
 
   function setJobStatus(id: string, status: MapJobStatus) {
@@ -521,7 +518,7 @@ export function JobsMapPanel() {
             Job Board
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Hunt jobs · Suggested chains · Today&apos;s run
+            Hunt new jobs · Suggested chains · Today&apos;s run queue
           </p>
         </div>
       </header>
@@ -746,15 +743,15 @@ export function JobsMapPanel() {
                   ? "Open jobs"
                   : mainTab === "run"
                     ? "Suggested chains"
-                    : `${visible.length} open jobs`}
+                    : `${visible.length} to review`}
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
                   ? visible.length > listShown.length
-                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, hide, or add to today's run. Load more below.`
-                    : "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
+                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, Start bidding (→ My Jobs), hide, or add to today's run.`
+                    : "Enter a quote, then Start bidding to track in My Jobs — or hide / add to today's run."
                   : mainTab === "jobs"
-                    ? "Explore open jobs — enter bids on List, Map, or Lanes."
+                    ? "Considering jobs only — bidding jobs live in My Jobs."
                     : "Pick a chain, then Use as today's run to bid and win from the yellow bar."}
               </p>
             </div>
@@ -883,7 +880,7 @@ export function JobsMapPanel() {
                   runLookupJobs={jobs}
                   home={home}
                   onSetBid={(myBid) => setMyBid(job.id, myBid)}
-                  onMarkWon={() => setJobStatus(job.id, "won")}
+                  onStartBidding={() => startBidding(job.id)}
                   onHide={() => hideJob(job.id)}
                   onAddToRun={() => addToTodayRun(job.id)}
                   onRemoveFromRun={() => removeFromTodayRun(job.id)}
@@ -1013,18 +1010,10 @@ export function JobsMapPanel() {
 
         {mainTab === "run" && (
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
-              <p>
-                These are suggestions only. Push one into Today&apos;s run to
-                bid, or track wins on My Jobs.
-              </p>
-              <Link
-                href="/jobs?tab=won"
-                className="rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
-              >
-                My Jobs → Won
-              </Link>
-            </div>
+            <p className="border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
+              These are suggestions only. Push one into Today&apos;s run to work
+              your bid/win queue.
+            </p>
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
               <div className="border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-asphalt">
@@ -1040,7 +1029,6 @@ export function JobsMapPanel() {
               initialChainIds={runChainIds}
               runOnly
               onSetBid={setMyBid}
-              onMarkWon={(id) => setJobStatus(id, "won")}
               todayRunIds={todayRunIds}
               onAddJobToTodayRun={addToTodayRun}
               onCommitToTodayRun={(ids) => {

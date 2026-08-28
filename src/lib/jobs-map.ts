@@ -175,14 +175,9 @@ export function filterMapJobs(jobs: MapJob[], filter: JobsMapFilter) {
   return jobs.filter((j) => j.status !== "skipped" && j.status !== "delivered");
 }
 
-/** Jobs shown on the Map Jobs hunt board (not won / delivered / skipped). */
+/** Jobs on Hunt — Considering only (Bidding lives in My Jobs). */
 export function huntBoardJobs(jobs: MapJob[]) {
-  return jobs.filter(
-    (j) =>
-      j.status !== "won" &&
-      j.status !== "delivered" &&
-      j.status !== "skipped",
-  );
+  return jobs.filter((j) => j.status === "hunting");
 }
 
 export type MyJobsFilter =

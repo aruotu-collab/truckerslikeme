@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import { boardJobSnapshot } from "@/lib/board-job-decision";
 import {
   mapStatusMeta,
   shortPlace,
+  hasMyBid,
   type JobsMapDriver,
   type MapJob,
   type MapJobStatus,
@@ -28,7 +30,7 @@ type BoardJobCardProps = {
   runLookupJobs: MapJob[];
   home: JobsMapDriver | null;
   onSetBid: (myBid: number | null) => void;
-  onMarkWon?: () => void;
+  onStartBidding?: () => void;
   onHide?: () => void;
   onAddToRun?: () => void;
   onRemoveFromRun?: () => void;
@@ -45,7 +47,7 @@ export function BoardJobCard({
   runLookupJobs,
   home,
   onSetBid,
-  onMarkWon,
+  onStartBidding,
   onHide,
   onAddToRun,
   onRemoveFromRun,
@@ -62,6 +64,7 @@ export function BoardJobCard({
   const nextInRun = next
     ? isJobOrRouteInTodayRun(next.job, todayRunIds, runLookupJobs)
     : false;
+  const canStartBidding = hasMyBid(job) && onStartBidding;
 
   return (
     <li
@@ -250,16 +253,16 @@ export function BoardJobCard({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {job.status !== "won" && onMarkWon && (
+        {canStartBidding && (
           <button
             type="button"
-            onClick={onMarkWon}
-            className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase"
+            onClick={onStartBidding}
+            className="rounded-sm bg-amber px-3 py-1.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase"
           >
-            I got this
+            Start bidding →
           </button>
         )}
-        {onAddToRun && job.status !== "won" && !inRun && (
+        {onAddToRun && !inRun && (
           <button
             type="button"
             onClick={onAddToRun}
@@ -285,7 +288,7 @@ export function BoardJobCard({
             Shiply →
           </ShiplyLink>
         ) : null}
-        {onHide && job.status !== "won" && (
+        {onHide && (
           <button
             type="button"
             onClick={onHide}
@@ -295,6 +298,16 @@ export function BoardJobCard({
           </button>
         )}
       </div>
+      <p className="text-[10px] text-muted">
+        Also listed in{" "}
+        <Link
+          href="/jobs?tab=considering"
+          className="font-semibold text-asphalt hover:text-amber"
+        >
+          My Jobs → Considering
+        </Link>
+        . After you start bidding, it moves to My Jobs → Bidding and leaves Hunt.
+      </p>
     </li>
   );
 }
