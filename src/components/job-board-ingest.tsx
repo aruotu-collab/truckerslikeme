@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { ShiplyScanIntroDialog } from "@/components/shiply-scan-intro-dialog";
 import { JobIngestPreview } from "@/components/job-ingest-preview";
 import {
