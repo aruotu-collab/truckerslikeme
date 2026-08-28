@@ -14,10 +14,7 @@ import {
 } from "@/lib/jobs-map";
 import {
   bestNextAfterJob,
-  chainAddHint,
   fitToneClass,
-  isInTodayRun,
-  isJobOrRouteInTodayRun,
 } from "@/lib/jobs-today-run";
 import { useMarket } from "@/lib/market-context";
 
@@ -25,45 +22,26 @@ type BoardJobCardProps = {
   job: MapJob;
   driver: JobsMapDriver | null;
   allJobs: MapJob[];
-  todayRunJobs: MapJob[];
-  todayRunIds: string[];
-  runLookupJobs: MapJob[];
-  home: JobsMapDriver | null;
   onSetBid: (myBid: number | null) => void;
   onStartBidding?: () => void;
   onHide?: () => void;
-  onAddToRun?: () => void;
-  onRemoveFromRun?: () => void;
   onFocusJob?: (jobId: string) => void;
-  onAddJobToRun?: (jobId: string) => void;
 };
 
 export function BoardJobCard({
   job,
   driver,
   allJobs,
-  todayRunJobs,
-  todayRunIds,
-  runLookupJobs,
-  home,
   onSetBid,
   onStartBidding,
   onHide,
-  onAddToRun,
-  onRemoveFromRun,
   onFocusJob,
-  onAddJobToRun,
 }: BoardJobCardProps) {
   const { money, market } = useMarket();
   const meta = mapStatusMeta[job.status as MapJobStatus];
   const snap = boardJobSnapshot(job, driver, market);
   const d = snap.decision;
   const next = bestNextAfterJob(job, allJobs, driver);
-  const add = chainAddHint(job, todayRunJobs, driver, home, market);
-  const inRun = isInTodayRun(job.id, todayRunIds);
-  const nextInRun = next
-    ? isJobOrRouteInTodayRun(next.job, todayRunIds, runLookupJobs)
-    : false;
   const canStartBidding = hasMyBid(job) && onStartBidding;
 
   return (
@@ -165,17 +143,6 @@ export function BoardJobCard({
             </div>
           </dl>
           <p className="mt-2 text-xs text-muted">{d.summary}</p>
-          {add?.addsNet != null && (
-            <p className="mt-2 text-xs font-medium text-asphalt">
-              Adds{" "}
-              <span
-                className={add.addsNet < 0 ? "text-alert" : "text-emerald-700"}
-              >
-                {money(add.addsNet)}
-              </span>{" "}
-              estimated net to today&apos;s run if you take it next.
-            </p>
-          )}
         </div>
       ) : snap.suggestion ? (
         <div className="border-l-4 border-asphalt/20 bg-concrete/40 px-3 py-2.5">
@@ -224,22 +191,6 @@ export function BoardJobCard({
                 Show on board
               </button>
             )}
-            {onAddJobToRun && !nextInRun && next.job.status !== "won" && (
-              <button
-                type="button"
-                onClick={() => onAddJobToRun(next.job.id)}
-                className="rounded-sm bg-asphalt px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
-              >
-                Add to today&apos;s run
-              </button>
-            )}
-            {nextInRun && (
-              <span className="text-[10px] font-semibold tracking-wide text-emerald-700 uppercase">
-                {isInTodayRun(next.job.id, todayRunIds)
-                  ? "Already in today\u2019s run"
-                  : "Same route already in today\u2019s run"}
-              </span>
-            )}
             {next.job.href ? (
               <ShiplyLink
                 href={next.job.href}
@@ -260,24 +211,6 @@ export function BoardJobCard({
             className="rounded-sm bg-amber px-3 py-1.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase"
           >
             Start bidding →
-          </button>
-        )}
-        {onAddToRun && !inRun && (
-          <button
-            type="button"
-            onClick={onAddToRun}
-            className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase"
-          >
-            Add to today&apos;s run
-          </button>
-        )}
-        {onRemoveFromRun && inRun && (
-          <button
-            type="button"
-            onClick={onRemoveFromRun}
-            className="rounded-sm border border-alert/40 bg-red-50 px-3 py-1.5 text-[10px] font-semibold tracking-wide text-alert uppercase"
-          >
-            Remove from today&apos;s run
           </button>
         )}
         {job.href ? (

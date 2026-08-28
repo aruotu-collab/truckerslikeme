@@ -17,10 +17,12 @@ type TodayRunBarProps = {
   todayRunIds: string[];
   home: JobsMapDriver | null;
   driver: JobsMapDriver | null;
+  /** My Jobs execution queue vs legacy board context. */
+  context?: "tracker" | "board";
   hiddenCount?: number;
   highlightHidden?: boolean;
   onResetToHome: () => void;
-  onOpenRun: () => void;
+  onOpenRun?: () => void;
   onShowHidden?: () => void;
   onRemoveFromRun?: (jobId: string) => void;
   onMarkDelivered?: (jobId: string) => void;
@@ -33,6 +35,7 @@ export function TodayRunBar({
   todayRunIds,
   home,
   driver,
+  context = "tracker",
   hiddenCount = 0,
   highlightHidden = false,
   onResetToHome,
@@ -52,7 +55,14 @@ export function TodayRunBar({
   const net: RunChainNet | null = evaluateRunChain(chain, home, market);
   const awayFromHome = positionsDiffer(home, driver);
 
-  if (!home?.label?.trim() && chain.length === 0 && hiddenCount === 0) return null;
+  if (
+    context === "board" &&
+    !home?.label?.trim() &&
+    chain.length === 0 &&
+    hiddenCount === 0
+  ) {
+    return null;
+  }
 
   const pathLabel = [
     home?.label ? shortPlace(home.label) : null,
@@ -67,7 +77,10 @@ export function TodayRunBar({
     .join(" · ");
 
   return (
-    <section className="min-w-0 border border-amber/50 bg-[#fff8e8] px-3 py-3 sm:px-5">
+    <section
+      id="today-run-bar"
+      className="min-w-0 border border-amber/50 bg-[#fff8e8] px-3 py-3 sm:px-5"
+    >
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -100,7 +113,9 @@ export function TodayRunBar({
             title={chain.length > 0 ? pathLabel : undefined}
           >
             {chain.length === 0
-              ? "No jobs queued yet — add from Hunt, Suggested (add chain), or My Jobs → Won."
+              ? context === "tracker"
+                ? "No jobs in today's run yet — mark a job won and it lands here automatically."
+                : "No jobs queued yet — add from Hunt, Suggested (add chain), or My Jobs → Won."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -114,7 +129,7 @@ export function TodayRunBar({
           ) : null}
         </div>
         <div className="flex max-w-full flex-wrap gap-2">
-          {hiddenCount > 0 && onShowHidden && (
+          {context === "board" && hiddenCount > 0 && onShowHidden && (
             <button
               type="button"
               onClick={onShowHidden}
@@ -137,13 +152,15 @@ export function TodayRunBar({
               Reset to home
             </button>
           )}
-          <button
-            type="button"
-            onClick={onOpenRun}
-            className="rounded-sm bg-asphalt px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase"
-          >
-            Suggested →
-          </button>
+          {onOpenRun && (
+            <button
+              type="button"
+              onClick={onOpenRun}
+              className="rounded-sm bg-asphalt px-3 py-1.5 text-[10px] font-semibold tracking-wide text-white uppercase"
+            >
+              {context === "tracker" ? "Compare chains →" : "Suggested →"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -309,12 +326,9 @@ export function TodayRunBar({
           )}
 
           <p className="mt-2 text-[11px] text-muted">
-            One ordered queue for the day. Hunt and My Jobs won{" "}
-            <strong className="font-normal text-asphalt">add</strong> jobs;
-            Suggested can{" "}
-            <strong className="font-normal text-asphalt">add a chain</strong> or{" "}
-            <strong className="font-normal text-asphalt">replace</strong> the
-            whole queue if you replan.
+            {context === "tracker"
+              ? "Your execution queue for the day. Won jobs land here in order — mark delivered when you drop each one."
+              : "One ordered queue for the day. Hunt and My Jobs won add jobs; Suggested can add a chain or replace the whole queue if you replan."}
           </p>
         </>
       )}

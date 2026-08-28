@@ -42,14 +42,7 @@ type Props = {
   onOpenDistances?: () => void;
   /** Skip nested tabs — only show suggested run compare. */
   runOnly?: boolean;
-  onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
-  /** Append a suggested chain to the end of today's run. */
-  onMergeTodayRun?: (jobIds: string[]) => void;
-  /** Replace the entire today's run queue (caller should confirm if non-empty). */
-  onReplaceTodayRun?: (jobIds: string[]) => void;
-  onAddJobToTodayRun?: (jobId: string) => void;
-  todayRunIds?: string[];
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -123,12 +116,7 @@ export function JobsPlannerGrid({
   initialTab = "jobs",
   onOpenDistances,
   runOnly = false,
-  onMarkWon,
   onSetBid,
-  onMergeTodayRun,
-  onReplaceTodayRun,
-  onAddJobToTodayRun,
-  todayRunIds = [],
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
@@ -198,12 +186,7 @@ export function JobsPlannerGrid({
         formatMoney={formatMoney}
         totalJobCount={jobs.length}
         mappedJobCount={runBuilder.totalJobs}
-        onMarkWon={onMarkWon}
         onSetBid={onSetBid}
-        onMergeTodayRun={onMergeTodayRun}
-        onReplaceTodayRun={onReplaceTodayRun}
-        onAddJobToTodayRun={onAddJobToTodayRun}
-        todayRunIds={todayRunIds}
       />
     );
   }
@@ -922,12 +905,7 @@ export function JobsPlannerGrid({
           formatMoney={formatMoney}
           totalJobCount={jobs.length}
           mappedJobCount={runBuilder.totalJobs}
-          onMarkWon={onMarkWon}
           onSetBid={onSetBid}
-          onMergeTodayRun={onMergeTodayRun}
-          onReplaceTodayRun={onReplaceTodayRun}
-          onAddJobToTodayRun={onAddJobToTodayRun}
-          todayRunIds={todayRunIds}
         />
       )}
     </div>
@@ -940,24 +918,14 @@ function RunsCompareView({
   formatMoney,
   totalJobCount,
   mappedJobCount,
-  onMarkWon,
   onSetBid,
-  onMergeTodayRun,
-  onReplaceTodayRun,
-  onAddJobToTodayRun,
-  todayRunIds = [],
 }: {
   plans: BidPlan[];
   driver: JobsMapDriver | null;
   formatMoney: (n: number) => string;
   totalJobCount: number;
   mappedJobCount: number;
-  onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
-  onMergeTodayRun?: (jobIds: string[]) => void;
-  onReplaceTodayRun?: (jobIds: string[]) => void;
-  onAddJobToTodayRun?: (jobId: string) => void;
-  todayRunIds?: string[];
 }) {
   const { market } = useMarket();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -1293,58 +1261,15 @@ function RunsCompareView({
       )}
 
       <div className="border-t border-asphalt/10 px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-            Jobs in this run ({workingPlan.jobs.length})
-          </p>
-          {workingPlan.jobs.length > 0 &&
-          (onMergeTodayRun || onReplaceTodayRun) ? (
-            <div className="flex flex-wrap gap-2">
-              {todayRunIds.length === 0 && onReplaceTodayRun ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onReplaceTodayRun(workingPlan.jobs.map((j) => j.id))
-                  }
-                  className="rounded-sm bg-asphalt px-4 py-2 text-[11px] font-semibold tracking-wide text-white uppercase"
-                >
-                  Use as today&apos;s run
-                </button>
-              ) : null}
-              {todayRunIds.length > 0 && onMergeTodayRun ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onMergeTodayRun(workingPlan.jobs.map((j) => j.id))
-                  }
-                  className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                >
-                  Add chain to run
-                </button>
-              ) : null}
-              {todayRunIds.length > 0 && onReplaceTodayRun ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onReplaceTodayRun(workingPlan.jobs.map((j) => j.id))
-                  }
-                  className="rounded-sm border border-asphalt/20 bg-white px-4 py-2 text-[11px] font-semibold tracking-wide uppercase"
-                >
-                  Replace today&apos;s run
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+          Jobs in this suggestion ({workingPlan.jobs.length})
+        </p>
         <p className="mt-1 text-xs text-muted">
-          {todayRunIds.length > 0
-            ? "Add this chain to the end of today's run, or replace the whole queue. Jobs stay in My Jobs either way."
-            : "Set this chain as today's run queue — add won jobs from My Jobs later without losing them."}
+          Compare chains here — when you win a job, mark it won in My Jobs and
+          it lands in Today&apos;s run automatically.
         </p>
         <ul className="mt-3 divide-y divide-asphalt/10 border border-asphalt/10">
-          {workingPlan.jobs.map((job, i) => {
-            const inToday = todayRunIds.includes(job.id);
-            return (
+          {workingPlan.jobs.map((job, i) => (
             <li
               key={job.id}
               className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center"
@@ -1359,7 +1284,6 @@ function RunsCompareView({
                 <p className="text-xs text-muted">
                   {job.miles != null ? `${job.miles} mi` : "Miles unknown"}
                   {job.status === "won" ? " · Won" : ""}
-                  {inToday ? " · In today’s run" : ""}
                 </p>
                 {onSetBid ? (
                   <div className="mt-2">
@@ -1387,24 +1311,6 @@ function RunsCompareView({
                     Bid on Shiply →
                   </ShiplyLink>
                 )}
-                {onMarkWon && job.status !== "won" && (
-                  <button
-                    type="button"
-                    onClick={() => onMarkWon(job.id)}
-                    className="shrink-0 rounded-sm bg-[#2f6b4f] px-3 py-2 text-[11px] font-bold tracking-wide text-white uppercase"
-                  >
-                    I got this
-                  </button>
-                )}
-                {onAddJobToTodayRun && !inToday && job.status !== "delivered" && (
-                  <button
-                    type="button"
-                    onClick={() => onAddJobToTodayRun(job.id)}
-                    className="shrink-0 rounded-sm border border-asphalt/20 px-3 py-2 text-[11px] font-bold tracking-wide uppercase"
-                  >
-                    Add to today&apos;s run
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => dropFromRun(job.id)}
@@ -1414,13 +1320,12 @@ function RunsCompareView({
                 </button>
               </div>
             </li>
-            );
-          })}
+          ))}
         </ul>
         {workingPlan.jobs.length > 0 && (
           <p className="mt-2 text-xs text-muted">
-            Drop from suggestion only edits this Suggested preview — it does not
-            delete the job from your board or Today&apos;s run.
+            Drop from suggestion only edits this preview — it does not delete
+            the job from your board or My Jobs.
           </p>
         )}
       </div>

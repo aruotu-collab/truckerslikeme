@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BoardJobCard } from "@/components/board-job-card";
-import { TodayRunBar } from "@/components/today-run-bar";
 import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
@@ -32,14 +31,6 @@ import {
   type MapJob,
   type MapJobStatus,
 } from "@/lib/jobs-map";
-import {
-  appendTodayRunId,
-  driverAtJobDrop,
-  mergeTodayRunIds,
-  orderTodayRun,
-  pruneTodayRunIds,
-  replaceTodayRunIds,
-} from "@/lib/jobs-today-run";
 import { resolveUkPlace } from "@/lib/uk-places";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
@@ -70,7 +61,6 @@ export function JobsMapPanel() {
   const [jobs, setJobs] = useState<MapJob[]>([]);
   const [driver, setDriver] = useState<JobsMapDriver | null>(null);
   const [home, setHome] = useState<JobsMapDriver | null>(null);
-  const [todayRunIds, setTodayRunIds] = useState<string[]>([]);
   const [startDraft, setStartDraft] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("jobs");
@@ -111,7 +101,6 @@ export function JobsMapPanel() {
     setJobs(loaded.jobs);
     setDriver(loaded.driver);
     setHome(loaded.home ?? loaded.driver);
-    setTodayRunIds(loaded.todayRunIds ?? []);
     setStartDraft(loaded.driver?.label ?? "");
     setHydrated(true);
     void fetch("/api/run/shiply/session")
@@ -124,27 +113,9 @@ export function JobsMapPanel() {
 
   useEffect(() => {
     if (!hydrated) return;
-    writeJobsMapState({ jobs, driver, home, todayRunIds });
-  }, [jobs, driver, home, todayRunIds, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    setTodayRunIds((ids) => {
-      const pruned = pruneTodayRunIds(ids, jobs);
-      if (
-        pruned.length === ids.length &&
-        pruned.every((id, index) => id === ids[index])
-      ) {
-        return ids;
-      }
-      return pruned;
-    });
-  }, [jobs, hydrated]);
-
-  const todayRunJobs = useMemo(
-    () => orderTodayRun(todayRunIds, jobs),
-    [todayRunIds, jobs],
-  );
+    const prev = readJobsMapState();
+    writeJobsMapState({ ...prev, jobs, driver, home });
+  }, [jobs, driver, home, hydrated]);
 
   const visible = huntBoardJobs(jobs);
   const listShown = useMemo(
@@ -271,8 +242,8 @@ export function JobsMapPanel() {
   }
 
   function hideJob(id: string) {
-    setJobs((prev) =>
-      prev.map((j) =>
+    setJobs((prev) => {
+      const next = prev.map((j) =>
         j.id === id
           ? {
               ...j,
@@ -280,9 +251,15 @@ export function JobsMapPanel() {
               updatedAt: new Date().toISOString(),
             }
           : j,
-      ),
-    );
-    setTodayRunIds((ids) => ids.filter((x) => x !== id));
+      );
+      const stored = readJobsMapState();
+      writeJobsMapState({
+        ...stored,
+        jobs: next,
+        todayRunIds: (stored.todayRunIds ?? []).filter((x) => x !== id),
+      });
+      return next;
+    });
     setJustHiddenId(id);
     if (hideUndoTimer.current) clearTimeout(hideUndoTimer.current);
     hideUndoTimer.current = setTimeout(() => {
@@ -323,59 +300,13 @@ export function JobsMapPanel() {
   }
 
   function setJobStatus(id: string, status: MapJobStatus) {
-    setJobs((prev) => {
-      const nextJobs = prev.map((j) =>
+    setJobs((prev) =>
+      prev.map((j) =>
         j.id === id
           ? { ...j, status, updatedAt: new Date().toISOString() }
           : j,
-      );
-      if (status === "won") {
-        const won = nextJobs.find((j) => j.id === id);
-        if (won) {
-          setTodayRunIds((ids) => appendTodayRunId(ids, id));
-          const atDrop = driverAtJobDrop(won);
-          if (atDrop) setDriver(atDrop);
-        }
-      }
-      if (status === "delivered") {
-        const done = nextJobs.find((j) => j.id === id);
-        setTodayRunIds((ids) => ids.filter((x) => x !== id));
-        if (done) {
-          const atDrop = driverAtJobDrop(done);
-          if (atDrop) setDriver(atDrop);
-        }
-      }
-      if (status === "skipped") {
-        setTodayRunIds((ids) => ids.filter((x) => x !== id));
-      }
-      return nextJobs;
-    });
-  }
-
-  function markDelivered(id: string) {
-    setJobStatus(id, "delivered");
-  }
-
-  function addToTodayRun(id: string) {
-    setTodayRunIds((ids) => appendTodayRunId(ids, id));
-  }
-
-  function removeFromTodayRun(id: string) {
-    setTodayRunIds((ids) => ids.filter((x) => x !== id));
-  }
-
-  function mergeChainToTodayRun(ids: string[]) {
-    setTodayRunIds((prev) => mergeTodayRunIds(prev, ids));
-  }
-
-  function replaceTodayRun(ids: string[]) {
-    if (todayRunIds.length > 0) {
-      const ok = window.confirm(
-        `Replace today's run (${todayRunIds.length} job${todayRunIds.length === 1 ? "" : "s"}) with this ${ids.length}-job chain?\n\nJobs already in the queue will leave today's run but stay in My Jobs.`,
-      );
-      if (!ok) return;
-    }
-    setTodayRunIds(replaceTodayRunIds(ids));
+      ),
+    );
   }
 
   function focusBoardJob(id: string) {
@@ -394,9 +325,6 @@ export function JobsMapPanel() {
     }, 50);
   }
 
-  function resetDriverToHome() {
-    if (home) setDriver({ ...home });
-  }
 
   async function startSession() {
     if (!startReady) {
@@ -508,24 +436,6 @@ export function JobsMapPanel() {
     setError(null);
   }
 
-  const todayRunBar = (
-    <TodayRunBar
-      jobs={jobs}
-      todayRunIds={todayRunIds}
-      home={home}
-      driver={driver}
-      hiddenCount={hiddenJobs.length}
-      highlightHidden={Boolean(justHiddenId)}
-      onResetToHome={resetDriverToHome}
-      onOpenRun={() => setMainTab("run")}
-      onShowHidden={showHiddenJobs}
-      onRemoveFromRun={removeFromTodayRun}
-      onMarkDelivered={markDelivered}
-      onMarkWon={(id) => setJobStatus(id, "won")}
-      onSetBid={setMyBid}
-    />
-  );
-
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -534,7 +444,7 @@ export function JobsMapPanel() {
             Job Board
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Hunt new jobs · Suggested chains · Today&apos;s run queue
+            Hunt new jobs · Compare suggested chains
           </p>
         </div>
       </header>
@@ -828,7 +738,6 @@ export function JobsMapPanel() {
           )}
         </div>
 
-        <div className="min-w-0">{todayRunBar}</div>
 
         {mainTab === "jobs" && jobsLook === "list" && justHiddenJob && (
           <div
@@ -841,7 +750,11 @@ export function JobsMapPanel() {
                 {shortPlace(justHiddenJob.origin)} →{" "}
                 {shortPlace(justHiddenJob.destination)}
               </span>
-              . Use Hidden jobs in Today&apos;s run above when you want it back.
+              . Restore from Hidden below, or find it in{" "}
+              <Link href="/jobs?tab=skipped" className="font-semibold text-amber">
+                My Jobs → Hidden
+              </Link>
+              .
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -891,17 +804,10 @@ export function JobsMapPanel() {
                   job={job}
                   driver={driver}
                   allJobs={visible}
-                  todayRunJobs={todayRunJobs}
-                  todayRunIds={todayRunIds}
-                  runLookupJobs={jobs}
-                  home={home}
                   onSetBid={(myBid) => setMyBid(job.id, myBid)}
                   onStartBidding={() => startBidding(job.id)}
                   onHide={() => hideJob(job.id)}
-                  onAddToRun={() => addToTodayRun(job.id)}
-                  onRemoveFromRun={() => removeFromTodayRun(job.id)}
                   onFocusJob={focusBoardJob}
-                  onAddJobToRun={addToTodayRun}
                 />
               ))}
             </ul>
@@ -1027,10 +933,12 @@ export function JobsMapPanel() {
         {mainTab === "run" && (
           <div className="space-y-3">
             <p className="border border-asphalt/10 bg-white px-4 py-3 text-sm text-asphalt">
-              Suggested chains are a plan only.{" "}
-              <strong className="font-semibold">Add chain to run</strong> appends
-              to today&apos;s queue; won jobs from My Jobs are kept unless you
-              choose Replace.
+              Suggested chains are for comparison only — bid on Hunt, track wins
+              in{" "}
+              <Link href="/jobs" className="font-semibold text-amber">
+                My Jobs
+              </Link>
+              , and they land in Today&apos;s run automatically.
             </p>
             {visible.filter((j) => j.myBid != null && j.myBid > 0).length ===
               0 && (
@@ -1047,10 +955,6 @@ export function JobsMapPanel() {
               initialChainIds={runChainIds}
               runOnly
               onSetBid={setMyBid}
-              todayRunIds={todayRunIds}
-              onAddJobToTodayRun={addToTodayRun}
-              onMergeTodayRun={mergeChainToTodayRun}
-              onReplaceTodayRun={replaceTodayRun}
             />
           </div>
         )}

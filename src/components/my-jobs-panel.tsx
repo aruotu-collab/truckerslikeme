@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
+import { TodayRunBar } from "@/components/today-run-bar";
 import { useMarket } from "@/lib/market-context";
 import {
   addJobsToTodayRun,
@@ -12,10 +13,16 @@ import {
   readJobsMapState,
   shortPlace,
   writeJobsMapState,
+  type JobsMapDriver,
   type MapJob,
   type MapJobStatus,
   type MyJobsFilter,
 } from "@/lib/jobs-map";
+import {
+  appendTodayRunId,
+  driverAtJobDrop,
+  pruneTodayRunIds,
+} from "@/lib/jobs-today-run";
 
 const FILTERS: { id: MyJobsFilter; label: string }[] = [
   { id: "considering", label: "Considering" },
@@ -35,10 +42,72 @@ function isMyJobsFilter(v: string | null): v is MyJobsFilter {
   );
 }
 
+function JobPipelineStrip({
+  counts,
+  todayRunCount,
+  onSelectFilter,
+  onScrollToRun,
+}: {
+  counts: ReturnType<typeof countMyJobs>;
+  todayRunCount: number;
+  onSelectFilter: (f: MyJobsFilter) => void;
+  onScrollToRun: () => void;
+}) {
+  const steps: {
+    key: MyJobsFilter | "run";
+    label: string;
+    count: number;
+  }[] = [
+    { key: "considering", label: "Considering", count: counts.considering },
+    { key: "bidding", label: "Bidding", count: counts.bidding },
+    { key: "won", label: "Won", count: counts.won },
+    { key: "run", label: "Today's run", count: todayRunCount },
+    { key: "delivered", label: "Delivered", count: counts.delivered },
+  ];
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1.5 border border-asphalt/10 bg-white px-4 py-3 text-[10px] font-semibold tracking-wide uppercase"
+      aria-label="Job pipeline"
+    >
+      {steps.map((step, index) => (
+        <Fragment key={step.key}>
+          {index > 0 ? (
+            <span className="text-muted" aria-hidden>
+              →
+            </span>
+          ) : null}
+          {step.key === "run" ? (
+            <button
+              type="button"
+              onClick={onScrollToRun}
+              className="rounded-sm border border-amber/40 bg-amber/10 px-2.5 py-1 text-asphalt hover:border-amber"
+            >
+              {step.label}
+              <span className="ml-1 opacity-70">{step.count}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onSelectFilter(step.key as MyJobsFilter)}
+              className="rounded-sm border border-asphalt/10 px-2.5 py-1 text-asphalt hover:border-amber/50"
+            >
+              {step.label}
+              <span className="ml-1 opacity-70">{step.count}</span>
+            </button>
+          )}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
 export function MyJobsPanel() {
   const { money } = useMarket();
   const [jobs, setJobs] = useState<MapJob[]>([]);
   const [todayRunIds, setTodayRunIds] = useState<string[]>([]);
+  const [home, setHome] = useState<JobsMapDriver | null>(null);
+  const [driver, setDriver] = useState<JobsMapDriver | null>(null);
   const [filter, setFilter] = useState<MyJobsFilter>("bidding");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -49,6 +118,8 @@ export function MyJobsPanel() {
     const loaded = readJobsMapState();
     setJobs(loaded.jobs);
     setTodayRunIds(loaded.todayRunIds ?? []);
+    setHome(loaded.home ?? loaded.driver);
+    setDriver(loaded.driver);
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab");
       if (isMyJobsFilter(tab)) setFilter(tab);
@@ -59,14 +130,29 @@ export function MyJobsPanel() {
   useEffect(() => {
     if (!hydrated) return;
     const prev = readJobsMapState();
-    writeJobsMapState({ ...prev, jobs, todayRunIds });
-  }, [jobs, todayRunIds, hydrated]);
+    writeJobsMapState({ ...prev, jobs, todayRunIds, driver, home });
+  }, [jobs, todayRunIds, driver, home, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    setTodayRunIds((ids) => {
+      const pruned = pruneTodayRunIds(ids, jobs);
+      if (
+        pruned.length === ids.length &&
+        pruned.every((id, index) => id === ids[index])
+      ) {
+        return ids;
+      }
+      return pruned;
+    });
+  }, [jobs, hydrated]);
 
   const counts = countMyJobs(jobs);
   const visible = filterMyJobs(jobs, filter);
   const wonJobs = useMemo(() => filterMyJobs(jobs, "won"), [jobs]);
 
   function setStatus(id: string, status: MapJobStatus) {
+    const job = jobs.find((j) => j.id === id);
     setJobs((prev) =>
       prev.map((j) =>
         j.id === id
@@ -74,8 +160,20 @@ export function MyJobsPanel() {
           : j,
       ),
     );
+    if (status === "won") {
+      setTodayRunIds((ids) => appendTodayRunId(ids, id));
+      if (job) {
+        const atDrop = driverAtJobDrop(job);
+        if (atDrop) setDriver(atDrop);
+      }
+      setRunNote("Added to today's run.");
+    }
     if (status === "delivered" || status === "skipped") {
       setTodayRunIds((ids) => ids.filter((x) => x !== id));
+      if (status === "delivered" && job) {
+        const atDrop = driverAtJobDrop(job);
+        if (atDrop) setDriver(atDrop);
+      }
     }
   }
 
@@ -103,8 +201,7 @@ export function MyJobsPanel() {
   }
 
   function addWonToTodayRun(id: string) {
-    const ids = addJobsToTodayRun([id]);
-    setTodayRunIds(ids);
+    setTodayRunIds((ids) => appendTodayRunId(ids, id));
     setRunNote("Added to today's run.");
   }
 
@@ -121,13 +218,27 @@ export function MyJobsPanel() {
     );
   }
 
+  function removeFromTodayRun(id: string) {
+    setTodayRunIds((ids) => ids.filter((x) => x !== id));
+  }
+
+  function resetDriverToHome() {
+    if (home) setDriver({ ...home });
+  }
+
+  function scrollToTodayRun() {
+    document
+      .getElementById("today-run-bar")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const pendingRemoveJob = pendingRemoveId
     ? jobs.find((j) => j.id === pendingRemoveId) ?? null
     : null;
 
   const emptyCopy =
     filter === "won"
-      ? "When Shiply accepts a bid, mark it won here — then add it to today's run (appends to the queue)."
+      ? "When Shiply accepts a bid, mark it won here — it lands in Today's run automatically."
       : filter === "bidding"
         ? "Jobs land here when you tap Start bidding on the Job Board Hunt tab."
         : filter === "skipped"
@@ -146,11 +257,41 @@ export function MyJobsPanel() {
           My Jobs
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Track each job: Considering → Bidding → Won → Delivered. Use Job Board
-          Hunt to evaluate new scans; start bidding here when you&apos;re ready
-          to chase a quote on Shiply.
+          Track each job: Considering → Bidding → Won → Today&apos;s run →
+          Delivered. Use Job Board Hunt to evaluate new scans; wins land in
+          Today&apos;s run below automatically.
         </p>
       </section>
+
+      {hydrated ? (
+        <>
+          <JobPipelineStrip
+            counts={counts}
+            todayRunCount={todayRunIds.length}
+            onSelectFilter={(f) => {
+              setFilter(f);
+              setRunNote(null);
+            }}
+            onScrollToRun={scrollToTodayRun}
+          />
+
+          <TodayRunBar
+            context="tracker"
+            jobs={jobs}
+            todayRunIds={todayRunIds}
+            home={home}
+            driver={driver}
+            onResetToHome={resetDriverToHome}
+            onOpenRun={() => {
+              window.location.href = "/map";
+            }}
+            onRemoveFromRun={removeFromTodayRun}
+            onMarkDelivered={(id) => setStatus(id, "delivered")}
+            onMarkWon={(id) => setStatus(id, "won")}
+            onSetBid={setMyBid}
+          />
+        </>
+      ) : null}
 
       <div className="page-sticky-bar -mx-5 flex min-w-0 flex-wrap gap-2 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
         {FILTERS.map((f) => (
@@ -176,8 +317,9 @@ export function MyJobsPanel() {
       {filter === "won" && wonJobs.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3">
           <p className="text-sm text-asphalt">
-            {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — add to
-            today&apos;s run (appends to any chain you already queued).
+            {wonJobs.length} won job{wonJobs.length === 1 ? "" : "s"} — new wins
+            land in Today&apos;s run automatically. Add any older wins you
+            missed below.
           </p>
           <button
             type="button"
@@ -426,10 +568,7 @@ export function MyJobsPanel() {
                         {job.status !== "won" && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setStatus(job.id, "won");
-                              addWonToTodayRun(job.id);
-                            }}
+                            onClick={() => setStatus(job.id, "won")}
                             className="rounded-sm bg-[#2f6b4f] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
                           >
                             I got this
