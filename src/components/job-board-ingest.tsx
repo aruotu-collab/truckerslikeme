@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ShiplyLiveView } from "@/components/shiply-live-view";
+import { ShiplyScanIntroDialog } from "@/components/shiply-scan-intro-dialog";
 import { JobIngestPreview } from "@/components/job-ingest-preview";
 import {
   appendManualJobs,
@@ -61,6 +61,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coach, setCoach] = useState<string | null>(null);
+  const [scanIntroOpen, setScanIntroOpen] = useState(false);
 
   const [pending, setPending] = useState<IngestJobDraft[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -182,14 +183,31 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
     await startSession();
   }
 
+  function requestScanShiply() {
+    if (!startReady) {
+      setError("Set your starting location first.");
+      return;
+    }
+    if (!isSignedIn) {
+      setScanIntroOpen(true);
+      return;
+    }
+    void startSession();
+  }
+
+  function continueScanAfterSignIn() {
+    setScanIntroOpen(false);
+    awaitingConnect.current = true;
+    openShiplyAuthGate(openGate);
+  }
+
   async function startSession() {
     if (!startReady) {
       setError("Set your starting location first.");
       return;
     }
     if (!isSignedIn) {
-      awaitingConnect.current = true;
-      openShiplyAuthGate(openGate);
+      setScanIntroOpen(true);
       return;
     }
     setError(null);
@@ -235,7 +253,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       return;
     }
     if (!isSignedIn) {
-      openShiplyAuthGate(openGate);
+      setScanIntroOpen(true);
       return;
     }
     setBusy(true);
@@ -397,7 +415,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       <div>
         <p className={typeLabel}>Add jobs to the board</p>
         <p className="mt-1 text-xs leading-relaxed text-muted sm:text-sm">
-          Live scan when it works · screenshots from your phone · manual entry
+          Scan Shiply when it works · screenshots from your phone · manual entry
           always works. All paths land in Hunt as Considering.
         </p>
       </div>
@@ -409,7 +427,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       >
         {(
           [
-            { id: "scan" as const, label: "Live scan" },
+            { id: "scan" as const, label: "Scan Shiply" },
             { id: "screenshot" as const, label: "Screenshots" },
             { id: "manual" as const, label: "Manual" },
           ] as const
@@ -457,7 +475,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
               <button
                 type="button"
                 disabled={connectUi.disabled}
-                onClick={() => void startSession()}
+                onClick={requestScanShiply}
                 className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {connectUi.buttonLabel}
@@ -634,7 +652,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
         onAddSelected={() => commitToBoard(false)}
         onClearReview={clearReview}
         addBlocked={scanReviewBlocked}
-        onAddBlocked={() => openShiplyAuthGate(openGate)}
+        onAddBlocked={() => setScanIntroOpen(true)}
         disabled={busy}
       />
 
@@ -645,6 +663,12 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
           . Shiply links are optional — enter your quote on each Hunt card.
         </p>
       ) : null}
+
+      <ShiplyScanIntroDialog
+        open={scanIntroOpen}
+        onClose={() => setScanIntroOpen(false)}
+        onSignIn={continueScanAfterSignIn}
+      />
     </div>
   );
 }

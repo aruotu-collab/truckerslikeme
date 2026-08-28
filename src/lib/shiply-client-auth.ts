@@ -63,15 +63,15 @@ export function shiplyConnectUi(opts: {
     return {
       disabled: true,
       hint: `${startHint}${signInNote}`,
-      buttonLabel: isSignedIn ? "Connect Shiply →" : "Sign in free to connect →",
+      buttonLabel: isSignedIn ? "Connect Shiply →" : "Scan Shiply →",
     };
   }
 
   if (!isSignedIn) {
     return {
       disabled: false,
-      hint: "Create a free account to open the Shiply browser. Screenshots and manual entry work without signing in.",
-      buttonLabel: "Sign in free to connect →",
+      hint: null,
+      buttonLabel: "Scan Shiply →",
     };
   }
 
