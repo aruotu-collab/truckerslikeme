@@ -206,13 +206,22 @@ export function TodayRunBar({
           )}
 
           {chain.length > 0 && (
-            <ul className="mt-3 space-y-2 border-t border-amber/30 pt-3">
-              {chain.map((j, i) => (
-                <li
-                  key={j.id}
-                  className="border border-asphalt/15 bg-white px-3 py-2.5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="mt-3 min-w-0 border-t border-amber/30 pt-3">
+              {chain.length > 1 ? (
+                <p className="mb-2 text-[10px] tracking-wide text-muted uppercase">
+                  {chain.length} jobs · swipe sideways →
+                </p>
+              ) : null}
+              <ul
+                role="list"
+                aria-label="Today's run jobs"
+                className="h-scroll-visible flex gap-3 overflow-x-auto overscroll-x-contain pb-2"
+              >
+                {chain.map((j, i) => (
+                  <li
+                    key={j.id}
+                    className="flex w-[16.5rem] shrink-0 flex-col border border-asphalt/15 bg-white px-3 py-2.5 sm:w-[18rem]"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-asphalt">
                         <span className="mr-1.5 font-mono text-[10px] text-amber">
@@ -233,75 +242,77 @@ export function TodayRunBar({
                         </p>
                       ) : null}
                     </div>
-                  </div>
 
-                  {j.href ? (
-                    <p className="mt-2 text-[11px] text-muted">
-                      Open Shiply to check current bids, then enter your quote
-                      here.
-                    </p>
-                  ) : null}
-
-                  {onSetBid &&
-                    j.status !== "won" &&
-                    j.status !== "delivered" && (
-                      <div className="mt-2">
-                        <JobBidField
-                          compact
-                          value={j.myBid}
-                          miles={j.miles}
-                          onChange={(myBid) => onSetBid(j.id, myBid)}
-                        />
-                      </div>
-                    )}
-
-                  <div className="mt-2 flex flex-wrap gap-2">
                     {j.href ? (
-                      <ShiplyLink
-                        href={j.href}
-                        className="rounded-sm bg-amber px-2.5 py-1 text-[10px] font-semibold tracking-wide text-asphalt uppercase"
-                      >
-                        Open Shiply details →
-                      </ShiplyLink>
-                    ) : (
-                      <span className="self-center text-[10px] text-muted">
-                        No Shiply link on this job
-                      </span>
-                    )}
-                    {onMarkWon &&
+                      <p className="mt-2 text-[11px] leading-snug text-muted">
+                        Open Shiply to check current bids, then enter your quote
+                        here.
+                      </p>
+                    ) : null}
+
+                    {onSetBid &&
                       j.status !== "won" &&
                       j.status !== "delivered" && (
-                        <button
-                          type="button"
-                          onClick={() => onMarkWon(j.id)}
-                          className="rounded-sm bg-[#2f6b4f] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
-                        >
-                          I got this
-                        </button>
+                        <div className="mt-2">
+                          <JobBidField
+                            compact
+                            value={j.myBid}
+                            miles={j.miles}
+                            onChange={(myBid) => onSetBid(j.id, myBid)}
+                          />
+                        </div>
                       )}
-                    {onMarkDelivered && j.status === "won" && (
-                      <button
-                        type="button"
-                        onClick={() => onMarkDelivered(j.id)}
-                        className="rounded-sm border border-sky-600/30 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold text-sky-900 uppercase"
-                      >
-                        Delivered
-                      </button>
-                    )}
-                    {onRemoveFromRun && (
-                      <button
-                        type="button"
-                        onClick={() => onRemoveFromRun(j.id)}
-                        className="rounded-sm border border-alert/30 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-alert uppercase"
-                        aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+
+                    <div className="mt-auto flex flex-col gap-2 pt-3">
+                      {j.href ? (
+                        <ShiplyLink
+                          href={j.href}
+                          className="rounded-sm bg-amber px-2.5 py-1.5 text-center text-[10px] font-semibold tracking-wide text-asphalt uppercase"
+                        >
+                          Open Shiply details →
+                        </ShiplyLink>
+                      ) : (
+                        <span className="text-center text-[10px] text-muted">
+                          No Shiply link on this job
+                        </span>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {onMarkWon &&
+                          j.status !== "won" &&
+                          j.status !== "delivered" && (
+                            <button
+                              type="button"
+                              onClick={() => onMarkWon(j.id)}
+                              className="flex-1 rounded-sm bg-[#2f6b4f] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
+                            >
+                              I got this
+                            </button>
+                          )}
+                        {onMarkDelivered && j.status === "won" && (
+                          <button
+                            type="button"
+                            onClick={() => onMarkDelivered(j.id)}
+                            className="flex-1 rounded-sm border border-sky-600/30 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold text-sky-900 uppercase"
+                          >
+                            Delivered
+                          </button>
+                        )}
+                        {onRemoveFromRun && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveFromRun(j.id)}
+                            className="flex-1 rounded-sm border border-alert/30 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-alert uppercase"
+                            aria-label={`Remove ${shortPlace(j.origin)} to ${shortPlace(j.destination)} from today's run`}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <p className="mt-2 text-[11px] text-muted">
