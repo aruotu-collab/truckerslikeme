@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BoardJobCard } from "@/components/board-job-card";
-import { ShiplyLiveView } from "@/components/shiply-live-view";
+import { JobBoardIngest } from "@/components/job-board-ingest";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
@@ -33,17 +33,6 @@ import {
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
 import { outlineBtnClass } from "@/lib/ui-buttons";
-import type { VisibleShiplyJob } from "@/lib/run-shortlist";
-import {
-  diffAgainstLastScan,
-  formatLastScan,
-  jobFingerprint,
-  readLastScanSnapshot,
-  scanSummaryMessage,
-  writeLastScanSnapshot,
-} from "@/lib/shiply-scan-snapshot";
-
-const CONTEXT_KEY = "tlm_shiply_bb_context";
 
 const SORTS: { id: SortMode; label: string }[] = [
   { id: "money", label: "Most money" },
@@ -78,19 +67,8 @@ export function JobsMapPanel() {
   const [runChainIds, setRunChainIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [liveViewUrl, setLiveViewUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [coach, setCoach] = useState<string | null>(null);
-  const [scanned, setScanned] = useState<VisibleShiplyJob[]>([]);
-  const [selectedScan, setSelectedScan] = useState<Record<string, boolean>>({});
-  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
-  const [newScanFingerprints, setNewScanFingerprints] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
   const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
@@ -104,12 +82,6 @@ export function JobsMapPanel() {
     setHome(loaded.home ?? loaded.driver);
     setStartDraft(loaded.driver?.label ?? "");
     setHydrated(true);
-    void fetch("/api/run/shiply/session")
-      .then((r) => r.json())
-      .then((d: { enabled?: boolean }) => setEnabled(Boolean(d.enabled)))
-      .catch(() => setEnabled(false));
-    const prev = readLastScanSnapshot();
-    if (prev) setLastScanAt(prev.scannedAt);
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab");
       if (tab === "suggested" || tab === "chains" || tab === "run") {
@@ -232,7 +204,7 @@ export function JobsMapPanel() {
         pos.coords.longitude,
       );
       applyStart(place.label, pos.coords.latitude, pos.coords.longitude);
-      setCoach(`Start set to ${place.label}.`);
+      setStatusNote(`Start set to ${place.label}.`);
     } catch {
       setError("Couldn’t read your location. Type a town instead.");
     } finally {
@@ -306,7 +278,7 @@ export function JobsMapPanel() {
     setJobStatus(id, "bidding");
     const job = jobs.find((j) => j.id === id);
     if (job) {
-      setCoach(
+      setStatusNote(
         `Tracking ${shortPlace(job.origin)} → ${shortPlace(job.destination)} in My Jobs → Bidding.`,
       );
     }
@@ -339,113 +311,27 @@ export function JobsMapPanel() {
   }
 
 
-  async function startSession() {
+  function addIngestedJobs(
+    picked: Array<{
+      id: string;
+      origin: string | null;
+      destination: string | null;
+      miles: number | null;
+      rateTotal: number | null;
+      item: string | null;
+      href?: string | null;
+      ingestSource?: "scan" | "screenshot" | "manual" | "paste";
+    }>,
+  ) {
     if (!startReady) {
-      setError("Set your starting location first — the map needs where you are.");
+      setError("Set your starting location before adding jobs to the board.");
       return;
     }
-    setError(null);
-    setBusy(true);
-    setScanned([]);
-    setSelectedScan({});
-    setCoach(null);
-    try {
-      const contextId =
-        typeof window !== "undefined"
-          ? localStorage.getItem(CONTEXT_KEY)
-          : null;
-      const res = await fetch("/api/run/shiply/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contextId }),
-      });
-      const data = (await res.json()) as {
-        sessionId?: string;
-        liveViewUrl?: string;
-        contextId?: string;
-        error?: string;
-        tip?: string;
-      };
-      if (!res.ok) {
-        setError(data.error || "Could not start Shiply browser.");
-        return;
-      }
-      if (data.contextId) {
-        localStorage.setItem(CONTEXT_KEY, data.contextId);
-      }
-      setSessionId(data.sessionId ?? null);
-      setLiveViewUrl(data.liveViewUrl ?? null);
-      if (data.tip) setCoach(data.tip);
-    } catch {
-      setError("Network error starting Shiply connect.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function scanVisible() {
-    if (!sessionId) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/run/shiply/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          start: driver?.label || "",
-          mode: "profit",
-          vehicle: "van",
-          completeList: true,
-        }),
-      });
-      const data = (await res.json()) as {
-        jobs?: VisibleShiplyJob[];
-        coach?: string;
-        error?: string;
-      };
-      if (!res.ok) {
-        setError(data.error || "Could not scan the Shiply page.");
-        return;
-      }
-      const list = data.jobs ?? [];
-      const previous = readLastScanSnapshot();
-      const diff = diffAgainstLastScan(previous, list);
-      const scannedAt = new Date().toISOString();
-      writeLastScanSnapshot(list);
-      setLastScanAt(scannedAt);
-      setNewScanFingerprints(diff.newFingerprints);
-      setScanSummary(scanSummaryMessage(diff, list.length, scannedAt));
-      setScanned(list);
-      setCoach(data.coach ?? null);
-      const next: Record<string, boolean> = {};
-      for (const j of list) next[j.id] = true;
-      setSelectedScan(next);
-    } catch {
-      setError("Network error scanning Shiply.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function addScannedToMap(all = false) {
-    if (!startReady) {
-      setError("Set your starting location before adding jobs to the map.");
-      return;
-    }
-    const picked = all
-      ? scanned
-      : scanned.filter((j) => selectedScan[j.id]);
-    if (!picked.length) {
-      setError(all ? "No jobs scanned yet." : "Tick at least one job to add to the map.");
-      return;
-    }
+    if (!picked.length) return;
     setJobs((prev) => mergeScannedJobs(prev, picked));
-    setCoach(
-      `Added ${picked.length} job${picked.length === 1 ? "" : "s"} to your tube map. Tap a line → Open on Shiply.`,
+    setStatusNote(
+      `Added ${picked.length} job${picked.length === 1 ? "" : "s"} to Hunt.`,
     );
-    setScanned([]);
-    setSelectedScan({});
     setError(null);
   }
 
@@ -474,9 +360,6 @@ export function JobsMapPanel() {
             ) : (
               <span className="text-alert">Not set — required</span>
             )}
-            {sessionId ? (
-              <span className="ml-2 text-xs text-amber">· Shiply connected</span>
-            ) : null}
           </div>
         </div>
 
@@ -518,157 +401,16 @@ export function JobsMapPanel() {
               </div>
             </div>
 
-            <div className="space-y-3 border-t border-asphalt/10 pt-3">
-              <div className="flex flex-wrap items-end justify-between gap-2">
-                <div>
-                  <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                    Scan from Shiply
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Connect → scan → add to board
-                  </p>
-                </div>
-                {enabled && !sessionId ? (
-                  <button
-                    type="button"
-                    disabled={busy || !startReady}
-                    onClick={() => void startSession()}
-                    className="rounded-sm bg-asphalt px-4 py-2 text-[11px] font-semibold tracking-wide text-white uppercase disabled:opacity-60"
-                  >
-                    {busy ? "Opening…" : "Connect Shiply →"}
-                  </button>
-                ) : null}
-              </div>
+            <JobBoardIngest
+              startLabel={driver?.label ?? ""}
+              startReady={startReady}
+              onAddJobs={addIngestedJobs}
+            />
 
-              {enabled === false && (
-                <p className="border border-dashed border-asphalt/20 bg-concrete/30 px-3 py-2 text-xs text-muted">
-                  Browserbase not configured — add{" "}
-                  <code className="text-[10px]">BROWSERBASE_API_KEY</code> /{" "}
-                  <code className="text-[10px]">BROWSERBASE_PROJECT_ID</code>.
-                </p>
-              )}
-
-              {enabled && sessionId && (
-                <div className="space-y-3">
-                  {liveViewUrl && (
-                    <ShiplyLiveView
-                      url={liveViewUrl}
-                      collapseSignal={scanSummary}
-                    />
-                  )}
-                  <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 border border-asphalt/10 bg-white/95 p-2 shadow-sm backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void scanVisible()}
-                      className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
-                    >
-                      {busy ? "Scanning…" : "Scan visible jobs"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void startSession()}
-                      className="rounded-sm border border-asphalt/20 px-4 py-2 text-[11px] font-semibold tracking-wide uppercase disabled:opacity-60"
-                    >
-                      New session
-                    </button>
-                  </div>
-                  {lastScanAt && !scanSummary && (
-                    <p className="text-xs text-muted">
-                      Last scan {formatLastScan(lastScanAt)}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {scanSummary && (
-                <p
-                  className={`text-sm ${
-                    newScanFingerprints.size > 0
-                      ? "border-l-4 border-amber bg-amber/10 px-3 py-2 font-medium text-asphalt"
-                      : "text-muted"
-                  }`}
-                >
-                  {scanSummary}
-                </p>
-              )}
-
-              {coach && <p className="text-sm text-asphalt">{coach}</p>}
-
-              {scanned.length > 0 && (
-                <div className="space-y-3 border-t border-asphalt/10 pt-3">
-                  <p className="text-[10px] font-semibold tracking-wide text-asphalt uppercase">
-                    Add to map (
-                    {Object.values(selectedScan).filter(Boolean).length}{" "}
-                    selected)
-                  </p>
-                  <ul className="max-h-40 space-y-2 overflow-y-auto">
-                    {scanned.map((job) => {
-                      const isNew = newScanFingerprints.has(
-                        jobFingerprint(job),
-                      );
-                      return (
-                        <li key={job.id}>
-                          <label className="flex cursor-pointer gap-3 border border-asphalt/10 px-3 py-2 hover:bg-concrete/30">
-                            <input
-                              type="checkbox"
-                              className="mt-1"
-                              checked={Boolean(selectedScan[job.id])}
-                              onChange={(e) =>
-                                setSelectedScan((s) => ({
-                                  ...s,
-                                  [job.id]: e.target.checked,
-                                }))
-                              }
-                            />
-                            <span className="min-w-0 flex-1 text-sm">
-                              <span className="font-medium text-asphalt">
-                                {shortPlace(job.origin)} →{" "}
-                                {shortPlace(job.destination)}
-                                {isNew && (
-                                  <span className="ml-2 rounded-sm bg-amber px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-asphalt uppercase">
-                                    New
-                                  </span>
-                                )}
-                              </span>
-                              <span className="mt-0.5 block text-xs text-muted">
-                                {[
-                                  job.item,
-                                  job.miles != null
-                                    ? `${job.miles} mi`
-                                    : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
-                            </span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => addScannedToMap(true)}
-                      className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                    >
-                      Add all {scanned.length} to board →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addScannedToMap(false)}
-                      className="rounded-sm border border-asphalt/20 px-4 py-2 text-[11px] font-semibold tracking-wide uppercase"
-                    >
-                      Add selected only
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {error && <p className="text-sm text-alert">{error}</p>}
-            </div>
+            {statusNote ? (
+              <p className="text-sm text-asphalt">{statusNote}</p>
+            ) : null}
+            {error && <p className="text-sm text-alert">{error}</p>}
         </div>
       </section>
 
@@ -797,14 +539,15 @@ export function JobsMapPanel() {
 
         {mainTab === "jobs" && jobsLook === "list" && !visible.length && !hiddenJobs.length && (
           <p className="text-sm text-muted">
-            No jobs on the board yet. Scan Shiply and add them above.
+            No jobs on the board yet — add jobs above via screenshots, manual
+            entry, or live scan.
           </p>
         )}
 
         {mainTab === "jobs" && jobsLook === "list" && !visible.length && hiddenJobs.length > 0 && (
           <p className="text-sm text-muted">
-            No jobs on the board — restore one from Hidden jobs below, or scan
-            Shiply above.
+            No jobs on the board — restore one from Hidden jobs below, or add
+            more via screenshots / manual entry above.
           </p>
         )}
 

@@ -101,7 +101,8 @@ ${listRules}`;
     image_url?: { url: string };
   }[] = [{ type: "text", text: prompt }];
 
-  for (const raw of input.images.slice(0, 4)) {
+  const maxImages = input.completeList ? 10 : 4;
+  for (const raw of input.images.slice(0, maxImages)) {
     const img = normalizeImage(raw);
     if (img.base64.length > 5_500_000) {
       throw new Error("Screenshot too large.");

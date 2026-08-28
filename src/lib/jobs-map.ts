@@ -16,6 +16,8 @@ export type MapJob = {
   href: string | null;
   status: MapJobStatus;
   updatedAt: string;
+  /** How the job was added to the board (scan, screenshot, manual, paste). */
+  ingestSource?: "scan" | "screenshot" | "manual" | "paste";
 };
 
 export type JobsMapFilter = "all" | "hunting" | "won";
@@ -439,6 +441,7 @@ export function mergeScannedJobs(
     rateTotal: number | null;
     item: string | null;
     href?: string | null;
+    ingestSource?: "scan" | "screenshot" | "manual" | "paste";
   }>,
 ): MapJob[] {
   const next = [...existing];
@@ -465,6 +468,7 @@ export function mergeScannedJobs(
         rateTotal: null,
         item: s.item ?? prev.item,
         href: s.href ?? prev.href,
+        ingestSource: s.ingestSource ?? prev.ingestSource,
         updatedAt: now,
       };
       continue;
@@ -480,6 +484,7 @@ export function mergeScannedJobs(
       item: s.item,
       href: s.href ?? null,
       status: "hunting",
+      ingestSource: s.ingestSource,
       updatedAt: now,
     });
   }

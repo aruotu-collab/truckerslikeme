@@ -36,7 +36,10 @@ export function parseLoadText(raw: string): ParsedLoad {
 
   const totalRate =
     text.match(
-      /(?:line\s*haul|linehaul|total\s*rate|rate\s*total|pay(?:ment)?|amount)[\s:]*\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+      /(?:line\s*haul|linehaul|total\s*rate|rate\s*total|pay(?:ment)?|amount|quote|budget)[\s:]*[£$]?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    ) ||
+    text.match(
+      /[£$]\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\b/,
     ) ||
     text.match(
       /\$\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?)\b/,
