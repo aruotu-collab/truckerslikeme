@@ -214,7 +214,12 @@ export function MyJobsPanel() {
       }
       setRunNote("Added to today's run.");
     }
-    if (status === "delivered" || status === "skipped") {
+    if (
+      status === "delivered" ||
+      status === "skipped" ||
+      status === "bidding" ||
+      status === "hunting"
+    ) {
       setTodayRunIds((ids) => ids.filter((x) => x !== id));
       if (status === "delivered" && job) {
         const atDrop = driverAtJobDrop(job);
@@ -343,7 +348,6 @@ export function MyJobsPanel() {
             }}
             onRemoveFromRun={removeFromTodayRun}
             onMarkDelivered={(id) => setStatus(id, "delivered")}
-            onMarkWon={(id) => setStatus(id, "won")}
             onSetBid={setMyBid}
           />
         </>

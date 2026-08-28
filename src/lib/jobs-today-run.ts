@@ -128,7 +128,7 @@ export function pruneTodayRunIds(todayRunIds: string[], jobs: MapJob[]): string[
   return todayRunIds.filter((id) => {
     const job = byId.get(id);
     if (!job) return false;
-    return job.status !== "skipped" && job.status !== "delivered";
+    return job.status === "won";
   });
 }
 

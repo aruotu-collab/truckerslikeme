@@ -26,7 +26,6 @@ type TodayRunBarProps = {
   onShowHidden?: () => void;
   onRemoveFromRun?: (jobId: string) => void;
   onMarkDelivered?: (jobId: string) => void;
-  onMarkWon?: (jobId: string) => void;
   onSetBid?: (jobId: string, myBid: number | null) => void;
 };
 
@@ -43,7 +42,6 @@ export function TodayRunBar({
   onShowHidden,
   onRemoveFromRun,
   onMarkDelivered,
-  onMarkWon,
   onSetBid,
 }: TodayRunBarProps) {
   const { money, market } = useMarket();
@@ -255,14 +253,19 @@ export function TodayRunBar({
 
                     {j.href ? (
                       <p className="mt-2 text-[11px] leading-snug text-muted">
-                        Open Shiply to check current bids, then enter your quote
-                        here.
+                        {j.status === "won"
+                          ? "You've won this leg — open Shiply for delivery details, then mark delivered when you drop."
+                          : j.status === "delivered"
+                            ? "Delivered — open Shiply if you need the listing again."
+                            : "Open Shiply to check current bids, then enter your quote here."}
+                      </p>
+                    ) : j.status === "won" ? (
+                      <p className="mt-2 text-[11px] leading-snug text-muted">
+                        You&apos;ve won this leg — mark delivered when you drop.
                       </p>
                     ) : null}
 
-                    {onSetBid &&
-                      j.status !== "won" &&
-                      j.status !== "delivered" && (
+                    {onSetBid && j.status !== "delivered" && (
                         <div className="mt-2">
                           <JobBidField
                             compact
@@ -284,17 +287,6 @@ export function TodayRunBar({
                         </span>
                       )}
                       <div className="flex flex-wrap gap-2">
-                        {onMarkWon &&
-                          j.status !== "won" &&
-                          j.status !== "delivered" && (
-                            <button
-                              type="button"
-                              onClick={() => onMarkWon(j.id)}
-                              className="flex-1 rounded-sm bg-[#2f6b4f] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase"
-                            >
-                              I got this
-                            </button>
-                          )}
                         {onMarkDelivered && j.status === "won" && (
                           <button
                             type="button"
@@ -324,7 +316,7 @@ export function TodayRunBar({
 
           <p className="mt-2 text-[11px] text-muted">
             {context === "tracker"
-              ? "Your execution queue for the day. Won jobs land here in order — mark delivered when you drop each one."
+              ? "Your execution queue — won jobs only. Mark delivered when you drop each one."
               : "Ordered queue for the day — managed from My Jobs when you win bids."}
           </p>
         </>
