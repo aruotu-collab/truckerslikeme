@@ -1,4 +1,9 @@
 import {
+  buildScreenMileGrid,
+  separateCircles,
+  type MileGrid,
+} from "@/lib/map-circle-layout";
+import {
   boundsAround,
   projectLatLon,
   resolveUkPlace,
@@ -583,6 +588,8 @@ export type ExploreMapLayout = {
   width: number;
   height: number;
   driver: { x: number; y: number; label: string } | null;
+  /** Cartesian mile grid from driver (overview + focused). */
+  grid: MileGrid | null;
   ringLabels: Array<{ x: number; y: number; label: string }>;
   /** Compass direction bubbles (default zoom). */
   directions: Array<{
@@ -644,6 +651,46 @@ function curvedPath(
   return `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
 }
 
+function offsetMiles(origin: LatLon, eastMi: number, northMi: number): LatLon {
+  const lat = origin.lat + northMi / 69;
+  const lon =
+    origin.lon +
+    eastMi / (69 * Math.cos((origin.lat * Math.PI) / 180));
+  return { lat, lon };
+}
+
+function milesPerPxFromGeo(
+  driverPt: LatLon,
+  bounds: ReturnType<typeof boundsAround>,
+  width: number,
+  height: number,
+  pad: number,
+  sampleMi = 25,
+) {
+  const a = projectLatLon(
+    driverPt.lat,
+    driverPt.lon,
+    bounds,
+    width,
+    height,
+    pad,
+  );
+  const east = offsetMiles(driverPt, sampleMi, 0);
+  const b = projectLatLon(east.lat, east.lon, bounds, width, height, pad);
+  return Math.hypot(b.x - a.x, b.y - a.y) / sampleMi;
+}
+
+function maxGridMiFromBounds(driverPt: LatLon, bounds: ReturnType<typeof boundsAround>) {
+  const corners: LatLon[] = [
+    { lat: bounds.minLat, lon: bounds.minLon },
+    { lat: bounds.minLat, lon: bounds.maxLon },
+    { lat: bounds.maxLat, lon: bounds.minLon },
+    { lat: bounds.maxLat, lon: bounds.maxLon },
+  ];
+  const farthest = Math.max(...corners.map((c) => haversineMi(driverPt, c)));
+  return Math.min(200, Math.ceil(farthest / 25) * 25);
+}
+
 export function layoutExploreMap(input: {
   jobs: MapJob[];
   driver: JobsMapDriver | null;
@@ -670,15 +717,40 @@ export function layoutExploreMap(input: {
 
   const maxDirJobs = Math.max(1, ...directions.map((d) => d.jobCount));
 
+  const compassRadius = Math.min(width, height) * 0.32;
+  const dirSeparated = separateCircles(
+    directions.map((d) => {
+      const r = 18 + (d.jobCount / maxDirJobs) * 28;
+      const pos = compassXY(cx, cy, d.id, compassRadius);
+      return {
+        id: d.id,
+        x: pos.x,
+        y: pos.y,
+        r,
+        anchorX: pos.x,
+        anchorY: pos.y,
+      };
+    }),
+    {
+      gap: 10,
+      labelPad: 34,
+      minX: pad,
+      minY: pad,
+      maxX: width - pad,
+      maxY: height - pad,
+      block: { x: cx, y: cy, r: 18 },
+    },
+  );
+
+  const dirById = new Map(dirSeparated.map((d) => [d.id, d]));
   const dirBubbles = directions.map((d) => {
-    const r = 18 + (d.jobCount / maxDirJobs) * 28;
-    const pos = compassXY(cx, cy, d.id, Math.min(width, height) * 0.32);
+    const laid = dirById.get(d.id)!;
     return {
       id: d.id,
       label: d.label,
-      x: pos.x,
-      y: pos.y,
-      r,
+      x: laid.x,
+      y: laid.y,
+      r: laid.r,
       jobCount: d.jobCount,
       totalPay: d.totalPay,
     };
@@ -724,7 +796,7 @@ export function layoutExploreMap(input: {
         ])
       : null;
 
-  const cityBubbles = focusCities.map((c) => {
+  const cityAnchors = focusCities.map((c) => {
     let x: number;
     let y: number;
     if (bounds && driverPt) {
@@ -737,7 +809,36 @@ export function layoutExploreMap(input: {
       y = pos.y;
     }
     const r = 12 + Math.min(c.jobCount, 12) * 2;
-    return { cluster: c, x, y, r };
+    return { cluster: c, x, y, r, anchorX: x, anchorY: y };
+  });
+
+  const citySeparated = separateCircles(
+    cityAnchors.map((c) => ({
+      id: c.cluster.id,
+      x: c.x,
+      y: c.y,
+      r: c.r,
+      anchorX: c.anchorX,
+      anchorY: c.anchorY,
+    })),
+    {
+      gap: 8,
+      labelPad: 22,
+      anchorWeight: bounds ? 0.08 : 0.12,
+      minX: pad,
+      minY: pad,
+      maxX: width - pad,
+      maxY: height - pad,
+      block: driverScreen
+        ? { x: driverScreen.x, y: driverScreen.y, r: 18 }
+        : { x: cx, y: cy, r: 18 },
+    },
+  );
+
+  const cityPosById = new Map(citySeparated.map((c) => [c.id, c]));
+  const cityBubbles = cityAnchors.map((c) => {
+    const laid = cityPosById.get(c.cluster.id)!;
+    return { cluster: c.cluster, x: laid.x, y: laid.y, r: laid.r };
   });
 
   const lines: ExploreMapLayout["lines"] = [];
@@ -837,17 +938,52 @@ export function layoutExploreMap(input: {
   }
 
   const ringLabels: ExploreMapLayout["ringLabels"] = [];
-  if (!input.selectedDirection && !input.selectedCityKey && driverScreen) {
-    const radii = [
-      { scale: 0.22, mi: 50 },
-      { scale: 0.38, mi: 100 },
-    ];
-    for (const { scale, mi } of radii) {
-      const r = Math.min(width, height) * scale;
-      ringLabels.push({
-        x: driverScreen.x + r * 0.72,
-        y: driverScreen.y - 4,
-        label: `~${mi} mi`,
+  let grid: MileGrid | null = null;
+
+  if (driverScreen && driverPt) {
+    if (!input.selectedDirection && !input.selectedCityKey) {
+      const milesPerPx =
+        (Math.min(width, height) * 0.38) / 100;
+      grid = buildScreenMileGrid({
+        cx: driverScreen.x,
+        cy: driverScreen.y,
+        milesPerPx,
+        maxMi: 100,
+        stepMi: 25,
+        width,
+        height,
+        pad,
+      });
+      const radii = [
+        { scale: 0.22, mi: 50 },
+        { scale: 0.38, mi: 100 },
+      ];
+      for (const { scale, mi } of radii) {
+        const r = Math.min(width, height) * scale;
+        ringLabels.push({
+          x: driverScreen.x + r * 0.72,
+          y: driverScreen.y - 4,
+          label: `~${mi} mi`,
+        });
+      }
+    } else if (bounds) {
+      const milesPerPx = milesPerPxFromGeo(
+        driverPt,
+        bounds,
+        width,
+        height,
+        pad,
+      );
+      const maxMi = maxGridMiFromBounds(driverPt, bounds);
+      grid = buildScreenMileGrid({
+        cx: driverScreen.x,
+        cy: driverScreen.y,
+        milesPerPx,
+        maxMi,
+        stepMi: 25,
+        width,
+        height,
+        pad,
       });
     }
   }
@@ -856,6 +992,7 @@ export function layoutExploreMap(input: {
     width,
     height,
     driver: driverScreen,
+    grid,
     ringLabels,
     directions: input.selectedDirection || input.selectedCityKey ? [] : dirBubbles,
     cities: input.selectedDirection || input.selectedCityKey ? cityBubbles : [],

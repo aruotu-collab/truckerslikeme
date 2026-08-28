@@ -64,6 +64,51 @@ export function JobsExploreMap({
           role="img"
           aria-label="Jobs explore map"
         >
+          {layout.grid && layout.driver && (
+            <g aria-hidden>
+              <line
+                x1={layout.grid.axisX.x1}
+                y1={layout.grid.axisX.y1}
+                x2={layout.grid.axisX.x2}
+                y2={layout.grid.axisX.y2}
+                stroke="#b0bcc8"
+                strokeWidth="1.25"
+              />
+              <line
+                x1={layout.grid.axisY.x1}
+                y1={layout.grid.axisY.y1}
+                x2={layout.grid.axisY.x2}
+                y2={layout.grid.axisY.y2}
+                stroke="#b0bcc8"
+                strokeWidth="1.25"
+              />
+              {layout.grid.lines.map((line, i) => (
+                <line
+                  key={`grid-${line.axis}-${i}`}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke="#d0d8e0"
+                  strokeWidth="0.75"
+                  strokeOpacity={0.85}
+                />
+              ))}
+              {layout.grid.labels.map((label) => (
+                <text
+                  key={`${label.text}-${label.x}-${label.y}`}
+                  x={label.x}
+                  y={label.y}
+                  textAnchor={label.anchor}
+                  fill="#9aa3ad"
+                  style={{ fontSize: 8, fontWeight: 500 }}
+                >
+                  {label.text}
+                </text>
+              ))}
+            </g>
+          )}
+
           {!focused && layout.driver && (
             <>
               {[
