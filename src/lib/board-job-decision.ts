@@ -47,12 +47,44 @@ export function deadheadToJob(
   return Math.round(haversineMi(from, pickup));
 }
 
-export function loadedMilesForJob(job: MapJob): number | null {
-  if (job.miles != null && job.miles > 0) return job.miles;
-  const o = resolveUkPlace(job.origin);
-  const d = resolveUkPlace(job.destination);
+/** Empty miles between two place labels (or explicit coords for the start). */
+export function deadheadBetweenPlaces(
+  fromLabel: string,
+  pickupLabel: string,
+  fromCoords?: { lat: number; lon: number } | null,
+): number | null {
+  const from =
+    fromCoords ??
+    driverPoint({
+      label: fromLabel.trim(),
+      lat: null,
+      lon: null,
+    });
+  const pickup = resolveUkPlace(pickupLabel);
+  if (!from || !pickup) return null;
+  if (
+    placeKey(fromLabel) &&
+    placeKey(fromLabel) === placeKey(pickupLabel)
+  ) {
+    return 0;
+  }
+  return Math.round(haversineMi(from, pickup));
+}
+
+/** Loaded miles between pickup and drop-off when not provided on the job. */
+export function milesBetweenPlaces(
+  originLabel: string,
+  destinationLabel: string,
+): number | null {
+  const o = resolveUkPlace(originLabel);
+  const d = resolveUkPlace(destinationLabel);
   if (!o || !d) return null;
   return Math.max(1, Math.round(haversineMi(o, d)));
+}
+
+export function loadedMilesForJob(job: MapJob): number | null {
+  if (job.miles != null && job.miles > 0) return job.miles;
+  return milesBetweenPlaces(job.origin ?? "", job.destination ?? "");
 }
 
 export type BoardJobSnapshot = {
