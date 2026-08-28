@@ -29,3 +29,61 @@ export function shiplyApiErrorMessage(
 ): string {
   return data.error || fallback || SHIPLY_SIGN_IN_MESSAGE;
 }
+
+export type ShiplyConnectUi = {
+  /** True when the button should be disabled (not clickable). */
+  disabled: boolean;
+  hint: string | null;
+  buttonLabel: string;
+};
+
+/** Explains why Connect Shiply is disabled or what sign-in is for. */
+export function shiplyConnectUi(opts: {
+  startReady: boolean;
+  isSignedIn: boolean;
+  busy: boolean;
+  startHint?: string;
+}): ShiplyConnectUi {
+  const { startReady, isSignedIn, busy } = opts;
+  const startHint =
+    opts.startHint ?? "Set your starting location above first.";
+
+  if (busy) {
+    return {
+      disabled: true,
+      hint: null,
+      buttonLabel: "Opening…",
+    };
+  }
+
+  if (!startReady) {
+    const signInNote = !isSignedIn
+      ? " A free account is also required to connect Shiply."
+      : "";
+    return {
+      disabled: true,
+      hint: `${startHint}${signInNote}`,
+      buttonLabel: isSignedIn ? "Connect Shiply →" : "Sign in free to connect →",
+    };
+  }
+
+  if (!isSignedIn) {
+    return {
+      disabled: false,
+      hint: "Create a free account to open the Shiply browser. Screenshots and manual entry work without signing in.",
+      buttonLabel: "Sign in free to connect →",
+    };
+  }
+
+  return {
+    disabled: false,
+    hint: null,
+    buttonLabel: "Connect Shiply →",
+  };
+}
+
+export function requiresSignInForIngestSource(
+  source: "scan" | "screenshot" | "manual" | "paste",
+): boolean {
+  return source === "scan";
+}

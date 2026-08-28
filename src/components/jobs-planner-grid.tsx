@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
-import { outlineBtnClass } from "@/lib/ui-buttons";
+import { outlineBtnAlertClass, outlineBtnClass } from "@/lib/ui-buttons";
 import {
   buildConnectionMatrix,
   buildManualChain,
@@ -47,6 +47,8 @@ type Props = {
   onSetBid?: (jobId: string, myBid: number | null) => void;
   /** Move a considering job to My Jobs → Bidding (same action as Hunt). */
   onStartBidding?: (jobId: string) => void;
+  /** Permanently remove a job from the board (Hunt + Chains). */
+  onRemoveJob?: (jobId: string) => void;
 };
 
 const TABS: { id: PlannerTab | "distances"; label: string }[] = [
@@ -122,6 +124,7 @@ export function JobsPlannerGrid({
   runOnly = false,
   onSetBid,
   onStartBidding,
+  onRemoveJob,
 }: Props) {
   const [tab, setTab] = useState<PlannerTab>(runOnly ? "runs" : initialTab);
   const [sort, setSort] = useState<PlannerSort>("default");
@@ -193,6 +196,7 @@ export function JobsPlannerGrid({
         mappedJobCount={runBuilder.totalJobs}
         onSetBid={onSetBid}
         onStartBidding={onStartBidding}
+        onRemoveJob={onRemoveJob}
       />
     );
   }
@@ -913,6 +917,7 @@ export function JobsPlannerGrid({
           mappedJobCount={runBuilder.totalJobs}
           onSetBid={onSetBid}
           onStartBidding={onStartBidding}
+          onRemoveJob={onRemoveJob}
         />
       )}
     </div>
@@ -927,6 +932,7 @@ function RunsCompareView({
   mappedJobCount,
   onSetBid,
   onStartBidding,
+  onRemoveJob,
 }: {
   plans: BidPlan[];
   driver: JobsMapDriver | null;
@@ -935,6 +941,7 @@ function RunsCompareView({
   mappedJobCount: number;
   onSetBid?: (jobId: string, myBid: number | null) => void;
   onStartBidding?: (jobId: string) => void;
+  onRemoveJob?: (jobId: string) => void;
 }) {
   const { market } = useMarket();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -1386,14 +1393,24 @@ function RunsCompareView({
                 >
                   Drop from suggestion
                 </button>
+                {onRemoveJob ? (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveJob(job.id)}
+                    className={`shrink-0 ${outlineBtnAlertClass("sm")}`}
+                  >
+                    Remove from board
+                  </button>
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
         {workingPlan.jobs.length > 0 && (
           <p className="mt-2 text-xs text-muted">
-            Drop from suggestion only edits this preview. Start bidding sends the
-            job to My Jobs — same as Hunt.
+            Drop from suggestion only edits this preview. Remove from board
+            deletes the job from Hunt and Chains. Start bidding sends the job to
+            My Jobs — same as Hunt.
           </p>
         )}
       </div>

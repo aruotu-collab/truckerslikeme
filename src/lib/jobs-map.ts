@@ -164,6 +164,17 @@ export function writeJobsMapState(state: JobsMapState) {
   );
 }
 
+/** Permanently remove jobs from the board and today's run chain. */
+export function removeMapJobsByIds(state: JobsMapState, ids: string[]): JobsMapState {
+  if (!ids.length) return state;
+  const drop = new Set(ids);
+  return {
+    ...state,
+    jobs: state.jobs.filter((j) => !drop.has(j.id)),
+    todayRunIds: (state.todayRunIds ?? []).filter((id) => !drop.has(id)),
+  };
+}
+
 export function writeJobsMap(jobs: MapJob[]) {
   if (typeof window === "undefined") return;
   const prev = readJobsMapState();

@@ -7,7 +7,9 @@ import { JobBoardIngest } from "@/components/job-board-ingest";
 import { JobsExploreMap } from "@/components/jobs-explore-map";
 import { JobsLaneMatrix } from "@/components/jobs-lane-matrix";
 import { JobsPlannerGrid } from "@/components/jobs-planner-grid";
+import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
+import { openShiplyAuthGate, requiresSignInForIngestSource } from "@/lib/shiply-client-auth";
 import {
   buildRouteConnections,
   classifyJobsByCorridor,
@@ -25,6 +27,7 @@ import {
   mergeScannedJobs,
   placeKey,
   readJobsMapState,
+  removeMapJobsByIds,
   shortPlace,
   writeJobsMapState,
   type JobsMapDriver,
@@ -32,7 +35,7 @@ import {
   type MapJobStatus,
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
-import { outlineBtnClass } from "@/lib/ui-buttons";
+import { outlineBtnAlertClass, outlineBtnClass } from "@/lib/ui-buttons";
 
 const SORTS: { id: SortMode; label: string }[] = [
   { id: "money", label: "Most money" },
@@ -44,10 +47,16 @@ const SORTS: { id: SortMode; label: string }[] = [
 type MainTab = "jobs" | "run";
 type JobsLook = "list" | "map" | "lanes";
 
+type PendingRemove =
+  | { mode: "one"; id: string }
+  | { mode: "all-visible" }
+  | { mode: "all-hidden" };
+
 const LIST_PAGE_SIZE = 12;
 
 export function JobsMapPanel() {
   const { money } = useMarket();
+  const { isSignedIn, openGate, loading: authLoading } = useAuthGate();
   const [jobs, setJobs] = useState<MapJob[]>([]);
   const [driver, setDriver] = useState<JobsMapDriver | null>(null);
   const [home, setHome] = useState<JobsMapDriver | null>(null);
@@ -72,6 +81,7 @@ export function JobsMapPanel() {
   const [justHiddenId, setJustHiddenId] = useState<string | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
+  const [pendingRemove, setPendingRemove] = useState<PendingRemove | null>(null);
   const hiddenSectionRef = useRef<HTMLDetailsElement | null>(null);
   const hideUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,6 +99,19 @@ export function JobsMapPanel() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || authLoading || isSignedIn) return;
+    setJobs((prev) => {
+      const next = prev.filter(
+        (j) => j.ingestSource !== "scan",
+      );
+      if (next.length === prev.length) return prev;
+      const stored = readJobsMapState();
+      writeJobsMapState({ ...stored, jobs: next });
+      return next;
+    });
+  }, [hydrated, authLoading, isSignedIn]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -220,6 +243,67 @@ export function JobsMapPanel() {
     setJustHiddenId(null);
   }
 
+  function deleteJobs(ids: string[]) {
+    if (!ids.length) return;
+    setJobs((prev) => {
+      const stored = readJobsMapState();
+      const nextState = removeMapJobsByIds(
+        { ...stored, jobs: prev },
+        ids,
+      );
+      writeJobsMapState(nextState);
+      return nextState.jobs;
+    });
+    setRunChainIds((prev) => prev.filter((id) => !ids.includes(id)));
+    if (justHiddenId && ids.includes(justHiddenId)) clearHideUndo();
+  }
+
+  function requestRemoveJob(id: string) {
+    setPendingRemove({ mode: "one", id });
+  }
+
+  function requestRemoveAllVisible() {
+    if (!visible.length) return;
+    setPendingRemove({ mode: "all-visible" });
+  }
+
+  function requestRemoveAllHidden() {
+    if (!hiddenJobs.length) return;
+    setPendingRemove({ mode: "all-hidden" });
+  }
+
+  function confirmRemove() {
+    if (!pendingRemove) return;
+    if (pendingRemove.mode === "one") {
+      deleteJobs([pendingRemove.id]);
+      const job = jobs.find((j) => j.id === pendingRemove.id);
+      if (job) {
+        setStatusNote(
+          `Removed ${shortPlace(job.origin)} → ${shortPlace(job.destination)} from the board.`,
+        );
+      }
+    } else if (pendingRemove.mode === "all-visible") {
+      const count = visible.length;
+      deleteJobs(visible.map((j) => j.id));
+      setStatusNote(
+        `Removed ${count} job${count === 1 ? "" : "s"} from Hunt and Chains.`,
+      );
+    } else {
+      const count = hiddenJobs.length;
+      deleteJobs(hiddenJobs.map((j) => j.id));
+      setStatusNote(
+        `Removed ${count} hidden job${count === 1 ? "" : "s"} permanently.`,
+      );
+    }
+    setPendingRemove(null);
+    setError(null);
+  }
+
+  const pendingRemoveJob =
+    pendingRemove?.mode === "one"
+      ? jobs.find((j) => j.id === pendingRemove.id) ?? null
+      : null;
+
   function hideJob(id: string) {
     setJobs((prev) => {
       const next = prev.map((j) =>
@@ -328,6 +412,15 @@ export function JobsMapPanel() {
       return;
     }
     if (!picked.length) return;
+    if (
+      !authLoading &&
+      !isSignedIn &&
+      picked.some((j) => j.ingestSource && requiresSignInForIngestSource(j.ingestSource))
+    ) {
+      openShiplyAuthGate(openGate);
+      setError("Sign in to add live-scanned jobs to Hunt.");
+      return;
+    }
     setJobs((prev) => mergeScannedJobs(prev, picked));
     setStatusNote(
       `Added ${picked.length} job${picked.length === 1 ? "" : "s"} to Hunt.`,
@@ -429,8 +522,8 @@ export function JobsMapPanel() {
               <p className="mt-1 text-base leading-relaxed text-muted sm:text-sm">
                 {mainTab === "jobs" && jobsLook === "list"
                   ? visible.length > listShown.length
-                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, then Start bidding (→ My Jobs) or hide.`
-                    : "Enter a quote, then Start bidding to track in My Jobs — or hide."
+                    ? `Showing ${listShown.length} of ${visible.length} — enter a quote, then Start bidding (→ My Jobs), hide, or remove.`
+                    : "Enter a quote, then Start bidding to track in My Jobs — or hide / remove."
                   : mainTab === "jobs"
                     ? "Considering jobs only — bidding jobs live in My Jobs."
                     : "Compare chains — enter quotes and Start bidding here (same jobs as Hunt)."}
@@ -489,8 +582,29 @@ export function JobsMapPanel() {
                   {v.label}
                 </button>
               ))}
+              {visible.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={requestRemoveAllVisible}
+                  className={outlineBtnAlertClass("sm")}
+                >
+                  Remove all ({visible.length})
+                </button>
+              ) : null}
             </div>
           )}
+
+          {mainTab === "run" && visible.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={requestRemoveAllVisible}
+                className={outlineBtnAlertClass("sm")}
+              >
+                Remove all from board ({visible.length})
+              </button>
+            </div>
+          ) : null}
         </div>
 
 
@@ -563,6 +677,7 @@ export function JobsMapPanel() {
                   onSetBid={(myBid) => setMyBid(job.id, myBid)}
                   onStartBidding={() => startBidding(job.id)}
                   onHide={() => hideJob(job.id)}
+                  onRemove={() => requestRemoveJob(job.id)}
                   onFocusJob={focusBoardJob}
                 />
               ))}
@@ -607,7 +722,8 @@ export function JobsMapPanel() {
               Hidden jobs ({hiddenJobs.length}) — tap to restore
             </summary>
             <p className="mt-2 text-xs">
-              Passed for now — restore to bid again. Same list as Hidden on{" "}
+              Passed for now — restore to bid again, or remove permanently.
+              Same list as Hidden on{" "}
               <Link
                 href="/jobs?tab=skipped"
                 className="font-semibold text-amber hover:text-asphalt"
@@ -616,6 +732,17 @@ export function JobsMapPanel() {
               </Link>
               .
             </p>
+            {hiddenJobs.length > 0 ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={requestRemoveAllHidden}
+                  className={outlineBtnAlertClass("sm")}
+                >
+                  Remove all hidden ({hiddenJobs.length})
+                </button>
+              </div>
+            ) : null}
             <ul className="mt-2 space-y-1">
               {hiddenJobs.map((j) => (
                 <li
@@ -639,13 +766,22 @@ export function JobsMapPanel() {
                       </span>
                     ) : null}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => restoreJob(j.id)}
-                    className={`shrink-0 ${outlineBtnClass("amber", "sm")}`}
-                  >
-                    Restore
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => restoreJob(j.id)}
+                      className={`shrink-0 ${outlineBtnClass("amber", "sm")}`}
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => requestRemoveJob(j.id)}
+                      className={outlineBtnAlertClass("sm")}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -713,10 +849,82 @@ export function JobsMapPanel() {
               runOnly
               onSetBid={setMyBid}
               onStartBidding={startBidding}
+              onRemoveJob={requestRemoveJob}
             />
           </div>
         )}
       </section>
+
+      {pendingRemove && (
+        <div
+          className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-asphalt/70 p-4 backdrop-blur-sm sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="board-remove-job-title"
+          onClick={() => setPendingRemove(null)}
+        >
+          <div
+            className="animate-slide-up w-full max-w-md border border-asphalt/10 bg-background p-6 shadow-2xl sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-xs tracking-[0.2em] text-alert uppercase">
+              Remove from board
+            </p>
+            <h2
+              id="board-remove-job-title"
+              className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase"
+            >
+              Are you sure?
+            </h2>
+            <p className="mt-3 text-sm text-muted">
+              {pendingRemove.mode === "one" && pendingRemoveJob ? (
+                <>
+                  Remove{" "}
+                  <span className="font-semibold text-asphalt">
+                    {shortPlace(pendingRemoveJob.origin)} →{" "}
+                    {shortPlace(pendingRemoveJob.destination)}
+                  </span>{" "}
+                  permanently from Hunt and Chains? Use Hide if you might want
+                  it again.
+                </>
+              ) : pendingRemove.mode === "all-visible" ? (
+                <>
+                  Remove all{" "}
+                  <span className="font-semibold text-asphalt">
+                    {visible.length} job{visible.length === 1 ? "" : "s"}
+                  </span>{" "}
+                  from Hunt and Chains? This cannot be undone.
+                </>
+              ) : (
+                <>
+                  Remove all{" "}
+                  <span className="font-semibold text-asphalt">
+                    {hiddenJobs.length} hidden job
+                    {hiddenJobs.length === 1 ? "" : "s"}
+                  </span>{" "}
+                  permanently? This cannot be undone.
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingRemove(null)}
+                className={outlineBtnClass("muted")}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemove}
+                className="rounded-sm bg-alert px-4 py-2.5 text-xs font-semibold tracking-wide text-white uppercase"
+              >
+                Remove permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

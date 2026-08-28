@@ -112,7 +112,7 @@ export function ShiplyLiveView({
             Shiply browser collapsed
           </p>
           <p className="mt-0.5 text-xs text-muted">
-            Session still running — show it again to search or re-scan.
+            Collapsed after scan — expand to search Shiply again.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -124,7 +124,14 @@ export function ShiplyLiveView({
             }}
             className="rounded-sm bg-asphalt px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase"
           >
-            Show browser
+            Expand browser
+          </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase sm:hidden"
+          >
+            Inline view
           </button>
           <a
             href={src}

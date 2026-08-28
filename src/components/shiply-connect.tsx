@@ -19,6 +19,7 @@ import {
   handleShiplyApiAuth,
   openShiplyAuthGate,
   shiplyApiErrorMessage,
+  shiplyConnectUi,
 } from "@/lib/shiply-client-auth";
 import { outlineBtnClass } from "@/lib/ui-buttons";
 
@@ -282,6 +283,13 @@ export function ShiplyConnect({
     return <p className="text-sm text-muted">Checking Shiply connect…</p>;
   }
 
+  const connectUi = shiplyConnectUi({
+    startReady: Boolean(prefs.start.trim()),
+    isSignedIn,
+    busy,
+    startHint: "Add your starting location in setup first.",
+  });
+
   return (
     <div className="space-y-4 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -311,20 +319,19 @@ export function ShiplyConnect({
 
       {!sessionId ? (
         <div className="space-y-2">
-          {!isSignedIn ? (
-            <p className="text-sm text-muted">
-              Free account required to connect Shiply. Manual entry and
-              screenshots work without signing in.
+          {connectUi.hint ? (
+            <p className="border border-amber/40 bg-amber/10 px-3 py-2.5 text-sm leading-relaxed text-asphalt">
+              {connectUi.hint}
             </p>
           ) : null}
           <button
-          type="button"
-          disabled={busy}
-          onClick={() => void startSession()}
-          className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase disabled:opacity-60"
-        >
-          {busy ? "Opening browser…" : "Connect Shiply →"}
-        </button>
+            type="button"
+            disabled={connectUi.disabled}
+            onClick={() => void startSession()}
+            className="rounded-sm bg-asphalt px-5 py-3 text-sm font-semibold tracking-wide text-white uppercase disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {connectUi.buttonLabel}
+          </button>
         </div>
       ) : (
         <div className="space-y-3">

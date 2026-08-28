@@ -21,7 +21,9 @@ import {
 import {
   handleShiplyApiAuth,
   openShiplyAuthGate,
+  requiresSignInForIngestSource,
   shiplyApiErrorMessage,
+  shiplyConnectUi,
 } from "@/lib/shiply-client-auth";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
@@ -53,7 +55,7 @@ type JobBoardIngestProps = {
 };
 
 export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIngestProps) {
-  const { isSignedIn, openGate } = useAuthGate();
+  const { isSignedIn, openGate, loading: authLoading } = useAuthGate();
   const awaitingConnect = useRef(false);
   const [tab, setTab] = useState<IngestTab>("screenshot");
   const [busy, setBusy] = useState(false);
@@ -98,10 +100,32 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resume once after sign-in
   }, [isSignedIn]);
 
+  useEffect(() => {
+    if (authLoading) return;
+    if (isSignedIn) return;
+    setSessionId(null);
+    setLiveViewUrl(null);
+    setPending((prev) => {
+      const next = prev.filter((j) => !requiresSignInForIngestSource(j.source));
+      if (next.length === prev.length) return prev;
+      setScanSummary(null);
+      setNewFingerprints(new Set());
+      return next;
+    });
+  }, [isSignedIn, authLoading]);
+
   function loadPending(
     jobs: IngestJobDraft[],
     opts?: { newFps?: Set<string>; summary?: string | null; coachMsg?: string | null },
   ) {
+    if (
+      jobs.some((j) => requiresSignInForIngestSource(j.source)) &&
+      !isSignedIn
+    ) {
+      openShiplyAuthGate(openGate);
+      setError("Sign in to review live-scanned jobs.");
+      return;
+    }
     setPending(jobs);
     const nextSel: Record<string, boolean> = {};
     for (const j of jobs) nextSel[j.id] = true;
@@ -142,6 +166,20 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       if (shot) URL.revokeObjectURL(shot.preview);
       return prev.filter((s) => s.id !== id);
     });
+  }
+
+  function clearReview() {
+    setPending([]);
+    setSelected({});
+    setNewFingerprints(new Set());
+    setScanSummary(null);
+    setCoach(null);
+    setError(null);
+  }
+
+  async function startNewSession() {
+    clearReview();
+    await startSession();
   }
 
   async function startSession() {
@@ -316,6 +354,14 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
       setError(all ? "No jobs in the list." : "Tick at least one job to add.");
       return;
     }
+    if (
+      picked.some((j) => requiresSignInForIngestSource(j.source)) &&
+      !isSignedIn
+    ) {
+      openShiplyAuthGate(openGate);
+      setError("Sign in to add live-scanned jobs to Hunt.");
+      return;
+    }
     const visible = draftsToVisible(picked).map((j, i) => ({
       ...j,
       id: picked[i]!.id,
@@ -333,6 +379,18 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
 
   const tabBtn =
     "min-h-11 flex-1 rounded-sm px-3 py-2 text-xs font-semibold tracking-wide uppercase transition sm:text-[11px]";
+
+  const connectUi = shiplyConnectUi({
+    startReady,
+    isSignedIn,
+    busy,
+    startHint: "Set your starting location above first — use the field at the top of this page.",
+  });
+
+  const scanReviewBlocked =
+    !authLoading &&
+    !isSignedIn &&
+    pending.some((j) => requiresSignInForIngestSource(j.source));
 
   return (
     <div className="space-y-4 border-t border-asphalt/10 pt-4">
@@ -391,19 +449,18 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
 
           {enabled && !sessionId ? (
             <div className="space-y-2">
-              {!isSignedIn ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Free account required to connect Shiply. Screenshots and
-                  manual entry work without signing in.
+              {connectUi.hint ? (
+                <p className="border border-amber/40 bg-amber/10 px-3 py-2.5 text-xs leading-relaxed text-asphalt">
+                  {connectUi.hint}
                 </p>
               ) : null}
               <button
                 type="button"
-                disabled={busy || !startReady}
+                disabled={connectUi.disabled}
                 onClick={() => void startSession()}
-                className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase disabled:opacity-60"
+                className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? "Opening…" : "Connect Shiply →"}
+                {connectUi.buttonLabel}
               </button>
             </div>
           ) : null}
@@ -425,7 +482,7 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void startSession()}
+                  onClick={() => void startNewSession()}
                   className="min-h-11 rounded-sm border-2 border-asphalt/25 bg-white px-4 py-2 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
                 >
                   New session
@@ -575,6 +632,9 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
         }}
         onAddAll={() => commitToBoard(true)}
         onAddSelected={() => commitToBoard(false)}
+        onClearReview={clearReview}
+        addBlocked={scanReviewBlocked}
+        onAddBlocked={() => openShiplyAuthGate(openGate)}
         disabled={busy}
       />
 

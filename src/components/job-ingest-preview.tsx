@@ -16,10 +16,15 @@ type JobIngestPreviewProps = {
   onSelectAll: (checked: boolean) => void;
   onAddAll: () => void;
   onAddSelected: () => void;
+  onClearReview?: () => void;
+  addBlocked?: boolean;
+  addBlockedHint?: string;
+  onAddBlocked?: () => void;
   disabled?: boolean;
   reviewLabel?: string;
   addAllLabel?: string;
   addSelectedLabel?: string;
+  clearReviewLabel?: string;
 };
 
 export function JobIngestPreview({
@@ -31,10 +36,15 @@ export function JobIngestPreview({
   onSelectAll,
   onAddAll,
   onAddSelected,
+  onClearReview,
+  addBlocked,
+  addBlockedHint = "Sign in free to add live-scanned jobs to Hunt.",
+  onAddBlocked,
   disabled,
   reviewLabel = "Review before adding",
   addAllLabel,
   addSelectedLabel = "Add selected only",
+  clearReviewLabel = "Clear review",
 }: JobIngestPreviewProps) {
   if (!jobs.length) return null;
 
@@ -98,23 +108,39 @@ export function JobIngestPreview({
         })}
       </ul>
 
+      {addBlocked ? (
+        <p className="border border-amber/40 bg-amber/10 px-3 py-2.5 text-xs leading-relaxed text-asphalt">
+          {addBlockedHint}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           disabled={disabled || !jobs.length}
-          onClick={onAddAll}
+          onClick={() => (addBlocked ? onAddBlocked?.() : onAddAll())}
           className="min-h-11 rounded-sm bg-amber px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
         >
-          {addAllText}
+          {addBlocked ? "Sign in free to add →" : addAllText}
         </button>
         <button
           type="button"
           disabled={disabled || selectedCount === 0}
-          onClick={onAddSelected}
+          onClick={() => (addBlocked ? onAddBlocked?.() : onAddSelected())}
           className="min-h-11 rounded-sm border-2 border-asphalt/30 bg-white px-4 py-2 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
         >
           {addSelectedLabel}
         </button>
+        {onClearReview ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onClearReview}
+            className="min-h-11 rounded-sm border-2 border-asphalt/15 bg-white px-4 py-2 text-xs font-semibold tracking-wide text-muted uppercase hover:border-asphalt/30 hover:text-asphalt disabled:opacity-60"
+          >
+            {clearReviewLabel}
+          </button>
+        ) : null}
       </div>
     </div>
   );

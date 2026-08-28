@@ -17,7 +17,7 @@ import {
   fitToneClass,
 } from "@/lib/jobs-today-run";
 import { useMarket } from "@/lib/market-context";
-import { outlineBtnClass } from "@/lib/ui-buttons";
+import { outlineBtnAlertClass, outlineBtnClass } from "@/lib/ui-buttons";
 
 type BoardJobCardProps = {
   job: MapJob;
@@ -26,6 +26,7 @@ type BoardJobCardProps = {
   onSetBid: (myBid: number | null) => void;
   onStartBidding?: () => void;
   onHide?: () => void;
+  onRemove?: () => void;
   onFocusJob?: (jobId: string) => void;
 };
 
@@ -36,6 +37,7 @@ export function BoardJobCard({
   onSetBid,
   onStartBidding,
   onHide,
+  onRemove,
   onFocusJob,
 }: BoardJobCardProps) {
   const { money, market } = useMarket();
@@ -217,6 +219,15 @@ export function BoardJobCard({
             className={outlineBtnClass("muted")}
           >
             Hide
+          </button>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className={outlineBtnAlertClass("sm")}
+          >
+            Remove
           </button>
         )}
       </div>
