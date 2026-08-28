@@ -49,7 +49,7 @@ const ACTION_COPY: Record<AuthGateAction, { title: string; body: string }> = {
   },
   "shiply-connect": {
     title: "Connect Shiply",
-    body: "Free account — log into your Shiply in our secure browser and scan jobs. Manual entry and screenshots still work without signing in.",
+    body: "Free account — enter your email and we'll send a sign-in link. Then log into Shiply in our secure browser and scan jobs.",
   },
 };
 
