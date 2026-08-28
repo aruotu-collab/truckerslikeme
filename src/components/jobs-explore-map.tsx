@@ -309,12 +309,7 @@ export function JobsExploreMap({
                   </span>
                 )}
                 {j.href && (
-                  <ShiplyLink
-                    href={j.href}
-                    className="text-xs font-semibold text-amber uppercase"
-                  >
-                    Shiply →
-                  </ShiplyLink>
+                  <ShiplyLink href={j.href} size="sm" />
                 )}
               </li>
             ))}

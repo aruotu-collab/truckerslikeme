@@ -32,6 +32,7 @@ import {
   type MapJobStatus,
 } from "@/lib/jobs-map";
 import { resolveUkPlace } from "@/lib/uk-places";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
   diffAgainstLastScan,
@@ -680,7 +681,7 @@ export function JobsMapPanel() {
                 {mainTab === "jobs" && jobsLook === "list"
                   ? "Hunt"
                   : mainTab === "run"
-                    ? "Suggested chains"
+                    ? "Chains"
                     : `${visible.length} to review`}
               </h2>
               <p className="mt-1 text-sm text-muted">
@@ -737,10 +738,10 @@ export function JobsMapPanel() {
                   key={v.id}
                   type="button"
                   onClick={() => setJobsLook(v.id)}
-                  className={`rounded-sm px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${
+                  className={`rounded-sm border-2 px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${
                     jobsLook === v.id
-                      ? "bg-asphalt text-white"
-                      : "text-asphalt/60 hover:bg-concrete/50 hover:text-asphalt"
+                      ? "border-asphalt bg-asphalt text-white"
+                      : "border-asphalt/40 bg-white text-asphalt/70 hover:border-asphalt hover:bg-concrete/50 hover:text-asphalt"
                   }`}
                 >
                   {v.label}
@@ -898,7 +899,7 @@ export function JobsMapPanel() {
                   <button
                     type="button"
                     onClick={() => restoreJob(j.id)}
-                    className="shrink-0 text-[11px] font-semibold tracking-wide text-amber uppercase hover:text-asphalt"
+                    className={`shrink-0 ${outlineBtnClass("amber", "sm")}`}
                   >
                     Restore
                   </button>

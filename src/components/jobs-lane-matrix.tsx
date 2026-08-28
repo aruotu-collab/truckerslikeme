@@ -313,10 +313,7 @@ export function JobsLaneMatrix({
                       <span className="text-xs text-slate-500">No bid yet</span>
                     )}
                     {job.href && (
-                      <ShiplyLink
-                        href={job.href}
-                        className="rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-                      >
+                      <ShiplyLink href={job.href} size="sm">
                         Bid →
                       </ShiplyLink>
                     )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { outlineBtnAlertClass } from "@/lib/ui-buttons";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   countByStatus,
@@ -633,7 +635,7 @@ export function CourierPlanPanel() {
                       <button
                         type="button"
                         onClick={() => removeStop(stop.id)}
-                        className="rounded-sm px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-muted uppercase hover:text-alert"
+                        className={outlineBtnAlertClass("sm")}
                       >
                         Remove
                       </button>
@@ -676,7 +678,7 @@ export function CourierPlanPanel() {
                           <button
                             type="button"
                             onClick={() => removeStop(stop.id)}
-                            className="rounded-sm px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-muted uppercase hover:text-alert"
+                            className={outlineBtnAlertClass("sm")}
                           >
                             Remove
                           </button>

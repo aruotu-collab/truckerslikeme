@@ -275,10 +275,7 @@ export function TodayRunBar({
 
                     <div className="mt-auto flex flex-col gap-2 pt-3">
                       {j.href ? (
-                        <ShiplyLink
-                          href={j.href}
-                          className="rounded-sm bg-amber px-2.5 py-1.5 text-center text-[10px] font-semibold tracking-wide text-asphalt uppercase"
-                        >
+                        <ShiplyLink href={j.href} size="sm" className="w-full">
                           Open Shiply details →
                         </ShiplyLink>
                       ) : (

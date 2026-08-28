@@ -200,10 +200,7 @@ export function JobsTubeMap({ jobs, driver, selectedId, onSelect }: Props) {
             {mapStatusMeta[selected.status].label}
           </span>
           {selected.href ? (
-            <ShiplyLink
-              href={selected.href}
-              className="ml-auto rounded-sm bg-amber px-3 py-1.5 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
-            >
+            <ShiplyLink href={selected.href} size="sm" className="ml-auto">
               Open on Shiply →
             </ShiplyLink>
           ) : (

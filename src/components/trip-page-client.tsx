@@ -45,13 +45,14 @@ export function TripPageClient() {
           parking tips along the way.
         </p>
 
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div className="page-sticky-bar -mx-5 mt-6 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
+          <div className="flex flex-wrap gap-2">
           <Link
             href="/trip?tab=assist"
             className={`${chip} ${
               active === "assist"
                 ? "bg-amber text-asphalt"
-                : "border border-asphalt/15 bg-white text-asphalt"
+                : "border-2 border-asphalt/40 bg-white text-asphalt hover:border-asphalt"
             }`}
           >
             Assistant
@@ -61,7 +62,7 @@ export function TripPageClient() {
             className={`${chip} ${
               active === "live"
                 ? "bg-amber text-asphalt"
-                : "border border-asphalt/15 bg-white text-asphalt"
+                : "border-2 border-asphalt/40 bg-white text-asphalt hover:border-asphalt"
             }`}
           >
             Live
@@ -71,11 +72,12 @@ export function TripPageClient() {
             className={`${chip} ${
               active === "plan"
                 ? "bg-amber text-asphalt"
-                : "border border-asphalt/15 bg-white text-asphalt"
+                : "border-2 border-asphalt/40 bg-white text-asphalt hover:border-asphalt"
             }`}
           >
             Plan
           </Link>
+          </div>
         </div>
       </div>
 

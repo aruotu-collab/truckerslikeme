@@ -17,9 +17,7 @@ import {
   fitToneClass,
 } from "@/lib/jobs-today-run";
 import { useMarket } from "@/lib/market-context";
-
-const huntOutlineBtn =
-  "inline-flex items-center justify-center rounded-sm border-2 border-asphalt/40 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase shadow-sm";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 
 type BoardJobCardProps = {
   job: MapJob;
@@ -195,12 +193,7 @@ export function BoardJobCard({
               </button>
             )}
             {next.job.href ? (
-              <ShiplyLink
-                href={next.job.href}
-                className={`${huntOutlineBtn} px-2.5 py-1 text-amber hover:border-amber hover:bg-amber/10`}
-              >
-                Shiply →
-              </ShiplyLink>
+              <ShiplyLink href={next.job.href} size="sm" />
             ) : null}
           </div>
         </div>
@@ -216,19 +209,12 @@ export function BoardJobCard({
             Start bidding →
           </button>
         )}
-        {job.href ? (
-          <ShiplyLink
-            href={job.href}
-            className={`${huntOutlineBtn} text-amber hover:border-amber hover:bg-amber/10`}
-          >
-            Shiply →
-          </ShiplyLink>
-        ) : null}
+        {job.href ? <ShiplyLink href={job.href} /> : null}
         {onHide && (
           <button
             type="button"
             onClick={onHide}
-            className={`${huntOutlineBtn} text-asphalt hover:border-asphalt hover:bg-concrete/40`}
+            className={outlineBtnClass("muted")}
           >
             Hide
           </button>

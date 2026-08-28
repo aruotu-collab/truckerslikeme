@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 import {
   buildConnectionMatrix,
   buildManualChain,
@@ -1374,17 +1375,14 @@ function RunsCompareView({
                   </span>
                 ) : null}
                 {job.href && (
-                  <ShiplyLink
-                    href={job.href}
-                    className="shrink-0 rounded-sm bg-amber px-3 py-2 text-[11px] font-bold tracking-wide text-asphalt uppercase"
-                  >
+                  <ShiplyLink href={job.href} size="sm">
                     Bid on Shiply →
                   </ShiplyLink>
                 )}
                 <button
                   type="button"
                   onClick={() => dropFromRun(job.id)}
-                  className="shrink-0 rounded-sm border border-asphalt/20 px-3 py-2 text-[11px] font-bold tracking-wide text-muted uppercase hover:border-alert hover:text-alert"
+                  className={`shrink-0 ${outlineBtnClass("muted")}`}
                 >
                   Drop from suggestion
                 </button>

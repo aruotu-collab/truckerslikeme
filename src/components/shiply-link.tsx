@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentPropsWithoutRef, MouseEvent, ReactNode } from "react";
+import { outlineBtnClass } from "@/lib/ui-buttons";
 
 /**
  * Open a URL in a new tab while trying to keep this tab focused
@@ -30,6 +31,9 @@ type ShiplyLinkProps = Omit<
 > & {
   href: string;
   children?: ReactNode;
+  /** Bordered button (default) or plain text link. */
+  variant?: "text" | "outline";
+  size?: "sm" | "md";
 };
 
 /** Shiply job link that opens in the background when possible. */
@@ -37,6 +41,8 @@ export function ShiplyLink({
   href,
   children = "Shiply →",
   className,
+  variant = "outline",
+  size = "md",
   ...props
 }: ShiplyLinkProps) {
   function handleClick(e: MouseEvent<HTMLButtonElement>) {
@@ -45,13 +51,16 @@ export function ShiplyLink({
     openInBackgroundTab(href);
   }
 
+  const variantClass =
+    variant === "outline" ? outlineBtnClass("amber", size) : "";
+
   return (
     <button
       type="button"
       {...props}
       onClick={handleClick}
       title="Opens Shiply in another tab — stay here to enter your bid"
-      className={className}
+      className={[variantClass, className].filter(Boolean).join(" ")}
     >
       {children}
     </button>

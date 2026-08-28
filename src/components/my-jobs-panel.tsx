@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
+import { outlineBtnAlertClass, outlineBtnClass } from "@/lib/ui-buttons";
 import { TodayRunBar } from "@/components/today-run-bar";
 import { useMarket } from "@/lib/market-context";
 import {
@@ -471,17 +472,14 @@ export function MyJobsPanel() {
                         Restore
                       </button>
                       {job.href ? (
-                        <ShiplyLink
-                          href={job.href}
-                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                        >
+                        <ShiplyLink href={job.href} size="sm">
                           Open on Shiply →
                         </ShiplyLink>
                       ) : null}
                       <button
                         type="button"
                         onClick={() => requestRemove(job.id)}
-                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                        className={outlineBtnAlertClass("sm")}
                       >
                         Remove
                       </button>
@@ -493,22 +491,19 @@ export function MyJobsPanel() {
                       <button
                         type="button"
                         onClick={() => setStatus(job.id, "won")}
-                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                        className={outlineBtnClass("muted")}
                       >
                         Back to won
                       </button>
                       {job.href ? (
-                        <ShiplyLink
-                          href={job.href}
-                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                        >
+                        <ShiplyLink href={job.href} size="sm">
                           Open on Shiply →
                         </ShiplyLink>
                       ) : null}
                       <button
                         type="button"
                         onClick={() => requestRemove(job.id)}
-                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                        className={outlineBtnAlertClass("sm")}
                       >
                         Remove
                       </button>
@@ -540,29 +535,26 @@ export function MyJobsPanel() {
                       <button
                         type="button"
                         onClick={() => setStatus(job.id, "bidding")}
-                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                        className={outlineBtnClass("muted")}
                       >
                         Back to bidding
                       </button>
                       <button
                         type="button"
                         onClick={() => setStatus(job.id, "hunting")}
-                        className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                        className={outlineBtnClass("muted")}
                       >
                         Back to considering
                       </button>
                       {job.href ? (
-                        <ShiplyLink
-                          href={job.href}
-                          className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                        >
+                        <ShiplyLink href={job.href} size="sm">
                           Open on Shiply →
                         </ShiplyLink>
                       ) : null}
                       <button
                         type="button"
                         onClick={() => requestRemove(job.id)}
-                        className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                        className={outlineBtnAlertClass("sm")}
                       >
                         Remove
                       </button>
@@ -574,10 +566,7 @@ export function MyJobsPanel() {
                     listTab !== "delivered" && (
                       <>
                         {job.href ? (
-                          <ShiplyLink
-                            href={job.href}
-                            className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase hover:bg-concrete/40"
-                          >
+                          <ShiplyLink href={job.href} size="sm">
                             Open on Shiply →
                           </ShiplyLink>
                         ) : null}
@@ -585,7 +574,7 @@ export function MyJobsPanel() {
                           <button
                             type="button"
                             onClick={() => setStatus(job.id, "hunting")}
-                            className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
+                            className={outlineBtnClass("muted")}
                           >
                             Back to considering
                           </button>
@@ -611,14 +600,14 @@ export function MyJobsPanel() {
                         <button
                           type="button"
                           onClick={() => setStatus(job.id, "skipped")}
-                          className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                          className={outlineBtnClass("muted")}
                         >
                           Skip
                         </button>
                         <button
                           type="button"
                           onClick={() => requestRemove(job.id)}
-                          className="rounded-sm px-3 py-1.5 text-[11px] font-semibold tracking-wide text-alert uppercase"
+                          className={outlineBtnAlertClass("sm")}
                         >
                           Remove
                         </button>
@@ -665,7 +654,7 @@ export function MyJobsPanel() {
               <button
                 type="button"
                 onClick={() => setPendingRemoveId(null)}
-                className="rounded-sm border border-asphalt/20 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide uppercase"
+                className={outlineBtnClass("muted")}
               >
                 Cancel
               </button>

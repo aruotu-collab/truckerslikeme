@@ -324,21 +324,78 @@ export function FindPanel() {
       ) : null}
 
       <section className="space-y-5">
-        <div className="page-sticky-bar -mx-5 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
-          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
-            Looking for
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {kindOptions.map((c) => (
-              <Chip
-                key={c.id}
-                active={kind === c.id}
-                onClick={() => applyKind(c.id, true)}
-              >
-                {c.label}
-              </Chip>
-            ))}
+        <div className="page-sticky-bar -mx-5 space-y-4 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
+          <div>
+            <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+              Looking for
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {kindOptions.map((c) => (
+                <Chip
+                  key={c.id}
+                  active={kind === c.id}
+                  onClick={() => applyKind(c.id, true)}
+                >
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
           </div>
+
+          {kind !== "along" && (
+            <>
+              <div>
+                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                  For my
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {truckOptions.map((c) => (
+                    <Chip
+                      key={c.id}
+                      active={truck === c.id}
+                      onClick={() => setTruck(c.id)}
+                    >
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                  When
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {whenOptions.map((c) => (
+                    <Chip
+                      key={c.id}
+                      active={when === c.id}
+                      onClick={() => setWhen(c.id)}
+                    >
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
+                  What matters most
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {priorityOptions.map((c) => (
+                    <Chip
+                      key={c.id}
+                      active={priority === c.id}
+                      onClick={() => setPriority(c.id)}
+                    >
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {kind === "along" ? (
@@ -365,53 +422,6 @@ export function FindPanel() {
           >
             Or use my current location
           </button>
-        </div>
-
-        <div>
-          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
-            For my
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {truckOptions.map((c) => (
-              <Chip
-                key={c.id}
-                active={truck === c.id}
-                onClick={() => setTruck(c.id)}
-              >
-                {c.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
-            When
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {whenOptions.map((c) => (
-              <Chip key={c.id} active={when === c.id} onClick={() => setWhen(c.id)}>
-                {c.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
-            What matters most
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {priorityOptions.map((c) => (
-              <Chip
-                key={c.id}
-                active={priority === c.id}
-                onClick={() => setPriority(c.id)}
-              >
-                {c.label}
-              </Chip>
-            ))}
-          </div>
         </div>
 
         <div>
