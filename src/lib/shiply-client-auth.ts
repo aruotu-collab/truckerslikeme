@@ -1,5 +1,5 @@
 import type { AuthGateAction } from "@/types";
-import { SHIPLY_SIGN_IN_MESSAGE } from "@/lib/shiply-api-auth";
+import { SHIPLY_SIGN_IN_MESSAGE } from "@/lib/shiply-auth-shared";
 
 export type ShiplyApiPayload = {
   error?: string;
