@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "My Jobs | TruckersLikeMe",
   description:
-    "Track Shiply bids, won jobs, and your pipeline — your quotes drive run revenue.",
+    "Track Shiply bids, won jobs, today's run, and deliveries — your pipeline after you start bidding.",
 };
 
 export default function JobsPage() {

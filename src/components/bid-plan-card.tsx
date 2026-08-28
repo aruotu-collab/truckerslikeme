@@ -111,7 +111,7 @@ export function BidPlanCard({
           href="/run"
           className="rounded-sm border border-asphalt/20 px-3 py-2 text-[11px] font-semibold tracking-wide uppercase"
         >
-          Open in Build Run →
+          Open in Build Run (screenshots) →
         </a>
       </div>
     </article>

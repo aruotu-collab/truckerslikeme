@@ -232,14 +232,15 @@ export function BoardJobCard({
         )}
       </div>
       <p className="text-[10px] text-muted">
-        Also listed in{" "}
+        Tap <strong className="font-semibold text-asphalt">Start bidding</strong>{" "}
+        when you&apos;re chasing this quote — it moves to{" "}
         <Link
-          href="/jobs?tab=considering"
+          href="/jobs?tab=bidding"
           className="font-semibold text-asphalt hover:text-amber"
         >
-          My Jobs → Considering
-        </Link>
-        . After you start bidding, it moves to My Jobs → Bidding and leaves Hunt.
+          My Jobs → Bidding
+        </Link>{" "}
+        and leaves Hunt.
       </p>
     </li>
   );

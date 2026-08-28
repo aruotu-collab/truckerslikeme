@@ -25,7 +25,6 @@ import {
 } from "@/lib/jobs-today-run";
 
 const FILTERS: { id: MyJobsFilter; label: string }[] = [
-  { id: "considering", label: "Considering" },
   { id: "bidding", label: "Bidding" },
   { id: "won", label: "Won" },
   { id: "delivered", label: "Delivered" },
@@ -54,11 +53,11 @@ function JobPipelineStrip({
   onScrollToRun: () => void;
 }) {
   const steps: {
-    key: MyJobsFilter | "run";
+    key: MyJobsFilter | "run" | "board";
     label: string;
     count: number;
   }[] = [
-    { key: "considering", label: "Considering", count: counts.considering },
+    { key: "board", label: "On Job Board", count: counts.considering },
     { key: "bidding", label: "Bidding", count: counts.bidding },
     { key: "won", label: "Won", count: counts.won },
     { key: "run", label: "Today's run", count: todayRunCount },
@@ -86,6 +85,14 @@ function JobPipelineStrip({
               {step.label}
               <span className="ml-1 opacity-70">{step.count}</span>
             </button>
+          ) : step.key === "board" ? (
+            <a
+              href="/map"
+              className="rounded-sm border border-asphalt/10 px-2.5 py-1 text-asphalt hover:border-amber/50"
+            >
+              {step.label}
+              <span className="ml-1 opacity-70">{step.count}</span>
+            </a>
           ) : (
             <button
               type="button"
@@ -122,6 +129,10 @@ export function MyJobsPanel() {
     setDriver(loaded.driver);
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "considering") {
+        window.location.replace("/map");
+        return;
+      }
       if (isMyJobsFilter(tab)) setFilter(tab);
     }
     setHydrated(true);
@@ -240,12 +251,12 @@ export function MyJobsPanel() {
     filter === "won"
       ? "When Shiply accepts a bid, mark it won here — it lands in Today's run automatically."
       : filter === "bidding"
-        ? "Jobs land here when you tap Start bidding on the Job Board Hunt tab."
+        ? "Jobs land here when you tap Start bidding on Job Board (Hunt or Chains)."
         : filter === "skipped"
           ? "Hidden jobs land here — restore one to bid again, or remove it for good."
           : filter === "delivered"
             ? "Mark a won job delivered when you've dropped it — they'll show here."
-            : "New scans appear here as Considering — evaluate on Job Board Hunt first.";
+            : "Nothing in this tab.";
 
   return (
     <div className="space-y-8">
@@ -257,9 +268,12 @@ export function MyJobsPanel() {
           My Jobs
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Track each job: Considering → Bidding → Won → Today&apos;s run →
-          Delivered. Use Job Board Hunt to evaluate new scans; wins land in
-          Today&apos;s run below automatically.
+          Your pipeline after you start bidding: Bidding → Won → Today&apos;s
+          run → Delivered. New scans stay on{" "}
+          <a href="/map" className="font-semibold text-asphalt hover:text-amber">
+            Job Board → Hunt
+          </a>{" "}
+          until you tap Start bidding.
         </p>
       </section>
 
@@ -283,7 +297,7 @@ export function MyJobsPanel() {
             driver={driver}
             onResetToHome={resetDriverToHome}
             onOpenRun={() => {
-              window.location.href = "/map";
+              window.location.href = "/map?tab=suggested";
             }}
             onRemoveFromRun={removeFromTodayRun}
             onMarkDelivered={(id) => setStatus(id, "delivered")}

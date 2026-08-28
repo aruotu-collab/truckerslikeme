@@ -17,36 +17,43 @@ type SiteHeaderProps = {
 const primaryNav: {
   href: string;
   label: string;
+  title: string;
   match: (pathname: string, need: string | null) => boolean;
 }[] = [
   {
     href: "/",
     label: "Home",
+    title: "Home",
     match: (pathname) => pathname === "/",
   },
   {
     href: "/map",
     label: "Job Board",
+    title: "Scan Shiply, hunt jobs, compare chains",
     match: (pathname) => pathname.startsWith("/map"),
   },
   {
     href: "/jobs",
     label: "My Jobs",
+    title: "Track bidding, wins, and today's run",
     match: (pathname) => pathname.startsWith("/jobs"),
   },
   {
     href: "/run",
     label: "Build Run",
+    title: "Profit check from screenshots — not the live board",
     match: (pathname) => pathname.startsWith("/run"),
   },
   {
     href: "/plan",
     label: "Couriers",
+    title: "Multi-drop courier planning",
     match: (pathname) => pathname.startsWith("/plan"),
   },
   {
     href: "/find",
     label: "Services",
+    title: "Parking, fuel, repair along your route",
     match: (pathname, need) =>
       pathname.startsWith("/find") ||
       pathname.startsWith("/trip") ||
@@ -76,6 +83,7 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
           <TrackedLink
             key={item.href}
             href={item.href}
+            title={item.title}
             trackEvent="nav"
             trackLabel={item.label}
             className={`shrink-0 rounded-sm px-2.5 py-2 text-[10px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${

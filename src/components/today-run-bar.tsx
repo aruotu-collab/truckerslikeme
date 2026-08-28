@@ -114,8 +114,8 @@ export function TodayRunBar({
           >
             {chain.length === 0
               ? context === "tracker"
-                ? "No jobs in today's run yet — mark a job won and it lands here automatically."
-                : "No jobs queued yet — add from Hunt, Suggested (add chain), or My Jobs → Won."
+                ? "No jobs in today's run yet — mark a job won in My Jobs and it lands here automatically."
+                : "No jobs queued yet."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -328,7 +328,7 @@ export function TodayRunBar({
           <p className="mt-2 text-[11px] text-muted">
             {context === "tracker"
               ? "Your execution queue for the day. Won jobs land here in order — mark delivered when you drop each one."
-              : "One ordered queue for the day. Hunt and My Jobs won add jobs; Suggested can add a chain or replace the whole queue if you replan."}
+              : "Ordered queue for the day — managed from My Jobs when you win bids."}
           </p>
         </>
       )}

@@ -109,6 +109,12 @@ export function JobsMapPanel() {
       .catch(() => setEnabled(false));
     const prev = readLastScanSnapshot();
     if (prev) setLastScanAt(prev.scannedAt);
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "suggested" || tab === "chains" || tab === "run") {
+        setMainTab("run");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -450,7 +456,7 @@ export function JobsMapPanel() {
             Job Board
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Hunt new jobs · Compare suggested chains
+            Hunt new jobs · Compare chains · Track wins in My Jobs
           </p>
         </div>
       </header>
@@ -647,7 +653,7 @@ export function JobsMapPanel() {
                       onClick={() => addScannedToMap(true)}
                       className="rounded-sm bg-amber px-4 py-2 text-[11px] font-semibold tracking-wide text-asphalt uppercase"
                     >
-                      Add all {scanned.length} to map →
+                      Add all {scanned.length} to board →
                     </button>
                     <button
                       type="button"
@@ -672,7 +678,7 @@ export function JobsMapPanel() {
             <div className="min-w-0 flex-1">
               <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
                 {mainTab === "jobs" && jobsLook === "list"
-                  ? "Open jobs"
+                  ? "Hunt"
                   : mainTab === "run"
                     ? "Suggested chains"
                     : `${visible.length} to review`}
@@ -695,7 +701,7 @@ export function JobsMapPanel() {
               {(
                 [
                   { id: "jobs" as const, label: "Hunt" },
-                  { id: "run" as const, label: "Suggested" },
+                  { id: "run" as const, label: "Chains" },
                 ] as const
               ).map((t) => (
                 <button

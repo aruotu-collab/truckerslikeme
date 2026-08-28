@@ -10,14 +10,14 @@ const pillars = [
   {
     eyebrow: "Decide",
     title: "Is it worth it?",
-    body: "Strip Shiply’s fee, add empty miles, see true net £ / mile / hour before you bid.",
+    body: "Paste or screenshot a listing — see true profit before you bid. Live board → Job Board.",
     href: "/run",
     cta: "Check a job",
   },
   {
     eyebrow: "Hunt",
     title: "Map the board",
-    body: "Scan Shiply, compare lanes, and build the most profitable day from where you are.",
+    body: "Scan Shiply live, compare chains, and start bidding — all on one board.",
     href: "/map",
     cta: "Job Board",
   },
@@ -129,7 +129,7 @@ export function MarketingHome() {
             trackLabel="Check any job"
             className="mt-5 inline-block text-sm font-semibold text-amber transition hover:text-asphalt"
           >
-            Check any job in Build Run →
+            Check any job (screenshots) in Build Run →
           </TrackedLink>
         </div>
 

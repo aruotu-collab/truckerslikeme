@@ -131,7 +131,7 @@ export function JobsDistanceMatrix({ jobs, driver, onGoToRuns }: Props) {
 
       <p className="text-xs text-muted">
         After dropping at a town (row), read across to see empty miles to each
-        next pickup (column). That gap is the red line on Suggested Runs.
+        next pickup (column). That gap is the red line on Suggested chains.
       </p>
 
       {selected && (
@@ -212,7 +212,7 @@ export function JobsDistanceMatrix({ jobs, driver, onGoToRuns }: Props) {
               onClick={onGoToRuns}
               className="mt-4 rounded-sm bg-amber px-4 py-2 text-xs font-bold tracking-wide text-asphalt uppercase hover:bg-amber/90"
             >
-              See Suggested Runs →
+              See Suggested chains →
             </button>
           )}
         </aside>

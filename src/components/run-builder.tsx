@@ -423,9 +423,13 @@ export function RunBuilder() {
           Let the money choose the day
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Shiply shows what’s on the board. Pick a goal — we’ll shortlist what
-          to open, fill gaps around booked work, or check whether a quote is
-          actually worth it.
+          Shiply shows what&apos;s on the board. Pick a goal — we&apos;ll
+          shortlist what to open, fill gaps around booked work, or check whether
+          a quote is actually worth it. For live Shiply scans, use{" "}
+          <Link href="/map" className="font-semibold text-asphalt hover:text-amber">
+            Job Board
+          </Link>
+          .
         </p>
       </section>
 

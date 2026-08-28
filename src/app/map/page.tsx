@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Job Board | TruckersLikeMe",
   description:
-    "Explore Shiply results on a lane heatmap, logistics spreadsheet, or direction map — chain jobs into bid plans.",
+    "Scan Shiply, hunt jobs, compare chains, and start bidding — track wins in My Jobs.",
 };
 
 export default function MapJobsPage() {
