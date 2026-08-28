@@ -64,10 +64,10 @@ export function MarketingHome() {
             <TrackedLink
               href="/run"
               trackEvent="cta"
-              trackLabel="Build My Run hero"
+              trackLabel="Build Run hero"
               className="rounded-sm border border-white/30 px-6 py-3.5 text-sm font-semibold tracking-wide text-white uppercase transition hover:border-amber hover:text-amber-hot"
             >
-              Build My Run
+              Build Run
             </TrackedLink>
             {!isSignedIn && (
               <button
@@ -129,7 +129,7 @@ export function MarketingHome() {
             trackLabel="Check any job"
             className="mt-5 inline-block text-sm font-semibold text-amber transition hover:text-asphalt"
           >
-            Check any job in Build My Run →
+            Check any job in Build Run →
           </TrackedLink>
         </div>
 
@@ -180,8 +180,7 @@ export function MarketingHome() {
             hideEndpoints
             showDetail
             density="comfortable"
-            scrollControls
-            hint="Swipe or use arrows to browse all stops"
+            hint="Swipe to browse all stops"
             footer="Example corridor — plan your own route for live stops near your haul."
           />
           <div className="border-t border-asphalt/10 px-4 py-3 sm:px-5">
@@ -255,10 +254,10 @@ export function MarketingHome() {
             <TrackedLink
               href="/find"
               trackEvent="cta"
-              trackLabel="Nearest Services"
+              trackLabel="Services"
               className="rounded-sm border border-asphalt/15 bg-white px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
             >
-              Nearest Services
+              Services
             </TrackedLink>
           </div>
         </div>

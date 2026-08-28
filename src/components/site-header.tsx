@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthGate } from "@/lib/auth-gate";
 import { useMarket } from "@/lib/market-context";
@@ -13,6 +13,7 @@ type SiteHeaderProps = {
   variant?: "overlay" | "solid";
 };
 
+/** Main app sections — short labels, one job each. */
 const primaryNav: {
   href: string;
   label: string;
@@ -24,23 +25,28 @@ const primaryNav: {
     match: (pathname) => pathname === "/",
   },
   {
-    href: "/run",
-    label: "Build My Run",
-    match: (pathname) => pathname.startsWith("/run"),
-  },
-  {
     href: "/map",
     label: "Job Board",
     match: (pathname) => pathname.startsWith("/map"),
   },
   {
+    href: "/jobs",
+    label: "My Jobs",
+    match: (pathname) => pathname.startsWith("/jobs"),
+  },
+  {
+    href: "/run",
+    label: "Build Run",
+    match: (pathname) => pathname.startsWith("/run"),
+  },
+  {
     href: "/plan",
-    label: "Plan Route · Couriers",
+    label: "Couriers",
     match: (pathname) => pathname.startsWith("/plan"),
   },
   {
     href: "/find",
-    label: "Nearest Services",
+    label: "Services",
     match: (pathname, need) =>
       pathname.startsWith("/find") ||
       pathname.startsWith("/trip") ||
@@ -48,11 +54,6 @@ const primaryNav: {
       need === "diesel" ||
       need === "repair" ||
       need === "along",
-  },
-  {
-    href: "/jobs",
-    label: "My Jobs",
-    match: (pathname) => pathname.startsWith("/jobs"),
   },
 ];
 
@@ -62,49 +63,46 @@ function NavScroll({ isAdmin }: { isAdmin: boolean }) {
   const need = searchParams.get("need");
 
   return (
-    <div className="[--h-scroll-fade:#1a1d23]">
-      <HScroll
-        aria-label="Main"
-        role="navigation"
-        hint=""
-        controls
-        showScrollbar
-        className="px-0"
-      >
-        {primaryNav.map((item) => {
-          const active = item.match(pathname, need);
-          return (
-            <TrackedLink
-              key={item.href}
-              href={item.href}
-              trackEvent="nav"
-              trackLabel={item.label}
-              className={`shrink-0 rounded-sm px-2.5 py-2 text-[11px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
-                active
-                  ? "bg-white text-asphalt ring-2 ring-amber"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {item.label}
-            </TrackedLink>
-          );
-        })}
-        {isAdmin && (
+    <HScroll
+      aria-label="Main"
+      role="navigation"
+      hint=""
+      fades={false}
+      className="px-0"
+    >
+      {primaryNav.map((item) => {
+        const active = item.match(pathname, need);
+        return (
           <TrackedLink
-            href="/admin"
+            key={item.href}
+            href={item.href}
             trackEvent="nav"
-            trackLabel="Admin"
-            className={`shrink-0 rounded-sm px-2.5 py-2 text-[11px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
-              pathname.startsWith("/admin")
-                ? "bg-white text-asphalt ring-2 ring-amber"
+            trackLabel={item.label}
+            className={`shrink-0 rounded-sm px-2.5 py-2 text-[10px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
+              active
+                ? "bg-white text-asphalt ring-1 ring-amber"
                 : "text-white/80 hover:bg-white/10 hover:text-white"
             }`}
           >
-            Admin
+            {item.label}
           </TrackedLink>
-        )}
-      </HScroll>
-    </div>
+        );
+      })}
+      {isAdmin && (
+        <TrackedLink
+          href="/admin"
+          trackEvent="nav"
+          trackLabel="Admin"
+          className={`shrink-0 rounded-sm px-2.5 py-2 text-[10px] font-semibold tracking-wide uppercase transition sm:px-4 sm:py-2.5 sm:text-sm ${
+            pathname.startsWith("/admin")
+              ? "bg-white text-asphalt ring-1 ring-amber"
+              : "text-white/80 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          Admin
+        </TrackedLink>
+      )}
+    </HScroll>
   );
 }
 
@@ -127,31 +125,58 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
   const { isSignedIn, isAdmin, user, signOut, openGate } = useAuthGate();
   const { market, resolved } = useMarket();
   const solid = variant !== "overlay";
+  const headerRef = useRef<HTMLElement | null>(null);
   const shortName =
     (typeof user?.user_metadata?.display_name === "string" &&
       user.user_metadata.display_name) ||
     user?.email?.split("@")[0] ||
     null;
 
+  useEffect(() => {
+    if (!solid) {
+      document.documentElement.style.setProperty("--site-header-h", "0px");
+      return;
+    }
+    const el = headerRef.current;
+    if (!el) return;
+    const sync = () => {
+      document.documentElement.style.setProperty(
+        "--site-header-h",
+        `${el.offsetHeight}px`,
+      );
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.setProperty("--site-header-h", "0px");
+    };
+  }, [solid]);
+
   return (
     <header
+      ref={headerRef}
       className={
         solid
-          ? "relative z-30 w-full max-w-full overflow-x-clip border-b border-white/10 bg-asphalt"
-          : "absolute inset-x-0 top-0 z-30 w-full max-w-full overflow-x-clip"
+          ? "sticky top-0 z-40 w-full max-w-full overflow-x-clip border-b border-white/10 bg-asphalt"
+          : "absolute inset-x-0 top-0 z-40 w-full max-w-full overflow-x-clip"
       }
     >
       {/* Brand + account */}
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-8 sm:py-3.5">
-        <div className="min-w-0 shrink">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-8 sm:py-3">
+        <div className="min-w-0 flex-1">
           <Link
             href="/"
-            className="block font-display text-lg tracking-[0.06em] text-white uppercase sm:text-xl"
+            className="block font-display text-base tracking-[0.06em] text-white uppercase sm:text-xl"
           >
-            <span className="whitespace-nowrap">
+            <span className="block truncate">
               Truckers<span className="text-amber-hot">Like</span>Me
               {resolved ? (
-                <span className="text-white"> - {market.countryLabel}</span>
+                <span className="hidden text-white sm:inline">
+                  {" "}
+                  - {market.countryLabel}
+                </span>
               ) : null}
             </span>
           </Link>
@@ -160,7 +185,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
           </p>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {isSignedIn && shortName ? (
             <Link
               href="/me"
@@ -176,7 +201,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
             <button
               type="button"
               onClick={() => void signOut()}
-              className="rounded-sm px-2.5 py-1.5 text-xs font-semibold tracking-wide text-white/70 uppercase transition hover:text-white sm:text-sm"
+              className="rounded-sm px-2 py-1.5 text-[11px] font-semibold tracking-wide text-white/70 uppercase transition hover:text-white sm:px-2.5 sm:text-sm"
             >
               Sign out
             </button>
@@ -187,7 +212,7 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
                 trackClick("auth", "Sign in");
                 openGate("join-community");
               }}
-              className="rounded-sm border border-white/25 px-3 py-1.5 text-xs font-semibold tracking-wide text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:text-sm"
+              className="rounded-sm border border-white/25 px-2.5 py-1.5 text-[11px] font-semibold tracking-wide text-white uppercase transition hover:border-amber/60 hover:text-amber-hot sm:px-3 sm:text-sm"
             >
               Sign in
             </button>
@@ -195,9 +220,9 @@ export function SiteHeader({ variant = "solid" }: SiteHeaderProps) {
         </div>
       </div>
 
-      {/* Sliding section menu under the logo — same on mobile and desktop */}
+      {/* Main menus — stay with logo while scrolling */}
       <div className="border-t border-white/10">
-        <div className="mx-auto w-full min-w-0 max-w-6xl px-2 py-2 sm:px-8">
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-3 py-1.5 sm:px-8 sm:py-2">
           <Suspense fallback={<NavScrollFallback />}>
             <NavScroll isAdmin={isAdmin} />
           </Suspense>

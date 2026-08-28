@@ -148,7 +148,6 @@ export function RunCorridorStrip({
                 aria-label="Stops between pickup and delivery"
                 role="list"
                 hint="Swipe for more stops"
-                controls
                 showScrollbar
               >
                 <div className="flex min-w-min items-start gap-0">

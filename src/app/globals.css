@@ -15,6 +15,8 @@
   --foreground: #1a1d23;
   --muted: #5c6570;
   --h-scroll-fade: var(--background);
+  /* Updated live by SiteHeader ResizeObserver */
+  --site-header-h: 6.5rem;
 }
 
 @theme inline {
@@ -62,6 +64,14 @@ body {
   min-width: 0;
   overflow-x: clip;
   min-height: 100%;
+}
+
+/* Page tabs / filters sit under the sticky site header */
+.page-sticky-bar {
+  position: sticky;
+  top: var(--site-header-h, 6.5rem);
+  z-index: 30;
+  background: var(--background);
 }
 
 /* Filter / nav strips may scroll sideways; page may not */

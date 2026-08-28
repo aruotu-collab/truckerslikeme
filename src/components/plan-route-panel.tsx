@@ -372,7 +372,7 @@ export function PlanRoutePanel({ embedded = false }: { embedded?: boolean }) {
           From and to — fuel, parking, and repair on the corridor. For
           multi-drop courier days, use{" "}
           <a href="/plan" className="font-semibold text-amber hover:text-asphalt">
-            Plan Route
+            Couriers
           </a>
           .
         </p>
@@ -577,7 +577,7 @@ export function PlanRoutePanel({ embedded = false }: { embedded?: boolean }) {
                   }&near=${encodeURIComponent(selected.name)}`}
                   className="mt-3 inline-block text-sm font-medium text-amber transition hover:text-asphalt"
                 >
-                  Open in Nearest Services →
+                  Open in Services →
                 </Link>
               </div>
             )}

@@ -531,13 +531,7 @@ export function JobsMapPanel() {
             Job Board
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Board · Suggested · Today&apos;s run ·{" "}
-            <Link
-              href="/jobs"
-              className="font-semibold text-amber hover:text-asphalt"
-            >
-              My Jobs
-            </Link>
+            Hunt jobs · Suggested chains · Today&apos;s run
           </p>
         </div>
       </header>
@@ -777,17 +771,17 @@ export function JobsMapPanel() {
         ) : null}
       </section>
 
-      {/* Board (hunt) | Suggested (chains) | My Jobs (tracker) */}
+      {/* Hunt | Suggested — sticky under site header */}
       <section className="space-y-4">
-        <div className="sticky top-0 z-20 -mx-5 space-y-4 bg-background px-5 pb-4 sm:-mx-8 sm:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+        <div className="page-sticky-bar -mx-5 min-w-0 space-y-3 overflow-x-clip border-b border-asphalt/10 px-5 pb-3 pt-1 sm:-mx-8 sm:space-y-3 sm:px-8 sm:pb-3">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+            <div className="min-w-0 flex-1">
               <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
                 {mainTab === "jobs" && jobsLook === "list"
-                  ? "On your board"
+                  ? "Open jobs"
                   : mainTab === "run"
-                    ? "Suggested runs"
-                    : `${visible.length} jobs on board`}
+                    ? "Suggested chains"
+                    : `${visible.length} open jobs`}
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {mainTab === "jobs" && jobsLook === "list"
@@ -795,18 +789,18 @@ export function JobsMapPanel() {
                     ? `Showing ${listShown.length} of ${visible.length} — enter a quote, hide, or add to today's run. Load more below.`
                     : "Enter a quote to see after-fee net and verdict — then keep, bid on Shiply, or hide."
                   : mainTab === "jobs"
-                    ? "Explore the board — enter bids on List, Map, or Lanes."
+                    ? "Explore open jobs — enter bids on List, Map, or Lanes."
                     : "Pick a chain, then Use as today's run to bid and win from the yellow bar."}
               </p>
             </div>
             <div
-              className="inline-flex flex-wrap border border-asphalt/15 bg-white"
+              className="inline-flex max-w-full flex-wrap border border-asphalt/15 bg-white"
               role="toolbar"
-              aria-label="Board controls"
+              aria-label="Job Board tabs"
             >
               {(
                 [
-                  { id: "jobs" as const, label: "Board" },
+                  { id: "jobs" as const, label: "Hunt" },
                   { id: "run" as const, label: "Suggested" },
                 ] as const
               ).map((t) => (
@@ -815,7 +809,7 @@ export function JobsMapPanel() {
                   type="button"
                   aria-pressed={mainTab === t.id}
                   onClick={() => setMainTab(t.id)}
-                  className={`px-4 py-2 text-xs font-semibold tracking-wide uppercase sm:px-5 ${
+                  className={`px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-5 sm:text-xs ${
                     mainTab === t.id
                       ? "bg-amber text-asphalt"
                       : "text-asphalt/70 hover:bg-concrete/50"
@@ -824,12 +818,6 @@ export function JobsMapPanel() {
                   {t.label}
                 </button>
               ))}
-              <Link
-                href="/jobs?tab=won"
-                className="border-l border-asphalt/15 px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase hover:bg-concrete/50 sm:px-5"
-              >
-                My Jobs →
-              </Link>
             </div>
           </div>
 
@@ -860,9 +848,9 @@ export function JobsMapPanel() {
               ))}
             </div>
           )}
-
-          {todayRunBar}
         </div>
+
+        <div className="min-w-0">{todayRunBar}</div>
 
         {mainTab === "jobs" && jobsLook === "list" && justHiddenJob && (
           <div

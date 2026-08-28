@@ -302,13 +302,10 @@ export function CourierPlanPanel() {
     <div className="space-y-8">
       <header className="max-w-2xl">
         <p className="font-display text-xs tracking-[0.18em] text-amber uppercase">
-          Plan route{" "}
-          <span className="normal-case tracking-normal text-muted">
-            for couriers
-          </span>
+          Couriers
         </p>
         <h1 className="mt-2 font-display text-3xl tracking-wide text-asphalt uppercase sm:text-4xl">
-          Deliver the van
+          Multi-drop day
         </h1>
         <p className="mt-3 text-base text-muted sm:text-lg">
           Snap parcel labels at the depot, build the drop order, then work the
@@ -483,10 +480,10 @@ export function CourierPlanPanel() {
       </section>
 
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="page-sticky-bar -mx-5 flex flex-wrap items-center justify-between gap-3 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
           <div>
             <h2 className="font-display text-xl tracking-wide text-asphalt uppercase">
-              Today&apos;s drops
+              Today&apos;s parcels
             </h2>
             <p className="mt-1 text-sm text-muted">
               {counts.pending} left · {counts.delivered} delivered

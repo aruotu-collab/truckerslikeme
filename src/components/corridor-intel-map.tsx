@@ -55,7 +55,7 @@ export function CorridorIntelMap({
           Corridor intel map
         </p>
         <p className="mt-2 text-asphalt">
-          Search a route under Nearest Services → Along route to light up the
+          Search a route under Services → Along route to light up the
           states you&apos;re in and the states you&apos;re going.
         </p>
         <a

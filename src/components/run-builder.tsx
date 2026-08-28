@@ -417,7 +417,7 @@ export function RunBuilder() {
     <div className="space-y-10">
       <section>
         <p className="font-display text-sm tracking-[0.2em] text-amber uppercase">
-          Build my run
+          Build Run
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-wide text-asphalt uppercase sm:text-5xl">
           Let the money choose the day
@@ -901,7 +901,7 @@ export function RunBuilder() {
                     onClick={() => void buildRun()}
                     className="rounded-sm bg-amber px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
                   >
-                    {busy ? "Building…" : "Build my run →"}
+                    {busy ? "Building…" : "Build Run →"}
                   </button>
                   <label className="inline-flex cursor-pointer rounded-sm border border-asphalt/20 px-5 py-3 text-sm font-semibold tracking-wide text-asphalt uppercase">
                     Add screenshots

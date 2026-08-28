@@ -66,7 +66,7 @@ export function BoardJobCard({
   return (
     <li
       id={`board-job-${job.id}`}
-      className="flex scroll-mt-36 flex-col gap-3 border-b border-asphalt/10 py-4 last:border-b-0"
+      className="flex scroll-mt-[calc(var(--site-header-h)+7rem)] flex-col gap-3 border-b border-asphalt/10 py-4 last:border-b-0"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">

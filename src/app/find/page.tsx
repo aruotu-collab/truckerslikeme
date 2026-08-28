@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Nearest Services | TruckersLikeMe",
+  title: "Services | TruckersLikeMe",
   description:
     "Parking, fuel, and repair near you — or along a From→To haul corridor.",
 };

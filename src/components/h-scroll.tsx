@@ -8,26 +8,27 @@ type HScrollProps = {
   "aria-label"?: string;
   role?: "tablist" | "navigation" | "list";
   hint?: string;
-  /** Side arrows when content overflows */
+  /** @deprecated Arrow controls removed — swipe only. Kept so callers compile. */
   controls?: boolean;
   /** Thin native scrollbar under the strip */
   showScrollbar?: boolean;
+  /** Soft edge fades when more content is off-screen (default true) */
+  fades?: boolean;
 };
 
-/** Contained horizontal scroller — never widens the page. */
+/** Contained horizontal scroller — never widens the page. Swipe only, no arrow buttons. */
 export function HScroll({
   children,
   className = "",
   "aria-label": ariaLabel,
   role = "tablist",
   hint = "Swipe for more →",
-  controls = false,
   showScrollbar = false,
+  fades = true,
 }: HScrollProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
-  const [overflow, setOverflow] = useState(false);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -35,7 +36,6 @@ export function HScroll({
 
     const update = () => {
       const max = Math.max(0, el.scrollWidth - el.clientWidth);
-      setOverflow(max > 4);
       setCanLeft(el.scrollLeft > 4);
       setCanRight(max > 4 && el.scrollLeft < max - 4);
     };
@@ -52,13 +52,6 @@ export function HScroll({
     };
   }, [children]);
 
-  function nudge(direction: -1 | 1) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const step = Math.max(160, Math.round(el.clientWidth * 0.7));
-    el.scrollBy({ left: direction * step, behavior: "smooth" });
-  }
-
   return (
     <div className={`relative w-full min-w-0 max-w-full ${className}`}>
       {(canLeft || canRight) && hint ? (
@@ -68,51 +61,26 @@ export function HScroll({
       ) : null}
 
       <div className="relative w-full min-w-0 max-w-full overflow-hidden">
-        {controls && overflow && (
-          <button
-            type="button"
-            onClick={() => nudge(-1)}
-            disabled={!canLeft}
-            aria-label="Scroll left"
-            className="absolute top-1/2 left-0 z-30 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-sm border border-asphalt/15 bg-white text-sm text-asphalt shadow-sm transition hover:border-amber disabled:pointer-events-none disabled:opacity-25"
-          >
-            ←
-          </button>
-        )}
-        {controls && overflow && (
-          <button
-            type="button"
-            onClick={() => nudge(1)}
-            disabled={!canRight}
-            aria-label="Scroll right"
-            className="absolute top-1/2 right-0 z-30 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-sm border border-asphalt/15 bg-white text-sm text-asphalt shadow-sm transition hover:border-amber disabled:pointer-events-none disabled:opacity-25"
-          >
-            →
-          </button>
-        )}
-
         <div
           ref={scrollerRef}
           role={role}
           aria-label={ariaLabel}
           className={`${
-            showScrollbar || controls ? "h-scroll-visible" : "h-scroll"
-          } flex w-full min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain sm:gap-3 ${
-            controls && overflow ? "px-9" : "px-1"
-          } pb-2`}
+            showScrollbar ? "h-scroll-visible" : "h-scroll"
+          } flex w-full min-w-0 max-w-full items-center gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 sm:gap-3`}
           data-h-scroll
         >
           <span className="w-1 shrink-0 sm:w-2" aria-hidden />
           {children}
-          <span className="w-4 shrink-0 sm:w-6" aria-hidden />
+          <span className="w-6 shrink-0 sm:w-8" aria-hidden />
         </div>
-        {canLeft && (
+        {fades && canLeft && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-[var(--h-scroll-fade,transparent)] to-transparent sm:w-8"
           />
         )}
-        {canRight && (
+        {fades && canRight && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 right-0 w-5 bg-gradient-to-l from-[var(--h-scroll-fade,transparent)] to-transparent sm:w-8"

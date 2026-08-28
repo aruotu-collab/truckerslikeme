@@ -43,7 +43,7 @@ export const mapStatusMeta: Record<
   { label: string; line: string; fill: string; soft: string }
 > = {
   hunting: {
-    label: "On board",
+    label: "Considering",
     line: "#6b7280",
     fill: "#6b7280",
     soft: "border-asphalt/20 bg-concrete/50 text-asphalt",
@@ -200,7 +200,7 @@ export function filterMyJobs(jobs: MapJob[], filter: MyJobsFilter) {
   if (filter === "bidding") {
     return jobs.filter((j) => j.status === "bidding");
   }
-  // On board (considering) — status hunting only (quote may still be set)
+  // Considering — status hunting only (quote may still be set)
   return jobs.filter((j) => j.status === "hunting");
 }
 

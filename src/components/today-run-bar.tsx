@@ -45,7 +45,10 @@ export function TodayRunBar({
   onSetBid,
 }: TodayRunBarProps) {
   const { money, market } = useMarket();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !window.matchMedia("(max-width: 640px)").matches;
+  });
   const chain = orderTodayRun(todayRunIds, jobs);
   const net: RunChainNet | null = evaluateRunChain(chain, home, market);
   const awayFromHome = positionsDiffer(home, driver);
@@ -56,7 +59,7 @@ export function TodayRunBar({
     home?.label ? shortPlace(home.label) : null,
     ...chain.map(
       (j) =>
-        `${shortPlace(j.origin)}→${shortPlace(j.destination)}${
+        `${shortPlace(j.origin)} → ${shortPlace(j.destination)}${
           j.status === "won" ? " ✓" : ""
         }`,
     ),
@@ -65,8 +68,8 @@ export function TodayRunBar({
     .join(" · ");
 
   return (
-    <section className="border border-amber/50 bg-[#fff8e8] px-4 py-3 sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="min-w-0 border border-amber/50 bg-[#fff8e8] px-3 py-3 sm:px-5">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-display text-xs tracking-[0.14em] text-amber uppercase">
@@ -93,9 +96,12 @@ export function TodayRunBar({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm font-medium text-asphalt">
+          <p
+            className="mt-1 min-w-0 break-words text-sm font-medium text-asphalt"
+            title={chain.length > 0 ? pathLabel : undefined}
+          >
             {chain.length === 0
-              ? "No jobs in the chain yet — add from the Board, Suggested, or My Jobs → Won."
+              ? "No jobs in the chain yet — add from Hunt, Suggested, or My Jobs → Won."
               : pathLabel}
           </p>
           {expanded && awayFromHome && driver?.label ? (
@@ -108,7 +114,7 @@ export function TodayRunBar({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex max-w-full flex-wrap gap-2">
           {hiddenCount > 0 && onShowHidden && (
             <button
               type="button"

@@ -57,7 +57,7 @@ const kindOptions: {
     label: "Along route",
     eyebrow: "Whole haul",
     title: "Along the haul",
-    body: "From → To corridor: fuel, parking, and repair on the way — the old Plan Route for long hauls.",
+    body: "From → To corridor: fuel, parking, and repair on the way. For multi-drop van days, use Couriers.",
     cta: "Show along route",
     feedback: "",
   },
@@ -324,7 +324,7 @@ export function FindPanel() {
       ) : null}
 
       <section className="space-y-5">
-        <div>
+        <div className="page-sticky-bar -mx-5 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:px-8">
           <p className="font-display text-xs tracking-[0.16em] text-muted uppercase">
             Looking for
           </p>

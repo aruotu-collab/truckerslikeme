@@ -22,7 +22,6 @@ type Props = {
   /** Show stop detail line (e.g. "M62 · truck parking westbound"). */
   showDetail?: boolean;
   density?: "default" | "comfortable";
-  scrollControls?: boolean;
 };
 
 export function CorridorRibbon({
@@ -33,12 +32,11 @@ export function CorridorRibbon({
   selectedId,
   onSelectStop,
   interactive = false,
-  hint = "Swipe or use arrows for more stops",
+  hint = "Swipe for more stops",
   footer = "A and B stay put. Mid-haul fuel, parking, and repair slide between them.",
   hideEndpoints = false,
   showDetail = false,
   density = "default",
-  scrollControls = true,
 }: Props) {
   const deliveryMi = totalMiles && totalMiles > 0 ? Math.round(totalMiles) : null;
   const stopWidth =
@@ -55,7 +53,6 @@ export function CorridorRibbon({
       aria-label="Stops between pickup and delivery"
       role="list"
       hint={hint}
-      controls={scrollControls}
       showScrollbar
     >
       <div className="flex min-w-min items-start gap-0">

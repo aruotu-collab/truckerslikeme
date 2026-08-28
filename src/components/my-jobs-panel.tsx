@@ -20,7 +20,7 @@ import {
 } from "@/lib/jobs-map";
 
 const FILTERS: { id: MyJobsFilter; label: string }[] = [
-  { id: "considering", label: "On board" },
+  { id: "considering", label: "Considering" },
   { id: "bidding", label: "Bidding" },
   { id: "won", label: "Won" },
   { id: "delivered", label: "Delivered" },
@@ -144,36 +144,38 @@ export function MyJobsPanel() {
           My Jobs
         </h1>
         <p className="mt-3 max-w-2xl text-lg text-muted">
-          Follow each job from On board → Bidding → Won → Delivered. Add won
+          Follow each job from Considering → Bidding → Won → Delivered. Add won
           jobs to Today&apos;s run on the Job Board when you&apos;re ready to
           work them.
         </p>
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => {
-              setFilter(f.id);
-              setRunNote(null);
-            }}
-            className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
-              filter === f.id
-                ? "bg-amber text-asphalt"
-                : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
-            }`}
-          >
-            {f.label}
-            <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
-          </button>
-        ))}
+      <div className="page-sticky-bar -mx-5 flex min-w-0 flex-col gap-2 border-b border-asphalt/10 px-5 py-2.5 sm:-mx-8 sm:flex-row sm:flex-wrap sm:items-center sm:px-8">
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => {
+                setFilter(f.id);
+                setRunNote(null);
+              }}
+              className={`rounded-sm px-3 py-2 text-[11px] font-semibold tracking-wide uppercase sm:px-4 sm:py-2.5 sm:text-xs ${
+                filter === f.id
+                  ? "bg-amber text-asphalt"
+                  : "border border-asphalt/15 bg-white text-asphalt hover:border-amber"
+              }`}
+            >
+              {f.label}
+              <span className="ml-1.5 opacity-70">{counts[f.id]}</span>
+            </button>
+          ))}
+        </div>
         <Link
           href="/map"
-          className="ml-auto rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-xs font-semibold tracking-wide text-asphalt uppercase hover:border-amber"
+          className="w-full rounded-sm border border-asphalt/15 bg-white px-4 py-2.5 text-center text-[11px] font-semibold tracking-wide text-asphalt uppercase hover:border-amber sm:ml-auto sm:w-auto sm:text-xs"
         >
-          Job Board →
+          Open Job Board →
         </Link>
       </div>
 
@@ -406,7 +408,7 @@ export function MyJobsPanel() {
                         onClick={() => setStatus(job.id, "hunting")}
                         className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                       >
-                        Back to board
+                        Back to considering
                       </button>
                       {job.href ? (
                         <ShiplyLink
@@ -444,7 +446,7 @@ export function MyJobsPanel() {
                             onClick={() => setStatus(job.id, "hunting")}
                             className="rounded-sm border border-asphalt/20 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                           >
-                            Back to board
+                            Back to considering
                           </button>
                         )}
                         {job.status === "hunting" && (
@@ -479,7 +481,7 @@ export function MyJobsPanel() {
                           href="/map"
                           className="rounded-sm border border-asphalt/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase"
                         >
-                          Job Board
+                          Open Job Board →
                         </Link>
                         <button
                           type="button"

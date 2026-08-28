@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Plan Route for couriers | TruckersLikeMe",
+  title: "Couriers | TruckersLikeMe",
   description:
     "Snap parcel labels, plan multi-drop courier routes from the depot or where you are, and mark deliveries as you go.",
 };
@@ -26,7 +26,7 @@ export default async function PlanPage({
   const sp = await Promise.resolve(searchParams);
   const from = (sp.from || sp.origin || "").trim();
   const to = (sp.to || sp.destination || "").trim();
-  // Old corridor deep-links → Nearest Services Along route
+  // Old corridor deep-links → Services · Along route
   if (from || to) {
     const q = new URLSearchParams({ need: "along" });
     if (from) q.set("from", from);

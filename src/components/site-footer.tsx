@@ -11,20 +11,20 @@ export function SiteFooter() {
           <Link href="/" className="transition hover:text-asphalt">
             Home
           </Link>
-          <Link href="/run" className="transition hover:text-asphalt">
-            Build My Run
-          </Link>
           <Link href="/map" className="transition hover:text-asphalt">
             Job Board
           </Link>
-          <Link href="/plan" className="transition hover:text-asphalt">
-            Plan Route · Couriers
-          </Link>
-          <Link href="/find" className="transition hover:text-asphalt">
-            Nearest Services
-          </Link>
           <Link href="/jobs" className="transition hover:text-asphalt">
             My Jobs
+          </Link>
+          <Link href="/run" className="transition hover:text-asphalt">
+            Build Run
+          </Link>
+          <Link href="/plan" className="transition hover:text-asphalt">
+            Couriers
+          </Link>
+          <Link href="/find" className="transition hover:text-asphalt">
+            Services
           </Link>
         </nav>
         <p className="text-sm text-muted">

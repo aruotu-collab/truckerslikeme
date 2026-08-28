@@ -4,7 +4,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Build my run | TruckersLikeMe",
+  title: "Build Run | TruckersLikeMe",
   description:
     "Shortlist Shiply jobs, fill gaps around booked work, check quotes, and build the most profitable day.",
 };
