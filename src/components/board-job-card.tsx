@@ -18,6 +18,9 @@ import {
 } from "@/lib/jobs-today-run";
 import { useMarket } from "@/lib/market-context";
 
+const huntOutlineBtn =
+  "inline-flex items-center justify-center rounded-sm border-2 border-asphalt/40 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide uppercase shadow-sm";
+
 type BoardJobCardProps = {
   job: MapJob;
   driver: JobsMapDriver | null;
@@ -194,7 +197,7 @@ export function BoardJobCard({
             {next.job.href ? (
               <ShiplyLink
                 href={next.job.href}
-                className="rounded-sm border border-asphalt/20 bg-white px-2.5 py-1 text-[10px] font-semibold tracking-wide text-amber uppercase hover:border-amber/50 hover:bg-amber/5"
+                className={`${huntOutlineBtn} px-2.5 py-1 text-amber hover:border-amber hover:bg-amber/10`}
               >
                 Shiply →
               </ShiplyLink>
@@ -216,7 +219,7 @@ export function BoardJobCard({
         {job.href ? (
           <ShiplyLink
             href={job.href}
-            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide text-amber uppercase hover:border-amber/50 hover:bg-amber/5"
+            className={`${huntOutlineBtn} text-amber hover:border-amber hover:bg-amber/10`}
           >
             Shiply →
           </ShiplyLink>
@@ -225,7 +228,7 @@ export function BoardJobCard({
           <button
             type="button"
             onClick={onHide}
-            className="rounded-sm border border-asphalt/20 bg-white px-3 py-1.5 text-[10px] font-semibold tracking-wide text-muted uppercase hover:border-asphalt/40 hover:text-asphalt"
+            className={`${huntOutlineBtn} text-asphalt hover:border-asphalt hover:bg-concrete/40`}
           >
             Hide
           </button>
