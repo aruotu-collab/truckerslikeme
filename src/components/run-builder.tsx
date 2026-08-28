@@ -45,6 +45,7 @@ const vehicles = [
   "3.5t",
   "7.5t",
   "Artic / trailer",
+  "Other",
 ];
 
 const workWindows: { id: WorkWindow; label: string }[] = [
