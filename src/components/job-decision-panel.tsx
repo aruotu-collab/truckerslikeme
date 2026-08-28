@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMarket } from "@/lib/market-context";
 import {
@@ -13,6 +13,12 @@ import {
   verdictCopy,
   type JobDecision,
 } from "@/lib/job-decision";
+import {
+  clearJobDecisionDraft,
+  emptyJobDecisionDraft,
+  readJobDecisionDraft,
+  writeJobDecisionDraft,
+} from "@/lib/job-decision-draft";
 import { outlineBtnClass } from "@/lib/ui-buttons";
 
 type Kind = "check" | "price";
@@ -74,19 +80,160 @@ export function JobDecisionPanel({ kind, onBack }: Props) {
   const [extractBusy, setExtractBusy] = useState(false);
   const [extractNote, setExtractNote] = useState<string | null>(null);
   const [shotPreview, setShotPreview] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftRef = useRef({
+    inputMode: "manual" as InputMode,
+    currentLocation: "",
+    driverCoords: null as { lat: number; lon: number } | null,
+    origin: "",
+    destination: "",
+    loadedMiles: "",
+    deadheadMiles: "",
+    deadheadManual: false,
+    loadedManual: false,
+    quote: "",
+    feePct: "13",
+    diesel: String(DEFAULT_DIESEL_UK),
+    extractNote: null as string | null,
+    shotPreview: null as string | null,
+    geoNote: null as string | null,
+  });
 
   const title =
     kind === "check" ? "Is this job worth it?" : "What should I quote?";
   const eyebrow = kind === "check" ? "Check a job" : "Price my job";
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(LOCATION_KEY);
-      if (saved) setCurrentLocation(saved);
-    } catch {
-      /* ignore */
+    const draft = readJobDecisionDraft(kind);
+    if (draft) {
+      setInputMode(draft.inputMode);
+      setCurrentLocation(draft.currentLocation);
+      setDriverCoords(draft.driverCoords);
+      setOrigin(draft.origin);
+      setDestination(draft.destination);
+      setLoadedMiles(draft.loadedMiles);
+      setDeadheadMiles(draft.deadheadMiles);
+      setDeadheadManual(draft.deadheadManual);
+      setLoadedManual(draft.loadedManual);
+      setQuote(draft.quote);
+      setFeePct(draft.feePct);
+      setDiesel(draft.diesel);
+      setExtractNote(draft.extractNote);
+      setShotPreview(draft.shotPreview);
+      setGeoNote(draft.geoNote);
+    } else {
+      try {
+        const saved = localStorage.getItem(LOCATION_KEY);
+        if (saved) setCurrentLocation(saved);
+      } catch {
+        /* ignore */
+      }
     }
-  }, []);
+    setDraftReady(true);
+  }, [kind]);
+
+  useEffect(() => {
+    draftRef.current = {
+      inputMode,
+      currentLocation,
+      driverCoords,
+      origin,
+      destination,
+      loadedMiles,
+      deadheadMiles,
+      deadheadManual,
+      loadedManual,
+      quote,
+      feePct,
+      diesel,
+      extractNote,
+      shotPreview,
+      geoNote,
+    };
+  }, [
+    inputMode,
+    currentLocation,
+    driverCoords,
+    origin,
+    destination,
+    loadedMiles,
+    deadheadMiles,
+    deadheadManual,
+    loadedManual,
+    quote,
+    feePct,
+    diesel,
+    extractNote,
+    shotPreview,
+    geoNote,
+  ]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      writeJobDecisionDraft(kind, draftRef.current);
+    }, 400);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [
+    draftReady,
+    kind,
+    inputMode,
+    currentLocation,
+    driverCoords,
+    origin,
+    destination,
+    loadedMiles,
+    deadheadMiles,
+    deadheadManual,
+    loadedManual,
+    quote,
+    feePct,
+    diesel,
+    extractNote,
+    shotPreview,
+    geoNote,
+  ]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const flush = () => writeJobDecisionDraft(kind, draftRef.current);
+    window.addEventListener("pagehide", flush);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [draftReady, kind]);
+
+  function startAgain() {
+    const empty = emptyJobDecisionDraft();
+    clearJobDecisionDraft(kind);
+    setInputMode(empty.inputMode);
+    setCurrentLocation(empty.currentLocation);
+    setDriverCoords(empty.driverCoords);
+    setOrigin(empty.origin);
+    setDestination(empty.destination);
+    setLoadedMiles(empty.loadedMiles);
+    setDeadheadMiles(empty.deadheadMiles);
+    setDeadheadManual(empty.deadheadManual);
+    setLoadedManual(empty.loadedManual);
+    setQuote(empty.quote);
+    setFeePct(empty.feePct);
+    setDiesel(empty.diesel);
+    setExtractNote(empty.extractNote);
+    setShotPreview(empty.shotPreview);
+    setGeoNote(empty.geoNote);
+    setResult(null);
+    setSuggestion(null);
+    setError(null);
+  }
 
   useEffect(() => {
     if (deadheadManual || !currentLocation.trim() || !origin.trim()) return;
@@ -248,13 +395,22 @@ export function JobDecisionPanel({ kind, onBack }: Props) {
 
   return (
     <section className="space-y-6 border border-asphalt/10 bg-white px-5 py-6 sm:px-6">
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-sm font-medium text-amber transition hover:text-asphalt"
-      >
-        ← All goals
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm font-medium text-amber transition hover:text-asphalt"
+        >
+          ← All goals
+        </button>
+        <button
+          type="button"
+          onClick={startAgain}
+          className={outlineBtnClass("muted", "sm")}
+        >
+          Start again
+        </button>
+      </div>
 
       <div>
         <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
