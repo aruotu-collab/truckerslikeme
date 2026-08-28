@@ -3,21 +3,19 @@
 import { useEffect, useState } from "react";
 import { ShiplyLiveView } from "@/components/shiply-live-view";
 import { JobIngestPreview } from "@/components/job-ingest-preview";
-import { shortPlace } from "@/lib/jobs-map";
+import {
+  appendManualJobs,
+  JobManualEntryForm,
+} from "@/components/job-manual-entry-form";
 import {
   draftsToVisible,
   fileToDataUrl,
   filesFromList,
   imagesFromPaste,
-  ingestJobId,
-  manualInputToDraft,
   MAX_INGEST_SCREENSHOTS,
-  mergeIngestDrafts,
-  parseBulkPaste,
   sourceLabel,
   visibleToIngestDraft,
   type IngestJobDraft,
-  type ManualJobInput,
 } from "@/lib/job-ingest";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 import {
@@ -33,18 +31,8 @@ import { typeLabel } from "@/lib/typography";
 const CONTEXT_KEY = "tlm_shiply_bb_context";
 
 type IngestTab = "scan" | "screenshot" | "manual";
-type ManualMode = "form" | "paste";
 
 type PendingShot = { id: string; file: File; preview: string };
-
-const EMPTY_MANUAL: ManualJobInput = {
-  origin: "",
-  destination: "",
-  miles: "",
-  item: "",
-  href: "",
-  listedQuote: "",
-};
 
 type JobBoardIngestProps = {
   startLabel: string;
@@ -60,7 +48,6 @@ type JobBoardIngestProps = {
 
 export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIngestProps) {
   const [tab, setTab] = useState<IngestTab>("screenshot");
-  const [manualMode, setManualMode] = useState<ManualMode>("form");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coach, setCoach] = useState<string | null>(null);
@@ -80,10 +67,6 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
 
   // Screenshots
   const [shots, setShots] = useState<PendingShot[]>([]);
-
-  // Manual
-  const [manual, setManual] = useState<ManualJobInput>({ ...EMPTY_MANUAL });
-  const [pasteText, setPasteText] = useState("");
 
   useEffect(() => {
     void fetch("/api/run/shiply/session")
@@ -286,37 +269,13 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
     }
   }
 
-  function addManualToList() {
-    const draft = manualInputToDraft(manual, "manual");
-    if (!draft) {
-      setError("Pickup and drop-off are required.");
-      return;
-    }
-    setPending((prev) => mergeIngestDrafts(prev, [draft]));
-    setSelected((s) => ({ ...s, [draft.id]: true }));
-    setManual({ ...EMPTY_MANUAL });
-    setCoach(`Added ${shortPlace(draft.origin)} → ${shortPlace(draft.destination)} to the list.`);
-    setError(null);
-  }
-
-  function parsePasteToList() {
-    const parsed = parseBulkPaste(pasteText);
-    if (!parsed.length) {
-      setError(
-        "Could not parse any jobs — try one per line, e.g. Manchester → Liverpool · 120mi",
-      );
-      return;
-    }
-    setPending((prev) => mergeIngestDrafts(prev, parsed));
+  function addManualJobs(incoming: IngestJobDraft[]) {
+    setPending((prev) => appendManualJobs(prev, incoming));
     setSelected((s) => {
       const next = { ...s };
-      for (const j of parsed) next[j.id] = true;
+      for (const j of incoming) next[j.id] = true;
       return next;
     });
-    setCoach(
-      `Parsed ${parsed.length} job${parsed.length === 1 ? "" : "s"} from paste.`,
-    );
-    setError(null);
   }
 
   function commitToBoard(all: boolean) {
@@ -534,136 +493,11 @@ export function JobBoardIngest({ startLabel, startReady, onAddJobs }: JobBoardIn
 
       {tab === "manual" && (
         <div className="space-y-4" role="tabpanel">
-          <div className="inline-flex border border-asphalt/15 bg-white">
-            {(
-              [
-                { id: "form" as const, label: "One job" },
-                { id: "paste" as const, label: "Paste list" },
-              ] as const
-            ).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setManualMode(m.id)}
-                className={`px-4 py-2 text-xs font-semibold uppercase ${
-                  manualMode === m.id
-                    ? "bg-amber text-asphalt"
-                    : "text-muted hover:bg-concrete/40"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-
-          {manualMode === "form" ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className={typeLabel}>Pickup</span>
-                <input
-                  type="text"
-                  value={manual.origin}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, origin: e.target.value }))
-                  }
-                  placeholder="Manchester"
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className={typeLabel}>Drop-off</span>
-                <input
-                  type="text"
-                  value={manual.destination}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, destination: e.target.value }))
-                  }
-                  placeholder="Liverpool"
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className={typeLabel}>Miles (optional)</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={manual.miles}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, miles: e.target.value }))
-                  }
-                  placeholder="120"
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className={typeLabel}>Listed quote £ (optional)</span>
-                <input
-                  type="text"
-                  value={manual.listedQuote}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, listedQuote: e.target.value }))
-                  }
-                  placeholder="240"
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className={typeLabel}>What is it (optional)</span>
-                <input
-                  type="text"
-                  value={manual.item}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, item: e.target.value }))
-                  }
-                  placeholder="Wardrobe delivery"
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className={typeLabel}>Shiply link (optional)</span>
-                <input
-                  type="url"
-                  value={manual.href}
-                  onChange={(e) =>
-                    setManual((m) => ({ ...m, href: e.target.value }))
-                  }
-                  placeholder="https://www.shiply.com/..."
-                  className="mt-1 w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-                />
-              </label>
-              <div className="sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={addManualToList}
-                  className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
-                >
-                  Add to list →
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-xs leading-relaxed text-muted">
-                Paste one job per line. Examples:{" "}
-                <code className="text-[11px]">Manchester → Liverpool · 120mi</code>
-                , or copy rows from Shiply / WhatsApp.
-              </p>
-              <textarea
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                rows={6}
-                placeholder={`Manchester → Liverpool · 120mi · Wardrobe\nBolton → Leeds · 45mi\nWarrington → Chester`}
-                className="w-full border border-asphalt/15 px-3 py-2.5 text-base text-asphalt outline-none focus:border-amber"
-              />
-              <button
-                type="button"
-                onClick={parsePasteToList}
-                className="min-h-11 rounded-sm bg-asphalt px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase"
-              >
-                Parse jobs →
-              </button>
-            </div>
-          )}
+          <JobManualEntryForm
+            onJobsAdded={addManualJobs}
+            onCoach={setCoach}
+            onError={setError}
+          />
         </div>
       )}
 

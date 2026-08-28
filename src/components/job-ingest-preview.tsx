@@ -17,6 +17,9 @@ type JobIngestPreviewProps = {
   onAddAll: () => void;
   onAddSelected: () => void;
   disabled?: boolean;
+  reviewLabel?: string;
+  addAllLabel?: string;
+  addSelectedLabel?: string;
 };
 
 export function JobIngestPreview({
@@ -29,17 +32,22 @@ export function JobIngestPreview({
   onAddAll,
   onAddSelected,
   disabled,
+  reviewLabel = "Review before adding",
+  addAllLabel,
+  addSelectedLabel = "Add selected only",
 }: JobIngestPreviewProps) {
   if (!jobs.length) return null;
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const allSelected = selectedCount === jobs.length;
+  const addAllText =
+    addAllLabel ?? `Add all ${jobs.length} to board →`;
 
   return (
     <div className="space-y-3 border-t border-asphalt/10 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={typeLabel}>
-          Review before adding ({selectedCount} of {jobs.length} selected)
+          {reviewLabel} ({selectedCount} of {jobs.length} selected)
         </p>
         <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
           <input
@@ -97,7 +105,7 @@ export function JobIngestPreview({
           onClick={onAddAll}
           className="min-h-11 rounded-sm bg-amber px-4 py-2 text-xs font-semibold tracking-wide text-asphalt uppercase disabled:opacity-60"
         >
-          Add all {jobs.length} to board →
+          {addAllText}
         </button>
         <button
           type="button"
@@ -105,7 +113,7 @@ export function JobIngestPreview({
           onClick={onAddSelected}
           className="min-h-11 rounded-sm border-2 border-asphalt/30 bg-white px-4 py-2 text-xs font-semibold tracking-wide uppercase disabled:opacity-60"
         >
-          Add selected only
+          {addSelectedLabel}
         </button>
       </div>
     </div>

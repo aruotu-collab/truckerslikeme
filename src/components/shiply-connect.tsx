@@ -187,7 +187,7 @@ export function ShiplyConnect({
   if (enabled === false) {
     return (
       <div className="border border-dashed border-asphalt/20 bg-concrete/30 px-4 py-4 text-sm text-muted">
-        <p className="font-medium text-asphalt">Connect Shiply (Phase 2)</p>
+        <p className="font-medium text-asphalt">Connect Shiply (Phase 1)</p>
         <p className="mt-1">
           Browserbase keys are not on this environment yet. Use screenshots for
           now — or add{" "}
@@ -207,7 +207,7 @@ export function ShiplyConnect({
     <div className="space-y-4 border border-asphalt/10 bg-white px-4 py-5 sm:px-5">
       <div>
         <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-          Phase 2 · Connect Shiply
+          Phase 1 · Connect Shiply
         </p>
         <h3 className="mt-1 font-display text-xl tracking-wide text-asphalt uppercase">
           Your account, your control

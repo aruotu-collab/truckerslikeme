@@ -1,6 +1,7 @@
 import type { ClipboardEvent } from "react";
 import { parseLoadText } from "@/lib/load-parse";
 import { placeKey } from "@/lib/jobs-map";
+import type { RunJob } from "@/lib/run-builder";
 import type { VisibleShiplyJob } from "@/lib/run-shortlist";
 
 export type JobIngestSource = "scan" | "screenshot" | "manual" | "paste";
@@ -57,6 +58,19 @@ export function draftsToVisible(jobs: IngestJobDraft[]): VisibleShiplyJob[] {
     href: j.href ?? null,
     verdict: "open",
     reason: "",
+  }));
+}
+
+export function draftsToRunJobs(jobs: IngestJobDraft[]): RunJob[] {
+  return jobs.map((j) => ({
+    id: j.id,
+    origin: j.origin,
+    destination: j.destination,
+    miles: j.miles,
+    rateTotal: j.rateTotal,
+    item: j.item,
+    verdict: "open",
+    reason: sourceLabel(j.source),
   }));
 }
 

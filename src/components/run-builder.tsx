@@ -24,11 +24,22 @@ import {
 import { ShiplyConnect } from "@/components/shiply-connect";
 import { RunCorridorStrip } from "@/components/run-corridor-strip";
 import { JobDecisionPanel } from "@/components/job-decision-panel";
+import {
+  appendManualJobs,
+  JobManualEntryForm,
+} from "@/components/job-manual-entry-form";
+import { JobIngestPreview } from "@/components/job-ingest-preview";
+import { jobFingerprint } from "@/lib/shiply-scan-snapshot";
+import {
+  draftsToRunJobs,
+  sourceLabel,
+  type IngestJobDraft,
+} from "@/lib/job-ingest";
 import { typeEyebrow, typePageLead, typePageTitle } from "@/lib/typography";
 import { outlineBtnClass } from "@/lib/ui-buttons";
 
 type Step = "mode" | "setup" | "hunt" | "shortlist" | "build" | "decision";
-type HuntPath = "screenshots" | "shiply";
+type HuntPath = "shiply" | "screenshots" | "manual";
 
 const FOLLOW_UPS: RunFollowUp[] = [
   "best",
@@ -110,11 +121,16 @@ export function RunBuilder() {
   const [combos, setCombos] = useState<RunCombo[]>([]);
   const [best, setBest] = useState<RunCombo | null>(null);
   const [pendingResults, setPendingResults] = useState<PendingShot[]>([]);
-  const [huntPath, setHuntPath] = useState<HuntPath>("screenshots");
+  const [huntPath, setHuntPath] = useState<HuntPath>("shiply");
   const [shiplySessionId, setShiplySessionId] = useState<string | null>(null);
   const [detailsFromShiply, setDetailsFromShiply] = useState(false);
   const [followUp, setFollowUp] = useState<RunFollowUp>("best");
   const [geoBusy, setGeoBusy] = useState(false);
+  const [manualPending, setManualPending] = useState<IngestJobDraft[]>([]);
+  const [manualSelected, setManualSelected] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [manualCoach, setManualCoach] = useState<string | null>(null);
 
   const brief = useMemo(() => shiplyHuntBrief(prefs), [prefs]);
 
@@ -277,6 +293,51 @@ export function RunBuilder() {
     }
   }
 
+  function addManualPending(incoming: IngestJobDraft[]) {
+    setManualPending((prev) => appendManualJobs(prev, incoming));
+    setManualSelected((s) => {
+      const next = { ...s };
+      for (const j of incoming) next[j.id] = true;
+      return next;
+    });
+    setError(null);
+  }
+
+  function commitManualToShortlist(all: boolean) {
+    const picked = all
+      ? manualPending
+      : manualPending.filter((j) => manualSelected[j.id]);
+    if (!picked.length) {
+      setError(
+        all ? "No jobs in the list." : "Tick at least one job to shortlist.",
+      );
+      return;
+    }
+    const incoming = draftsToRunJobs(picked);
+    setJobs((prev) => {
+      const merged = [...prev];
+      for (const j of incoming) {
+        const key = `${j.origin}|${j.destination}|${j.miles ?? ""}`;
+        if (
+          !merged.some(
+            (m) => `${m.origin}|${m.destination}|${m.miles ?? ""}` === key,
+          )
+        ) {
+          merged.push(j);
+        }
+      }
+      return merged;
+    });
+    setCoach(
+      `Shortlisted ${picked.length} job${picked.length === 1 ? "" : "s"} from manual entry.`,
+    );
+    setManualPending([]);
+    setManualSelected({});
+    setManualCoach(null);
+    setError(null);
+    setStep("shortlist");
+  }
+
   async function addFullJobScreenshots(files: File[] | FileList | null) {
     const list = Array.isArray(files) ? files : filesFromList(files);
     if (!list.length) return;
@@ -354,7 +415,7 @@ export function RunBuilder() {
 
   async function autoOpenStrongJobs() {
     if (!shiplySessionId) {
-      setError("Connect Shiply first (Phase 2) so we can open jobs for you.");
+      setError("Connect Shiply first (Phase 1) so we can open jobs for you.");
       return;
     }
     const strong = jobs
@@ -747,17 +808,6 @@ export function RunBuilder() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setHuntPath("screenshots")}
-              className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
-                huntPath === "screenshots"
-                  ? "bg-amber text-asphalt"
-                  : "border border-asphalt/15 bg-white text-asphalt"
-              }`}
-            >
-              Phase 1 · Screenshots
-            </button>
-            <button
-              type="button"
               onClick={() => setHuntPath("shiply")}
               className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
                 huntPath === "shiply"
@@ -765,7 +815,29 @@ export function RunBuilder() {
                   : "border border-asphalt/15 bg-white text-asphalt"
               }`}
             >
-              Phase 2 · Connect Shiply
+              Phase 1 · Connect Shiply
+            </button>
+            <button
+              type="button"
+              onClick={() => setHuntPath("screenshots")}
+              className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
+                huntPath === "screenshots"
+                  ? "bg-amber text-asphalt"
+                  : "border border-asphalt/15 bg-white text-asphalt"
+              }`}
+            >
+              Phase 2 · Screenshots
+            </button>
+            <button
+              type="button"
+              onClick={() => setHuntPath("manual")}
+              className={`rounded-sm px-4 py-2.5 text-xs font-semibold tracking-wide uppercase ${
+                huntPath === "manual"
+                  ? "bg-amber text-asphalt"
+                  : "border border-asphalt/15 bg-white text-asphalt"
+              }`}
+            >
+              Phase 3 · Manual
             </button>
           </div>
 
@@ -786,6 +858,75 @@ export function RunBuilder() {
                 setStep("shortlist");
               }}
             />
+          ) : huntPath === "manual" ? (
+            <div className="space-y-4 border border-asphalt/10 bg-white px-5 py-6 sm:px-6">
+              <div>
+                <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
+                  Phase 3 · Manual entry
+                </p>
+                <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
+                  Type or paste your jobs
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-muted">
+                  Add jobs one at a time or paste a list from Shiply, WhatsApp,
+                  or your notes. Same fields as the Job Board — no AI or Shiply
+                  login required.
+                </p>
+              </div>
+
+              <JobManualEntryForm
+                onJobsAdded={addManualPending}
+                onCoach={setManualCoach}
+                onError={setError}
+              />
+
+              {manualCoach ? (
+                <p className="text-sm text-asphalt">{manualCoach}</p>
+              ) : null}
+
+              <JobIngestPreview
+                jobs={manualPending}
+                selected={manualSelected}
+                fingerprint={(j) =>
+                  jobFingerprint({
+                    id: j.id,
+                    origin: j.origin,
+                    destination: j.destination,
+                    item: j.item,
+                    href: j.href,
+                  })
+                }
+                onToggle={(id, checked) =>
+                  setManualSelected((s) => ({ ...s, [id]: checked }))
+                }
+                onSelectAll={(checked) => {
+                  const next: Record<string, boolean> = {};
+                  for (const j of manualPending) next[j.id] = checked;
+                  setManualSelected(next);
+                }}
+                onAddAll={() => commitManualToShortlist(true)}
+                onAddSelected={() => commitManualToShortlist(false)}
+                reviewLabel="Review before shortlisting"
+                addAllLabel={
+                  manualPending.length
+                    ? `Shortlist all ${manualPending.length} jobs →`
+                    : undefined
+                }
+                addSelectedLabel="Shortlist selected only"
+              />
+
+              {manualPending.length > 0 ? (
+                <p className="text-[11px] text-muted">
+                  Sources:{" "}
+                  {[...new Set(manualPending.map((j) => sourceLabel(j.source)))].join(
+                    " · ",
+                  )}
+                  . Enter your quote on each job when building the run.
+                </p>
+              ) : null}
+
+              {error ? <p className="text-sm text-alert">{error}</p> : null}
+            </div>
           ) : (
           <div
             className="border border-asphalt/10 bg-white px-5 py-6 outline-none focus-within:border-amber/50"
@@ -798,7 +939,7 @@ export function RunBuilder() {
             }}
           >
             <p className="font-display text-xs tracking-[0.16em] text-amber uppercase">
-              Phase 1 · Search Shiply like this
+              Phase 2 · Search Shiply like this
             </p>
             <h2 className="mt-2 font-display text-2xl tracking-wide text-asphalt uppercase">
               {brief.headline}
@@ -1019,7 +1160,7 @@ export function RunBuilder() {
                 {shiplySessionId && (
                   <p className="mt-3 text-xs text-muted">
                     Keep the Shiply results list open in the connected browser.
-                    Prefer Phase 2 · Connect Shiply if you started from
+                    Prefer Phase 1 · Connect Shiply if you started from
                     screenshots.
                   </p>
                 )}
