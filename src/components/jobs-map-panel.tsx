@@ -67,8 +67,6 @@ export function JobsMapPanel() {
   const [sortMode, setSortMode] = useState<SortMode>("money");
   const [selectedDirection, setSelectedDirection] =
     useState<DirectionId | null>(null);
-  const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hubKey, setHubKey] = useState<string | null>(null);
   const [headingDraft, setHeadingDraft] = useState("");
   const [headingToward, setHeadingToward] = useState<string | null>(null);
@@ -804,18 +802,14 @@ export function JobsMapPanel() {
         {mainTab === "jobs" && jobsLook === "map" && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Direction clusters on your board — tap a route, then enter your
-              bid on each job.
+              Direction clusters on your board — tap a circle to list jobs in
+              that direction. Enter your bid on each job below.
             </p>
             <JobsExploreMap
               jobs={exploreJobs}
               driver={driver}
               selectedDirection={selectedDirection}
-              selectedCityKey={selectedCityKey}
-              selectedRouteId={selectedRouteId}
               onSelectDirection={setSelectedDirection}
-              onSelectCity={setSelectedCityKey}
-              onSelectRoute={setSelectedRouteId}
               formatMoney={money}
               onSetBid={setMyBid}
             />

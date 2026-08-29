@@ -4,8 +4,6 @@ import {
   type MileGrid,
 } from "@/lib/map-circle-layout";
 import {
-  boundsAround,
-  projectLatLon,
   resolveUkPlace,
   type LatLon,
 } from "@/lib/uk-places";
@@ -588,10 +586,9 @@ export type ExploreMapLayout = {
   width: number;
   height: number;
   driver: { x: number; y: number; label: string } | null;
-  /** Cartesian mile grid from driver (overview + focused). */
+  /** Cartesian mile grid from driver. */
   grid: MileGrid | null;
-  ringLabels: Array<{ x: number; y: number; label: string }>;
-  /** Compass direction bubbles (default zoom). */
+  /** Compass direction bubbles. */
   directions: Array<{
     id: DirectionId;
     label: string;
@@ -600,26 +597,40 @@ export type ExploreMapLayout = {
     r: number;
     jobCount: number;
     totalPay: number;
-  }>;
-  /** City clusters on UK projection when direction/city focused. */
-  cities: Array<{
-    cluster: CityCluster;
-    x: number;
-    y: number;
-    r: number;
-  }>;
-  /** Lines to draw (only when focused). */
-  lines: Array<{
-    id: string;
-    path: string;
-    jobCount: number;
-    totalPay: number;
-    originLabel: string;
-    destLabel: string;
     jobs: MapJob[];
-    highlighted: boolean;
   }>;
 };
+
+export const HUNT_MAP_GRID_STEPS = [5, 10, 20, 50, 100] as const;
+export type HuntMapGridStep = (typeof HUNT_MAP_GRID_STEPS)[number];
+export const DEFAULT_HUNT_MAP_GRID_STEP: HuntMapGridStep = 50;
+
+export const HUNT_MAP_GRID_STORAGE_KEY = "tlm-hunt-map-grid-step";
+
+export function parseHuntMapGridStep(value: unknown): HuntMapGridStep {
+  const n = typeof value === "number" ? value : Number(value);
+  return (HUNT_MAP_GRID_STEPS as readonly number[]).includes(n)
+    ? (n as HuntMapGridStep)
+    : DEFAULT_HUNT_MAP_GRID_STEP;
+}
+
+/** Jobs for a selected direction bubble — map layout stays unchanged. */
+export function jobsForExploreSelection(
+  jobs: MapJob[],
+  driver: JobsMapDriver | null,
+  direction: DirectionId | null,
+): { title: string; jobs: MapJob[]; totalPay: number } | null {
+  if (!direction) return null;
+  const cluster = buildDirectionClusters(jobs, driver).find(
+    (d) => d.id === direction,
+  );
+  if (!cluster) return null;
+  return {
+    title: DIRECTION_LABELS[direction],
+    jobs: cluster.jobs,
+    totalPay: cluster.totalPay,
+  };
+}
 
 function compassXY(
   cx: number,
@@ -641,62 +652,10 @@ function compassXY(
   return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
 }
 
-function curvedPath(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  bend: number,
-) {
-  const mx = (from.x + to.x) / 2;
-  const my = (from.y + to.y) / 2 + bend;
-  return `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
-}
-
-function offsetMiles(origin: LatLon, eastMi: number, northMi: number): LatLon {
-  const lat = origin.lat + northMi / 69;
-  const lon =
-    origin.lon +
-    eastMi / (69 * Math.cos((origin.lat * Math.PI) / 180));
-  return { lat, lon };
-}
-
-function milesPerPxFromGeo(
-  driverPt: LatLon,
-  bounds: ReturnType<typeof boundsAround>,
-  width: number,
-  height: number,
-  pad: number,
-  sampleMi = 25,
-) {
-  const a = projectLatLon(
-    driverPt.lat,
-    driverPt.lon,
-    bounds,
-    width,
-    height,
-    pad,
-  );
-  const east = offsetMiles(driverPt, sampleMi, 0);
-  const b = projectLatLon(east.lat, east.lon, bounds, width, height, pad);
-  return Math.hypot(b.x - a.x, b.y - a.y) / sampleMi;
-}
-
-function maxGridMiFromBounds(driverPt: LatLon, bounds: ReturnType<typeof boundsAround>) {
-  const corners: LatLon[] = [
-    { lat: bounds.minLat, lon: bounds.minLon },
-    { lat: bounds.minLat, lon: bounds.maxLon },
-    { lat: bounds.maxLat, lon: bounds.minLon },
-    { lat: bounds.maxLat, lon: bounds.maxLon },
-  ];
-  const farthest = Math.max(...corners.map((c) => haversineMi(driverPt, c)));
-  return Math.min(200, Math.ceil(farthest / 25) * 25);
-}
-
 export function layoutExploreMap(input: {
   jobs: MapJob[];
   driver: JobsMapDriver | null;
-  selectedDirection: DirectionId | null;
-  selectedCityKey: string | null;
-  selectedRouteId: string | null;
+  gridStepMi?: HuntMapGridStep;
   width?: number;
   height?: number;
 }): ExploreMapLayout {
@@ -712,12 +671,11 @@ export function layoutExploreMap(input: {
       : resolveUkPlace(input.driver?.label);
 
   const directions = buildDirectionClusters(input.jobs, input.driver);
-  const cities = buildCityClusters(input.jobs, input.driver);
-  const routes = buildRouteConnections(input.jobs);
+  const gridStepMi = input.gridStepMi ?? DEFAULT_HUNT_MAP_GRID_STEP;
 
   const maxDirJobs = Math.max(1, ...directions.map((d) => d.jobCount));
 
-  const compassRadius = Math.min(width, height) * 0.32;
+  const compassRadius = Math.min(width, height) * 0.34;
   const dirSeparated = separateCircles(
     directions.map((d) => {
       const r = 18 + (d.jobCount / maxDirJobs) * 28;
@@ -732,8 +690,10 @@ export function layoutExploreMap(input: {
       };
     }),
     {
-      gap: 10,
-      labelPad: 34,
+      gap: 14,
+      labelPad: 38,
+      anchorWeight: 0.08,
+      iterations: 64,
       minX: pad,
       minY: pad,
       maxX: width - pad,
@@ -753,239 +713,28 @@ export function layoutExploreMap(input: {
       r: laid.r,
       jobCount: d.jobCount,
       totalPay: d.totalPay,
+      jobs: d.jobs,
     };
   });
 
   let driverScreen: ExploreMapLayout["driver"] = null;
   if (driverPt && input.driver?.label) {
-    if (input.selectedDirection || input.selectedCityKey) {
-      const bounds = boundsAround([
-        driverPt,
-        ...cities.map((c) => ({ lat: c.lat, lon: c.lon })),
-      ]);
-      const p = projectLatLon(
-        driverPt.lat,
-        driverPt.lon,
-        bounds,
-        width,
-        height,
-        pad,
-      );
-      driverScreen = {
-        x: p.x,
-        y: p.y,
-        label: shortPlace(input.driver.label),
-      };
-    } else {
-      driverScreen = { x: cx, y: cy, label: shortPlace(input.driver.label) };
-    }
+    driverScreen = { x: cx, y: cy, label: shortPlace(input.driver.label) };
   }
 
-  const focusCities =
-    input.selectedCityKey != null
-      ? cities.filter((c) => c.destKey === input.selectedCityKey)
-      : input.selectedDirection != null
-        ? cities.filter((c) => c.direction === input.selectedDirection)
-        : [];
-
-  const bounds =
-    driverPt && focusCities.length
-      ? boundsAround([
-          driverPt,
-          ...focusCities.map((c) => ({ lat: c.lat, lon: c.lon })),
-        ])
-      : null;
-
-  const cityAnchors = focusCities.map((c) => {
-    let x: number;
-    let y: number;
-    if (bounds && driverPt) {
-      const p = projectLatLon(c.lat, c.lon, bounds, width, height, pad);
-      x = p.x;
-      y = p.y;
-    } else {
-      const pos = compassXY(cx, cy, c.direction, 120);
-      x = pos.x;
-      y = pos.y;
-    }
-    const r = 12 + Math.min(c.jobCount, 12) * 2;
-    return { cluster: c, x, y, r, anchorX: x, anchorY: y };
-  });
-
-  const citySeparated = separateCircles(
-    cityAnchors.map((c) => ({
-      id: c.cluster.id,
-      x: c.x,
-      y: c.y,
-      r: c.r,
-      anchorX: c.anchorX,
-      anchorY: c.anchorY,
-    })),
-    {
-      gap: 8,
-      labelPad: 22,
-      anchorWeight: bounds ? 0.08 : 0.12,
-      minX: pad,
-      minY: pad,
-      maxX: width - pad,
-      maxY: height - pad,
-      block: driverScreen
-        ? { x: driverScreen.x, y: driverScreen.y, r: 18 }
-        : { x: cx, y: cy, r: 18 },
-    },
-  );
-
-  const cityPosById = new Map(citySeparated.map((c) => [c.id, c]));
-  const cityBubbles = cityAnchors.map((c) => {
-    const laid = cityPosById.get(c.cluster.id)!;
-    return { cluster: c.cluster, x: laid.x, y: laid.y, r: laid.r };
-  });
-
-  const lines: ExploreMapLayout["lines"] = [];
-
-  const appendRouteLine = (
-    r: RouteConnection,
-    idx: number,
-    highlighted: boolean,
-  ) => {
-    let fromPt = { x: cx, y: cy };
-    let toPt = { x: width - pad, y: height / 2 };
-    if (bounds && driverPt) {
-      fromPt = projectLatLon(
-        r.origin.lat,
-        r.origin.lon,
-        bounds,
-        width,
-        height,
-        pad,
-      );
-      toPt = projectLatLon(
-        r.dest.lat,
-        r.dest.lon,
-        bounds,
-        width,
-        height,
-        pad,
-      );
-    } else {
-      const routeBounds = boundsAround([r.origin, r.dest]);
-      fromPt = projectLatLon(
-        r.origin.lat,
-        r.origin.lon,
-        routeBounds,
-        width,
-        height,
-        pad,
-      );
-      toPt = projectLatLon(
-        r.dest.lat,
-        r.dest.lon,
-        routeBounds,
-        width,
-        height,
-        pad,
-      );
-    }
-    lines.push({
-      id: r.id,
-      path: curvedPath(fromPt, toPt, ((idx % 5) - 2) * 14),
-      jobCount: r.jobCount,
-      totalPay: r.totalPay,
-      originLabel: r.originLabel,
-      destLabel: r.destLabel,
-      jobs: r.jobs,
-      highlighted,
-    });
-  };
-
-  if (input.selectedRouteId && !input.selectedCityKey && !input.selectedDirection) {
-    const r = routes.find((x) => x.id === input.selectedRouteId);
-    if (r) appendRouteLine(r, 0, true);
-  } else if (input.selectedCityKey && driverScreen) {
-    const city = cities.find((c) => c.destKey === input.selectedCityKey);
-    const destBubble = cityBubbles[0];
-    if (city && destBubble) {
-      const conn = routes.filter((r) => r.destKey === input.selectedCityKey);
-      conn.forEach((r, idx) => {
-        appendRouteLine(r, idx, input.selectedRouteId === r.id);
-      });
-    }
-  } else if (input.selectedDirection && driverScreen) {
-    const bx =
-      cityBubbles.reduce((s, b) => s + b.x, 0) /
-      Math.max(cityBubbles.length, 1);
-    const by =
-      cityBubbles.reduce((s, b) => s + b.y, 0) /
-      Math.max(cityBubbles.length, 1);
-    const bundle = {
-      x: driverScreen.x + (bx - driverScreen.x) * 0.38,
-      y: driverScreen.y + (by - driverScreen.y) * 0.38,
-    };
-    cityBubbles.forEach((b, idx) => {
-      const mid = bundle;
-      const path = `M ${driverScreen!.x} ${driverScreen!.y} Q ${mid.x} ${mid.y} ${b.x} ${b.y}`;
-      lines.push({
-        id: `you-${b.cluster.destKey}`,
-        path,
-        jobCount: b.cluster.jobCount,
-        totalPay: b.cluster.totalPay,
-        originLabel: driverScreen!.label,
-        destLabel: b.cluster.label,
-        jobs: b.cluster.jobs,
-        highlighted: false,
-      });
-    });
-  }
-
-  const ringLabels: ExploreMapLayout["ringLabels"] = [];
   let grid: MileGrid | null = null;
-
   if (driverScreen && driverPt) {
-    if (!input.selectedDirection && !input.selectedCityKey) {
-      const milesPerPx =
-        (Math.min(width, height) * 0.38) / 100;
-      grid = buildScreenMileGrid({
-        cx: driverScreen.x,
-        cy: driverScreen.y,
-        milesPerPx,
-        maxMi: 100,
-        stepMi: 25,
-        width,
-        height,
-        pad,
-      });
-      const radii = [
-        { scale: 0.22, mi: 50 },
-        { scale: 0.38, mi: 100 },
-      ];
-      for (const { scale, mi } of radii) {
-        const r = Math.min(width, height) * scale;
-        ringLabels.push({
-          x: driverScreen.x + r * 0.72,
-          y: driverScreen.y - 4,
-          label: `~${mi} mi`,
-        });
-      }
-    } else if (bounds) {
-      const milesPerPx = milesPerPxFromGeo(
-        driverPt,
-        bounds,
-        width,
-        height,
-        pad,
-      );
-      const maxMi = maxGridMiFromBounds(driverPt, bounds);
-      grid = buildScreenMileGrid({
-        cx: driverScreen.x,
-        cy: driverScreen.y,
-        milesPerPx,
-        maxMi,
-        stepMi: 25,
-        width,
-        height,
-        pad,
-      });
-    }
+    const milesPerPx = (Math.min(width, height) * 0.38) / 100;
+    grid = buildScreenMileGrid({
+      cx: driverScreen.x,
+      cy: driverScreen.y,
+      milesPerPx,
+      maxMi: 100,
+      stepMi: gridStepMi,
+      width,
+      height,
+      pad,
+    });
   }
 
   return {
@@ -993,9 +742,6 @@ export function layoutExploreMap(input: {
     height,
     driver: driverScreen,
     grid,
-    ringLabels,
-    directions: input.selectedDirection || input.selectedCityKey ? [] : dirBubbles,
-    cities: input.selectedDirection || input.selectedCityKey ? cityBubbles : [],
-    lines,
+    directions: dirBubbles,
   };
 }

@@ -24,12 +24,33 @@ export type MileGridLabel = {
   anchor: "start" | "middle" | "end";
 };
 
+export type MileGridScaleBracket = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  labelX: number;
+  labelY: number;
+  label: string;
+};
+
 export type MileGrid = {
   lines: MileGridLine[];
   labels: MileGridLabel[];
   axisX: { x1: number; y1: number; x2: number; y2: number };
   axisY: { x1: number; y1: number; x2: number; y2: number };
+  /** Compass labels at axis arrow tips. */
+  axisTips: Array<{ x: number; y: number; text: string }>;
+  scaleBracket: MileGridScaleBracket | null;
 };
+
+/** How often to label grid lines (every Nth line). */
+export function gridLabelEvery(stepMi: number) {
+  if (stepMi >= 50) return 1;
+  if (stepMi >= 20) return 2;
+  if (stepMi >= 10) return 4;
+  return 5;
+}
 
 const LABEL_PAD = 32;
 
@@ -127,10 +148,22 @@ export function buildScreenMileGrid(opts: {
   width: number;
   height: number;
   pad: number;
+  showScaleBracket?: boolean;
 }): MileGrid {
-  const { cx, cy, milesPerPx, maxMi, stepMi, width, height, pad } = opts;
+  const {
+    cx,
+    cy,
+    milesPerPx,
+    maxMi,
+    stepMi,
+    width,
+    height,
+    pad,
+    showScaleBracket = true,
+  } = opts;
   const lines: MileGridLine[] = [];
   const labels: MileGridLabel[] = [];
+  const labelStride = gridLabelEvery(stepMi);
 
   const left = pad;
   const right = width - pad;
@@ -142,16 +175,16 @@ export function buildScreenMileGrid(opts: {
     const x = cx + mi * milesPerPx;
     if (x >= left && x <= right) {
       lines.push({ x1: x, y1: top, x2: x, y2: bottom, axis: "x" });
-      if (mi > 0 && mi % (stepMi * 2) === 0) {
+      if (mi > 0 && mi % (stepMi * labelStride) === 0) {
         labels.push({
-          x: x,
+          x,
           y: bottom - 4,
           text: `${mi} mi E`,
           anchor: "middle",
         });
-      } else if (mi < 0 && Math.abs(mi) % (stepMi * 2) === 0) {
+      } else if (mi < 0 && Math.abs(mi) % (stepMi * labelStride) === 0) {
         labels.push({
-          x: x,
+          x,
           y: bottom - 4,
           text: `${Math.abs(mi)} mi W`,
           anchor: "middle",
@@ -162,14 +195,14 @@ export function buildScreenMileGrid(opts: {
     const y = cy - mi * milesPerPx;
     if (y >= top && y <= bottom) {
       lines.push({ x1: left, y1: y, x2: right, y2: y, axis: "y" });
-      if (mi > 0 && mi % (stepMi * 2) === 0) {
+      if (mi > 0 && mi % (stepMi * labelStride) === 0) {
         labels.push({
           x: left + 4,
           y: y + 3,
           text: `${mi} mi N`,
           anchor: "start",
         });
-      } else if (mi < 0 && Math.abs(mi) % (stepMi * 2) === 0) {
+      } else if (mi < 0 && Math.abs(mi) % (stepMi * labelStride) === 0) {
         labels.push({
           x: left + 4,
           y: y + 3,
@@ -180,6 +213,22 @@ export function buildScreenMileGrid(opts: {
     }
   }
 
+  const bracketY = Math.min(cy + 46, bottom - 18);
+  const bracketX1 = cx;
+  const bracketX2 = cx + stepMi * milesPerPx;
+  const scaleBracket: MileGridScaleBracket | null =
+    showScaleBracket && bracketX2 <= right - 8
+      ? {
+          x1: bracketX1,
+          y1: bracketY,
+          x2: bracketX2,
+          y2: bracketY,
+          labelX: (bracketX1 + bracketX2) / 2,
+          labelY: bracketY - 6,
+          label: `${stepMi} mi`,
+        }
+      : null;
+
   return {
     lines,
     labels: [
@@ -188,5 +237,12 @@ export function buildScreenMileGrid(opts: {
     ],
     axisX: { x1: left, y1: cy, x2: right, y2: cy },
     axisY: { x1: cx, y1: top, x2: cx, y2: bottom },
+    axisTips: [
+      { x: right - 6, y: cy - 5, text: "E" },
+      { x: left + 6, y: cy - 5, text: "W" },
+      { x: cx + 5, y: top + 10, text: "N" },
+      { x: cx + 5, y: bottom - 4, text: "S" },
+    ],
+    scaleBracket,
   };
 }

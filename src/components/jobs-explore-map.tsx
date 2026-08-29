@@ -1,62 +1,123 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { JobBidField } from "@/components/job-bid-field";
 import { ShiplyLink } from "@/components/shiply-link";
 import {
+  DEFAULT_HUNT_MAP_GRID_STEP,
+  HUNT_MAP_GRID_STEPS,
+  HUNT_MAP_GRID_STORAGE_KEY,
+  jobsForExploreSelection,
   layoutExploreMap,
+  parseHuntMapGridStep,
   type DirectionId,
+  type HuntMapGridStep,
 } from "@/lib/jobs-map-explore";
-import { mapStatusMeta, type JobsMapDriver, type MapJob } from "@/lib/jobs-map";
+import {
+  mapStatusMeta,
+  shortPlace,
+  type JobsMapDriver,
+  type MapJob,
+} from "@/lib/jobs-map";
 
 type Props = {
   jobs: MapJob[];
   driver: JobsMapDriver | null;
   selectedDirection: DirectionId | null;
-  selectedCityKey: string | null;
-  selectedRouteId: string | null;
   onSelectDirection: (id: DirectionId | null) => void;
-  onSelectCity: (key: string | null) => void;
-  onSelectRoute: (id: string | null) => void;
   formatMoney: (n: number) => string;
   onSetBid?: (jobId: string, myBid: number | null) => void;
 };
+
+function bracketTicks(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  size = 4,
+) {
+  const vertical = Math.abs(x2 - x1) < Math.abs(y2 - y1);
+  if (vertical) {
+    return [
+      { x1: x1 - size, y1, x2: x1 + size, y2: y1 },
+      { x1: x2 - size, y1: y2, x2: x2 + size, y2: y2 },
+    ];
+  }
+  return [
+    { x1, y1: y1 - size, x2: x1, y2: y1 + size },
+    { x1: x2, y1: y2 - size, x2: x2, y2: y2 + size },
+  ];
+}
 
 export function JobsExploreMap({
   jobs,
   driver,
   selectedDirection,
-  selectedCityKey,
-  selectedRouteId,
   onSelectDirection,
-  onSelectCity,
-  onSelectRoute,
   formatMoney,
   onSetBid,
 }: Props) {
+  const [gridStepMi, setGridStepMi] = useState<HuntMapGridStep>(
+    DEFAULT_HUNT_MAP_GRID_STEP,
+  );
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HUNT_MAP_GRID_STORAGE_KEY);
+      if (stored) setGridStepMi(parseHuntMapGridStep(stored));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setGridStep = (step: HuntMapGridStep) => {
+    setGridStepMi(step);
+    try {
+      localStorage.setItem(HUNT_MAP_GRID_STORAGE_KEY, String(step));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const layout = layoutExploreMap({
     jobs,
     driver,
-    selectedDirection,
-    selectedCityKey,
-    selectedRouteId,
+    gridStepMi,
   });
 
-  const activeLine =
-    layout.lines.find((l) => l.id === selectedRouteId) ?? null;
+  const selection = jobsForExploreSelection(jobs, driver, selectedDirection);
 
   if (!jobs.length) {
     return (
       <div className="flex min-h-[360px] items-center justify-center border border-dashed border-asphalt/20 bg-[#edf1f4] px-6 text-center text-sm text-muted">
         Scan Shiply and add jobs — they&apos;ll appear as direction clusters
-        around you. Tap a direction to explore without dozens of crossing lines.
+        around you. Tap a direction to see jobs without changing the map.
       </div>
     );
   }
 
-  const focused = Boolean(selectedDirection || selectedCityKey);
-
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border border-asphalt/10 bg-white px-3 py-2">
+        <p className="text-xs text-muted">Grid spacing</p>
+        <div className="flex flex-wrap gap-1">
+          {HUNT_MAP_GRID_STEPS.map((step) => (
+            <button
+              key={step}
+              type="button"
+              onClick={() => setGridStep(step)}
+              className={`rounded-sm border px-2 py-1 text-[11px] font-semibold ${
+                gridStepMi === step
+                  ? "border-amber bg-amber/15 text-asphalt"
+                  : "border-asphalt/15 text-muted hover:border-asphalt/30"
+              }`}
+            >
+              {step} mi
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="overflow-x-auto border border-asphalt/10 bg-[#edf1f4]">
         <svg
           viewBox={`0 0 ${layout.width} ${layout.height}`}
@@ -64,6 +125,19 @@ export function JobsExploreMap({
           role="img"
           aria-label="Jobs explore map"
         >
+          <defs>
+            <marker
+              id="hunt-axis-arrow"
+              markerWidth="6"
+              markerHeight="6"
+              refX="5"
+              refY="3"
+              orient="auto"
+            >
+              <path d="M0,0 L6,3 L0,6 Z" fill="#9aa3ad" />
+            </marker>
+          </defs>
+
           {layout.grid && layout.driver && (
             <g aria-hidden>
               <line
@@ -73,6 +147,8 @@ export function JobsExploreMap({
                 y2={layout.grid.axisX.y2}
                 stroke="#b0bcc8"
                 strokeWidth="1.25"
+                markerStart="url(#hunt-axis-arrow)"
+                markerEnd="url(#hunt-axis-arrow)"
               />
               <line
                 x1={layout.grid.axisY.x1}
@@ -81,6 +157,8 @@ export function JobsExploreMap({
                 y2={layout.grid.axisY.y2}
                 stroke="#b0bcc8"
                 strokeWidth="1.25"
+                markerStart="url(#hunt-axis-arrow)"
+                markerEnd="url(#hunt-axis-arrow)"
               />
               {layout.grid.lines.map((line, i) => (
                 <line
@@ -106,72 +184,64 @@ export function JobsExploreMap({
                   {label.text}
                 </text>
               ))}
-            </g>
-          )}
-
-          {!focused && layout.driver && (
-            <>
-              {[
-                { scale: 0.22, mi: 50 },
-                { scale: 0.38, mi: 100 },
-              ].map(({ scale, mi }) => (
-                <circle
-                  key={scale}
-                  cx={layout.driver!.x}
-                  cy={layout.driver!.y}
-                  r={Math.min(layout.width, layout.height) * scale}
-                  fill="none"
-                  stroke="#c5ced6"
-                  strokeWidth="1"
-                  strokeDasharray="5 7"
-                />
-              ))}
-              {layout.ringLabels.map((ring) => (
+              {layout.grid.axisTips.map((tip) => (
                 <text
-                  key={ring.label}
-                  x={ring.x}
-                  y={ring.y}
-                  fill="#8a8478"
-                  style={{ fontSize: 9, fontWeight: 600 }}
+                  key={`tip-${tip.text}`}
+                  x={tip.x}
+                  y={tip.y}
+                  fill="#8a939e"
+                  style={{ fontSize: 9, fontWeight: 700 }}
                 >
-                  {ring.label}
+                  {tip.text}
                 </text>
               ))}
-            </>
+              {layout.grid.scaleBracket && (
+                <g>
+                  <line
+                    x1={layout.grid.scaleBracket.x1}
+                    y1={layout.grid.scaleBracket.y1}
+                    x2={layout.grid.scaleBracket.x2}
+                    y2={layout.grid.scaleBracket.y2}
+                    stroke="#9aa3ad"
+                    strokeWidth="1"
+                  />
+                  {bracketTicks(
+                    layout.grid.scaleBracket.x1,
+                    layout.grid.scaleBracket.y1,
+                    layout.grid.scaleBracket.x2,
+                    layout.grid.scaleBracket.y2,
+                  ).map((tick, i) => (
+                    <line
+                      key={`tick-${i}`}
+                      x1={tick.x1}
+                      y1={tick.y1}
+                      x2={tick.x2}
+                      y2={tick.y2}
+                      stroke="#9aa3ad"
+                      strokeWidth="1"
+                    />
+                  ))}
+                  <text
+                    x={layout.grid.scaleBracket.labelX}
+                    y={layout.grid.scaleBracket.labelY}
+                    textAnchor="middle"
+                    fill="#8a939e"
+                    style={{ fontSize: 8, fontWeight: 600 }}
+                  >
+                    {layout.grid.scaleBracket.label}
+                  </text>
+                </g>
+              )}
+            </g>
           )}
-
-          {layout.lines.map((line) => {
-            const active = line.id === selectedRouteId;
-            return (
-              <path
-                key={line.id}
-                d={line.path}
-                fill="none"
-                stroke={active ? "#c4a035" : "#3d6b8a"}
-                strokeWidth={
-                  active ? 5 : 2 + Math.min(line.jobCount, 4)
-                }
-                strokeLinecap="round"
-                strokeOpacity={active ? 1 : 0.72}
-                className="cursor-pointer"
-                onClick={() =>
-                  onSelectRoute(active ? null : line.id)
-                }
-              />
-            );
-          })}
 
           {layout.directions.map((d) => (
             <g
               key={d.id}
               className="cursor-pointer"
-              onClick={() => {
-                onSelectRoute(null);
-                onSelectCity(null);
-                onSelectDirection(
-                  selectedDirection === d.id ? null : d.id,
-                );
-              }}
+              onClick={() =>
+                onSelectDirection(selectedDirection === d.id ? null : d.id)
+              }
             >
               <circle
                 cx={d.x}
@@ -182,7 +252,7 @@ export function JobsExploreMap({
                 }
                 fillOpacity={0.88}
                 stroke="#1a1d23"
-                strokeWidth={2}
+                strokeWidth={selectedDirection === d.id ? 3 : 2}
               />
               <text
                 x={d.x}
@@ -210,53 +280,6 @@ export function JobsExploreMap({
                 style={{ fontSize: 9 }}
               >
                 {formatMoney(d.totalPay)}
-              </text>
-            </g>
-          ))}
-
-          {layout.cities.map(({ cluster, x, y, r }) => (
-            <g
-              key={cluster.id}
-              className="cursor-pointer"
-              onClick={() => {
-                onSelectRoute(null);
-                onSelectCity(
-                  selectedCityKey === cluster.destKey
-                    ? null
-                    : cluster.destKey,
-                );
-              }}
-            >
-              <circle
-                cx={x}
-                cy={y}
-                r={r}
-                fill={
-                  selectedCityKey === cluster.destKey
-                    ? "#c4a035"
-                    : "#2f6b4f"
-                }
-                fillOpacity={0.9}
-                stroke="#1a1d23"
-                strokeWidth={2}
-              />
-              <text
-                x={x}
-                y={y + 4}
-                textAnchor="middle"
-                fill="white"
-                style={{ fontSize: 11, fontWeight: 700 }}
-              >
-                {cluster.jobCount}
-              </text>
-              <text
-                x={x}
-                y={y + r + 14}
-                textAnchor="middle"
-                fill="#1a1d23"
-                style={{ fontSize: 11, fontWeight: 600 }}
-              >
-                {cluster.label}
               </text>
             </g>
           ))}
@@ -294,36 +317,27 @@ export function JobsExploreMap({
         </svg>
       </div>
 
-      {focused && (
-        <p className="text-xs text-muted">
-          {selectedCityKey
-            ? "Tap a route line for jobs on that connection."
-            : "Tap a city to drill into jobs."}{" "}
-          <button
-            type="button"
-            className="font-medium text-amber"
-            onClick={() => {
-              onSelectDirection(null);
-              onSelectCity(null);
-              onSelectRoute(null);
-            }}
-          >
-            ← All directions
-          </button>
-        </p>
-      )}
-
-      {activeLine && (
+      {selection ? (
         <div className="border border-asphalt/10 bg-white px-4 py-3">
-          <p className="font-medium text-asphalt">
-            {activeLine.originLabel} → {activeLine.destLabel}
-          </p>
-          <p className="text-xs text-muted">
-            {activeLine.jobCount} job{activeLine.jobCount === 1 ? "" : "s"} ·{" "}
-            {formatMoney(activeLine.totalPay)}
-          </p>
-          <ul className="mt-2 space-y-2">
-            {activeLine.jobs.map((j) => (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-medium text-asphalt">{selection.title}</p>
+              <p className="text-xs text-muted">
+                {selection.jobs.length} job
+                {selection.jobs.length === 1 ? "" : "s"} ·{" "}
+                {formatMoney(selection.totalPay)}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium text-amber"
+              onClick={() => onSelectDirection(null)}
+            >
+              Clear
+            </button>
+          </div>
+          <ul className="mt-2 max-h-80 space-y-2 overflow-y-auto">
+            {selection.jobs.map((j) => (
               <li
                 key={j.id}
                 className="flex flex-col gap-2 border border-asphalt/10 px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center"
@@ -331,7 +345,8 @@ export function JobsExploreMap({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-asphalt">{j.item || "Job"}</p>
                   <p className="text-xs text-muted">
-                    {j.miles != null ? `~${j.miles} mi` : "Miles unknown"}
+                    {shortPlace(j.origin)} → {shortPlace(j.destination)}
+                    {j.miles != null ? ` · ~${j.miles} mi` : ""}
                   </p>
                 </div>
                 <span
@@ -348,18 +363,18 @@ export function JobsExploreMap({
                   />
                 ) : (
                   <span className="text-xs text-muted">
-                    {j.myBid != null
-                      ? formatMoney(j.myBid)
-                      : "No bid"}
+                    {j.myBid != null ? formatMoney(j.myBid) : "No bid"}
                   </span>
                 )}
-                {j.href && (
-                  <ShiplyLink href={j.href} size="sm" />
-                )}
+                {j.href && <ShiplyLink href={j.href} size="sm" />}
               </li>
             ))}
           </ul>
         </div>
+      ) : (
+        <p className="text-xs text-muted">
+          Tap a direction circle to list jobs — the map stays as-is.
+        </p>
       )}
     </div>
   );
